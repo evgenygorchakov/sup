@@ -43,7 +43,7 @@ export const editFile: Tool = {
       return 'ERROR: find must not be empty'
     }
 
-    const resolved = resolveInsideWorkingDirectory(path)
+    const resolved = await resolveInsideWorkingDirectory(path)
     if (!resolved.ok) {
       return `ERROR: ${resolved.error}`
     }

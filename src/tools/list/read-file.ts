@@ -1,9 +1,8 @@
 import type { Tool } from '../../types.ts'
 import { readFile as readFromDisk } from 'node:fs/promises'
-import { resolve } from 'node:path'
-import process from 'node:process'
+import { basename } from 'node:path'
 import { green } from '../../utils/colors.ts'
-import { truncateText } from './shared.ts'
+import { isSensitiveFileName, resolveInsideWorkingDirectory, truncateText } from './shared.ts'
 
 const DEFAULT_LIMIT = 2000
 
@@ -46,10 +45,19 @@ export const readFile: Tool = {
     const offset = typeof offsetInput === 'number' && offsetInput >= 1 ? Math.floor(offsetInput) : 1
     const limit = typeof limitInput === 'number' && limitInput >= 1 ? Math.floor(limitInput) : DEFAULT_LIMIT
 
+    const resolved = await resolveInsideWorkingDirectory(path)
+    if (!resolved.ok) {
+      return `ERROR: ${resolved.error}`
+    }
+
+    if (isSensitiveFileName(basename(resolved.absolute))) {
+      return `ERROR: refused to read sensitive file "${path}"`
+    }
+
     let content: string
 
     try {
-      content = await readFromDisk(resolve(process.cwd(), path), 'utf8')
+      content = await readFromDisk(resolved.absolute, 'utf8')
     }
     catch (error) {
       return `ERROR: ${(error as Error).message}`

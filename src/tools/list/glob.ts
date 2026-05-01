@@ -91,7 +91,7 @@ export const glob: Tool = {
       return 'ERROR: glob expects { pattern: string, path?: string }'
     }
 
-    const resolved = resolveInsideWorkingDirectory(pathInput)
+    const resolved = await resolveInsideWorkingDirectory(pathInput)
     if (!resolved.ok) {
       return `ERROR: ${resolved.error}`
     }

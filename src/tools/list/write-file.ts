@@ -55,7 +55,7 @@ export const writeFile: Tool = {
       return 'ERROR: write_file expects content to be a string'
     }
 
-    const resolved = resolveInsideWorkingDirectory(path)
+    const resolved = await resolveInsideWorkingDirectory(path)
     if (!resolved.ok) {
       return `ERROR: ${resolved.error}`
     }

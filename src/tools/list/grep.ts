@@ -10,6 +10,24 @@ const SEARCH_TIMEOUT_MS = 30_000
 const MAX_FILE_BYTES = 5 * 1024 * 1024
 const PREVIEW_MATCH_COUNT = 10
 
+const RIPGREP_SENSITIVE_EXCLUDES = [
+  '!.env',
+  '!.env.*',
+  '!*.{pem,key,p12,pfx,crt,cer,jks,keystore}',
+  '!id_rsa*',
+  '!id_dsa*',
+  '!id_ecdsa*',
+  '!id_ed25519*',
+  '!.netrc',
+  '!credentials*',
+  '!secret*',
+  '!secrets*',
+  '!.htpasswd',
+  '!.ssh/**',
+  '!.aws/**',
+  '!.gnupg/**',
+]
+
 const ripgrepAvailable = (() => {
   try {
     const probe = spawnSync('rg', ['--version'], { stdio: 'ignore' })
@@ -42,6 +60,9 @@ async function searchWithRipgrep(
     }
     if (glob) {
       ripgrepArguments.push('--glob', glob)
+    }
+    for (const exclude of RIPGREP_SENSITIVE_EXCLUDES) {
+      ripgrepArguments.push('--glob', exclude)
     }
     ripgrepArguments.push('--regexp', pattern, searchPath)
 
@@ -186,7 +207,7 @@ export const grep: Tool = {
       return 'ERROR: grep expects { pattern: string, path?: string, glob?: string, caseSensitive?: boolean }'
     }
 
-    const resolved = resolveInsideWorkingDirectory(pathInput)
+    const resolved = await resolveInsideWorkingDirectory(pathInput)
     if (!resolved.ok) {
       return `ERROR: ${resolved.error}`
     }

@@ -3,12 +3,68 @@ import { Buffer } from 'node:buffer'
 import { Config } from '../../config.ts'
 import { cyan } from '../../utils/colors.ts'
 import { htmlToText } from '../../utils/html-to-text.ts'
-import { isPrivateHost } from '../../utils/private-host.ts'
+import { resolveAndCheckPublicHost } from '../../utils/private-host.ts'
 import { truncateText } from './shared.ts'
 
 const USER_AGENT = 'Mozilla/5.0 (X11; Linux x86_64) sup-evgen/0.1'
 const SUPPORTED_CONTENT_TYPES = ['text/html', 'text/plain', 'text/markdown', 'application/json', 'application/xml', 'application/xhtml+xml']
 const PREVIEW_LINE_COUNT = 3
+const MAX_REDIRECTS = 5
+
+type SafeFetchResult = | { ok: true, response: Response, finalUrl: URL } | { ok: false, error: string }
+
+async function followRedirectsSafely(initialUrl: URL): Promise<SafeFetchResult> {
+  let url = initialUrl
+
+  for (let hop = 0; hop <= MAX_REDIRECTS; hop++) {
+    const hostCheck = await resolveAndCheckPublicHost(url.hostname)
+    if (!hostCheck.ok) {
+      return { ok: false, error: hostCheck.error }
+    }
+
+    let response: Response
+    try {
+      response = await fetch(url, {
+        headers: {
+          'User-Agent': USER_AGENT,
+          'Accept': 'text/html,text/plain,application/json,application/xml;q=0.9',
+        },
+        redirect: 'manual',
+        signal: AbortSignal.timeout(Config.FETCH_URL_TIMEOUT_MS),
+      })
+    }
+    catch (error) {
+      return { ok: false, error: (error as Error).message }
+    }
+
+    if (response.status < 300 || response.status >= 400) {
+      return { ok: true, response, finalUrl: url }
+    }
+
+    const location = response.headers.get('location')
+    await response.body?.cancel().catch(() => undefined)
+
+    if (!location) {
+      return { ok: false, error: `redirect status ${response.status} without Location header` }
+    }
+
+    let nextUrl: URL
+    try {
+      nextUrl = new URL(location, url)
+    }
+    catch {
+      return { ok: false, error: `invalid redirect Location: ${location}` }
+    }
+
+    if (nextUrl.protocol !== 'http:' && nextUrl.protocol !== 'https:') {
+      return { ok: false, error: `unsupported redirect protocol ${nextUrl.protocol}` }
+    }
+
+    url = nextUrl
+  }
+
+  return { ok: false, error: `too many redirects (> ${MAX_REDIRECTS})` }
+}
 
 export const fetchUrl: Tool = {
   definition: {
@@ -51,27 +107,15 @@ export const fetchUrl: Tool = {
       return `ERROR: unsupported protocol ${parsedUrl.protocol} (only http and https are allowed)`
     }
 
-    if (isPrivateHost(parsedUrl.hostname)) {
-      return `ERROR: host ${parsedUrl.hostname} is on the private/local network and cannot be fetched`
-    }
-
     const requestedMaxBytes = typeof args.maxBytes === 'number' ? args.maxBytes : Config.FETCH_URL_MAX_BYTES
     const byteLimit = Math.max(1024, Math.min(Config.FETCH_URL_MAX_BYTES, requestedMaxBytes))
 
-    let response: Response
-    try {
-      response = await fetch(parsedUrl, {
-        headers: {
-          'User-Agent': USER_AGENT,
-          'Accept': 'text/html,text/plain,application/json,application/xml;q=0.9',
-        },
-        redirect: 'follow',
-        signal: AbortSignal.timeout(Config.FETCH_URL_TIMEOUT_MS),
-      })
+    const fetchResult = await followRedirectsSafely(parsedUrl)
+    if (!fetchResult.ok) {
+      return `ERROR: ${fetchResult.error}`
     }
-    catch (error) {
-      return `ERROR: ${(error as Error).message}`
-    }
+
+    const { response, finalUrl } = fetchResult
 
     if (!response.ok) {
       return `ERROR: HTTP ${response.status} ${response.statusText}`
@@ -87,7 +131,7 @@ export const fetchUrl: Tool = {
     const isHtmlContent = contentType.startsWith('text/html') || contentType.startsWith('application/xhtml')
     const text = isHtmlContent ? htmlToText(rawText) : rawText
 
-    const header = `URL: ${parsedUrl.toString()}\nContent-Type: ${contentType || 'unknown'}\nBytes: ${bytesRead}${truncated ? ' (truncated)' : ''}\n\n`
+    const header = `URL: ${finalUrl.toString()}\nContent-Type: ${contentType || 'unknown'}\nBytes: ${bytesRead}${truncated ? ' (truncated)' : ''}\n\n`
 
     return truncateText(header + text)
   },
