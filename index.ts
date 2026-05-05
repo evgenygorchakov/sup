@@ -4,10 +4,9 @@ import type { ChatProvider } from './src/providers/types.ts'
 import type { Message } from './src/types.ts'
 
 import { readFile } from 'node:fs/promises'
-import { dirname, resolve } from 'node:path'
+import { resolve } from 'node:path'
 import process, { stdin, stdout } from 'node:process'
 import { createInterface } from 'node:readline/promises'
-import { fileURLToPath } from 'node:url'
 import { run } from './src/agent.ts'
 import { getProvider } from './src/providers/index.ts'
 import { initializeContextWindow } from './src/providers/ollama/context-window.ts'
@@ -15,16 +14,6 @@ import { SYSTEM_PROMPT } from './src/system-prompt.ts'
 import { bold, brightGreen, gray } from './src/utils/colors.ts'
 
 const EXIT_COMMANDS = new Set(['exit', 'quit', ':q'])
-const PROJECT_ROOT = dirname(fileURLToPath(import.meta.url))
-
-function loadEnvFileIfPresent(): void {
-  try {
-    process.loadEnvFile(resolve(PROJECT_ROOT, '.env'))
-  }
-  catch {
-    // .env is optional — environment variables can be exported by the shell instead.
-  }
-}
 
 const PROMPT_MARKER = bold(brightGreen('> '))
 
@@ -45,7 +34,6 @@ async function handleUserTurn(provider: ChatProvider, messages: Message[], readl
 }
 
 async function main() {
-  loadEnvFileIfPresent()
   await initializeContextWindow()
 
   const provider = getProvider()
