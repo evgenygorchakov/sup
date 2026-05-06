@@ -48,7 +48,7 @@ export const Config: ConfigShape = {
   USE_AUTONOMOUS_MODE: getEnvBoolean('USE_AUTONOMOUS_MODE', false),
   AUTONOMOUS_STEP_BUDGET: getEnvNumber('AUTONOMOUS_STEP_BUDGET', 100),
   AUTONOMOUS_REPEAT_THRESHOLD: getEnvNumber('AUTONOMOUS_REPEAT_THRESHOLD', 3),
-  USE_RESEARCH_MODE: getEnvBoolean('USE_RESEARCH_MODE', true),
+  USE_RESEARCH_MODE: getEnvBoolean('USE_RESEARCH_MODE', false),
   AUTO_APPROVE_SHELL_PATTERNS: [
     /^(ls|pwd|cat|head|tail|wc|file|stat|which|echo|date|uname|whoami|id|env|tree)(\s|$)/,
     /^git (status|diff|log|show|branch|remote|rev-parse|blame|ls-files)(\s|$)/,

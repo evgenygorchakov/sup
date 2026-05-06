@@ -11,7 +11,6 @@ export const IGNORED_DIRECTORY_NAMES = new Set([
   '.ssh',
   '.aws',
   '.gnupg',
-  'node_modules',
   'dist',
   'build',
   '.next',
