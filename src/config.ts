@@ -36,7 +36,7 @@ export const Config: ConfigShape = {
   LANGUAGE: getEnvString('LANGUAGE', 'russian'),
   USE_PLAN_MODE: getEnvBoolean('USE_PLAN_MODE', false),
   USE_NATIVE_OLLAMA_TOOLS: getEnvBoolean('USE_NATIVE_OLLAMA_TOOLS', true),
-  CONTEXT_WINDOW_TOKEN_LIMIT: getEnvNumber('CONTEXT_WINDOW_TOKEN_LIMIT', 262_144),
+  CONTEXT_WINDOW_TOKEN_LIMIT: getEnvNumber('CONTEXT_WINDOW_TOKEN_LIMIT', 80_000),
   USE_THINKING: getEnvBoolean('USE_THINKING', true),
   SHOW_THINKING: getEnvBoolean('SHOW_THINKING', true),
   USE_STREAMING: getEnvBoolean('USE_STREAMING', true),

@@ -8,12 +8,11 @@ import { resolve } from 'node:path'
 import process, { stdin, stdout } from 'node:process'
 import { createInterface } from 'node:readline/promises'
 import { run } from './src/agent.ts'
+import { runSlashCommand } from './src/commands.ts'
 import { getProvider } from './src/providers/index.ts'
 import { initializeContextWindow } from './src/providers/ollama/context-window.ts'
 import { SYSTEM_PROMPT } from './src/system-prompt.ts'
 import { bold, brightGreen, gray } from './src/utils/colors.ts'
-
-const EXIT_COMMANDS = new Set(['exit', 'quit', ':q'])
 
 const PROMPT_MARKER = bold(brightGreen('> '))
 
@@ -60,7 +59,7 @@ async function main() {
     await handleUserTurn(provider, messages, readline, commandLinePrompt)
   }
 
-  console.warn(gray('\nType "exit" or press Ctrl+D to quit.'))
+  console.warn(gray('\nType /help for commands, /exit to quit.'))
 
   try {
     while (true) {
@@ -78,8 +77,11 @@ async function main() {
         continue
       }
 
-      if (EXIT_COMMANDS.has(userInput.toLowerCase())) {
-        break
+      if (userInput.startsWith('/')) {
+        if (runSlashCommand(userInput, { messages }).kind === 'exit') {
+          break
+        }
+        continue
       }
 
       await handleUserTurn(provider, messages, readline, userInput)
