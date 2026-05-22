@@ -10,11 +10,23 @@ import { createInterface } from 'node:readline/promises'
 import { run } from './src/agent.ts'
 import { runSlashCommand } from './src/commands.ts'
 import { getProvider } from './src/providers/index.ts'
-import { initializeContextWindow } from './src/providers/ollama/context-window.ts'
+import { getContextWindowTokenLimit, getLastContextUsage, initializeContextWindow } from './src/providers/ollama/context-window.ts'
 import { SYSTEM_PROMPT } from './src/system-prompt.ts'
 import { bold, brightGreen, gray } from './src/utils/colors.ts'
 
 const PROMPT_MARKER = bold(brightGreen('> '))
+
+function contextStatusLine(): string {
+  const usage = getLastContextUsage()
+  if (!usage) {
+    return ''
+  }
+
+  const total = usage.prompt + usage.completion
+  const limit = getContextWindowTokenLimit()
+  const percent = Math.round((total / limit) * 100)
+  return gray(`[ctx: ${total} / ${limit} (${percent}%)]\n`)
+}
 
 async function loadProjectInstructions(): Promise<string | null> {
   try {
@@ -66,7 +78,7 @@ async function main() {
       let userInput: string
 
       try {
-        userInput = (await readline.question(`\n${PROMPT_MARKER}`)).trim()
+        userInput = (await readline.question(`\n${contextStatusLine()}${PROMPT_MARKER}`)).trim()
       }
 
       catch {

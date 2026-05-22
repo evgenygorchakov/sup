@@ -1,8 +1,7 @@
 import type { Message, Role, ToolCall, ToolDefinition } from '../../types.ts'
 import type { OnStreamPart } from '../../ui/stream-printer.ts'
 import { Config, getThinkingModeFor } from '../../config.ts'
-import { gray } from '../../utils/colors.ts'
-import { getContextWindowTokenLimit } from './context-window.ts'
+import { getContextWindowTokenLimit, recordContextUsage } from './context-window.ts'
 
 const OLLAMA_HOST = Config.HOST
 const OLLAMA_MODEL = Config.MODEL
@@ -15,10 +14,7 @@ function reportContextUsage(promptTokens: unknown, completionTokens: unknown): v
     return
   }
 
-  const total = promptTokens + completionTokens
-  const limit = getContextWindowTokenLimit()
-  const percent = Math.round((total / limit) * 100)
-  console.error(gray(`[ctx: ${promptTokens}+${completionTokens} / ${limit} (${percent}%)]`))
+  recordContextUsage(promptTokens, completionTokens)
 }
 
 export interface ChatOptions {
