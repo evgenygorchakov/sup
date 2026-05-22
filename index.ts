@@ -12,6 +12,7 @@ import { runSlashCommand } from './src/commands.ts'
 import { getProvider } from './src/providers/index.ts'
 import { getContextWindowTokenLimit, getLastContextUsage, initializeContextWindow } from './src/providers/ollama/context-window.ts'
 import { SYSTEM_PROMPT } from './src/system-prompt.ts'
+import { BracketedPasteTransform, DISABLE_BRACKETED_PASTE, ENABLE_BRACKETED_PASTE, readUserInput } from './src/ui/multiline-input.ts'
 import { bold, brightGreen, gray } from './src/utils/colors.ts'
 
 const PROMPT_MARKER = bold(brightGreen('> '))
@@ -48,10 +49,41 @@ async function main() {
   await initializeContextWindow()
 
   const provider = getProvider()
-  const readline = createInterface({ input: stdin, output: stdout })
 
-  process.once('SIGINT', () => {
+  // Filter stdin through the bracketed-paste transform before readline sees it,
+  // so a pasted multi-line block arrives as a single prompt instead of being
+  // split on its internal newlines.
+  const interactive = Boolean(stdin.isTTY)
+  const inputStream = new BracketedPasteTransform()
+  stdin.pipe(inputStream)
+  const readline = createInterface({ input: inputStream, output: stdout, terminal: interactive })
+
+  if (interactive) {
+    stdin.setRawMode(true)
+    stdout.write(ENABLE_BRACKETED_PASTE)
+  }
+
+  let cleanedUp = false
+  function cleanup(): void {
+    if (cleanedUp) {
+      return
+    }
+
+    cleanedUp = true
+    if (interactive) {
+      stdout.write(DISABLE_BRACKETED_PASTE)
+      if (stdin.isTTY) {
+        stdin.setRawMode(false)
+      }
+    }
+
+    stdin.unpipe(inputStream)
+    stdin.pause()
     readline.close()
+  }
+
+  readline.on('SIGINT', () => {
+    cleanup()
     process.exit(130)
   })
 
@@ -78,7 +110,7 @@ async function main() {
       let userInput: string
 
       try {
-        userInput = (await readline.question(`\n${contextStatusLine()}${PROMPT_MARKER}`)).trim()
+        userInput = (await readUserInput(readline, `\n${contextStatusLine()}${PROMPT_MARKER}`)).trim()
       }
 
       catch {
@@ -100,7 +132,7 @@ async function main() {
     }
   }
   finally {
-    readline.close()
+    cleanup()
   }
 }
 
