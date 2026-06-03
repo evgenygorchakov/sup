@@ -12,6 +12,7 @@ export interface ConfigShape {
   MODEL: string
   LANGUAGE: string
   USE_PLAN_MODE: boolean
+  USE_SHELL_TOOL: boolean
   USE_NATIVE_OLLAMA_TOOLS: boolean
   CONTEXT_WINDOW_TOKEN_LIMIT: number
   USE_THINKING: boolean
@@ -35,6 +36,7 @@ export const Config: ConfigShape = {
   MODEL: getEnvString('MODEL', 'qwen3.6'),
   LANGUAGE: getEnvString('LANGUAGE', 'russian'),
   USE_PLAN_MODE: getEnvBoolean('USE_PLAN_MODE', false),
+  USE_SHELL_TOOL: getEnvBoolean('USE_SHELL_TOOL', false),
   USE_NATIVE_OLLAMA_TOOLS: getEnvBoolean('USE_NATIVE_OLLAMA_TOOLS', true),
   CONTEXT_WINDOW_TOKEN_LIMIT: getEnvNumber('CONTEXT_WINDOW_TOKEN_LIMIT', 80_000),
   USE_THINKING: getEnvBoolean('USE_THINKING', true),

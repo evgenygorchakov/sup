@@ -13,7 +13,16 @@ import { webSearch } from './list/web-search.ts'
 import { writeFile } from './list/write-file.ts'
 
 const RESEARCH_MODE_TOOLS: Tool[] = [readFile, grep, glob, webSearch, fetchUrl]
-const FULL_TOOLSET: Tool[] = [runShell, readFile, writeFile, editFile, grep, glob, webSearch, fetchUrl]
+const FULL_TOOLSET: Tool[] = [
+  ...(Config.USE_SHELL_TOOL ? [runShell] : []),
+  readFile,
+  writeFile,
+  editFile,
+  grep,
+  glob,
+  webSearch,
+  fetchUrl,
+]
 
 const availableTools: Tool[] = Config.USE_RESEARCH_MODE ? RESEARCH_MODE_TOOLS : FULL_TOOLSET
 
