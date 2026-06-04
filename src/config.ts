@@ -15,6 +15,7 @@ export interface ConfigShape {
   USE_SHELL_TOOL: boolean
   USE_NATIVE_OLLAMA_TOOLS: boolean
   CONTEXT_WINDOW_TOKEN_LIMIT: number
+  OLLAMA_REQUEST_TIMEOUT_MS: number
   USE_THINKING: boolean
   SHOW_THINKING: boolean
   USE_STREAMING: boolean
@@ -26,7 +27,6 @@ export interface ConfigShape {
   USE_AUTONOMOUS_MODE: boolean
   AUTONOMOUS_STEP_BUDGET: number
   AUTONOMOUS_REPEAT_THRESHOLD: number
-  USE_RESEARCH_MODE: boolean
   AUTO_APPROVE_SHELL_PATTERNS: readonly RegExp[]
 }
 
@@ -39,6 +39,7 @@ export const Config: ConfigShape = {
   USE_SHELL_TOOL: getEnvBoolean('USE_SHELL_TOOL', false),
   USE_NATIVE_OLLAMA_TOOLS: getEnvBoolean('USE_NATIVE_OLLAMA_TOOLS', true),
   CONTEXT_WINDOW_TOKEN_LIMIT: getEnvNumber('CONTEXT_WINDOW_TOKEN_LIMIT', 80_000),
+  OLLAMA_REQUEST_TIMEOUT_MS: getEnvNumber('OLLAMA_REQUEST_TIMEOUT_MS', 300_000),
   USE_THINKING: getEnvBoolean('USE_THINKING', true),
   SHOW_THINKING: getEnvBoolean('SHOW_THINKING', true),
   USE_STREAMING: getEnvBoolean('USE_STREAMING', true),
@@ -50,7 +51,6 @@ export const Config: ConfigShape = {
   USE_AUTONOMOUS_MODE: getEnvBoolean('USE_AUTONOMOUS_MODE', true),
   AUTONOMOUS_STEP_BUDGET: getEnvNumber('AUTONOMOUS_STEP_BUDGET', 100),
   AUTONOMOUS_REPEAT_THRESHOLD: getEnvNumber('AUTONOMOUS_REPEAT_THRESHOLD', 3),
-  USE_RESEARCH_MODE: getEnvBoolean('USE_RESEARCH_MODE', false),
   AUTO_APPROVE_SHELL_PATTERNS: [
     /^(ls|pwd|cat|head|tail|wc|file|stat|which|echo|date|uname|whoami|id|env|tree)(\s|$)/,
     /^git (status|diff|log|show|branch|remote|rev-parse|blame|ls-files)(\s|$)/,

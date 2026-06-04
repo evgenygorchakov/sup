@@ -5,7 +5,7 @@ import { getContextWindowTokenLimit, recordContextUsage } from './context-window
 
 const OLLAMA_HOST = Config.HOST
 const OLLAMA_MODEL = Config.MODEL
-const REQUEST_TIMEOUT_MS = 300_000
+const REQUEST_IDLE_TIMEOUT_MS = Config.OLLAMA_REQUEST_TIMEOUT_MS
 
 const VALID_ROLES: readonly Role[] = ['system', 'user', 'assistant', 'tool']
 
@@ -27,42 +27,65 @@ export async function chat(messages: Message[], options: ChatOptions = {}): Prom
   const { tools, format, onStreamPart } = options
   const shouldStream = Boolean(onStreamPart) && Config.USE_STREAMING
 
-  const response = await fetch(`${OLLAMA_HOST}/api/chat`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      model: OLLAMA_MODEL,
-      messages,
-      tools,
-      format,
-      think: getThinkingModeFor(OLLAMA_MODEL),
-      stream: shouldStream,
-      options: {
-        num_ctx: getContextWindowTokenLimit(),
-      },
-    }),
-    signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
-  })
-
-  if (!response.ok) {
-    throw new Error(`Ollama HTTP ${response.status}: ${await response.text()}`)
+  const controller = new AbortController()
+  let timedOut = false
+  let idleTimer: ReturnType<typeof setTimeout> | undefined
+  const refreshTimer = (): void => {
+    clearTimeout(idleTimer)
+    idleTimer = setTimeout(() => {
+      timedOut = true
+      controller.abort()
+    }, REQUEST_IDLE_TIMEOUT_MS)
   }
+  refreshTimer()
 
-  if (!shouldStream) {
-    const responseBody: unknown = await response.json()
-    const responseEnvelope = responseBody as { message?: unknown, prompt_eval_count?: unknown, eval_count?: unknown }
-    const responseMessage = responseEnvelope?.message
+  try {
+    const response = await fetch(`${OLLAMA_HOST}/api/chat`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: OLLAMA_MODEL,
+        messages,
+        tools,
+        format,
+        think: getThinkingModeFor(OLLAMA_MODEL),
+        stream: shouldStream,
+        options: {
+          num_ctx: getContextWindowTokenLimit(),
+        },
+      }),
+      signal: controller.signal,
+    })
 
-    if (!responseMessage || typeof responseMessage !== 'object') {
-      throw new Error('Ollama returned unexpected response shape')
+    if (!response.ok) {
+      throw new Error(`Ollama HTTP ${response.status}: ${await response.text()}`)
     }
 
-    reportContextUsage(responseEnvelope.prompt_eval_count, responseEnvelope.eval_count)
+    if (!shouldStream) {
+      const responseBody: unknown = await response.json()
+      const responseEnvelope = responseBody as { message?: unknown, prompt_eval_count?: unknown, eval_count?: unknown }
+      const responseMessage = responseEnvelope?.message
 
-    return responseMessage as Message
+      if (!responseMessage || typeof responseMessage !== 'object') {
+        throw new Error('Ollama returned unexpected response shape')
+      }
+
+      reportContextUsage(responseEnvelope.prompt_eval_count, responseEnvelope.eval_count)
+
+      return responseMessage as Message
+    }
+
+    return await readStreamingResponse(response, onStreamPart!, refreshTimer)
   }
-
-  return await readStreamingResponse(response, onStreamPart!)
+  catch (error) {
+    if (timedOut) {
+      throw new Error(`Ollama request timed out: no data for ${Math.round(REQUEST_IDLE_TIMEOUT_MS / 1000)}s`)
+    }
+    throw error
+  }
+  finally {
+    clearTimeout(idleTimer)
+  }
 }
 
 interface StreamedLine {
@@ -106,7 +129,7 @@ function mergeLineIntoMessage(line: StreamedLine, accumulated: Message, onStream
   }
 }
 
-async function readStreamingResponse(response: Response, onStreamPart: OnStreamPart): Promise<Message> {
+async function readStreamingResponse(response: Response, onStreamPart: OnStreamPart, onActivity: () => void): Promise<Message> {
   if (!response.body) {
     throw new Error('Ollama stream has no body')
   }
@@ -123,6 +146,8 @@ async function readStreamingResponse(response: Response, onStreamPart: OnStreamP
     if (done) {
       break
     }
+
+    onActivity()
 
     buffer += decoder.decode(bytes, { stream: true })
 

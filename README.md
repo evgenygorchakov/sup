@@ -24,8 +24,7 @@ During a session, lines starting with `/` are commands instead of prompts:
 All settings are read from `.env` at startup. Copy `.env.example` to `.env` and uncomment what you need — every key falls back to a sensible default if left unset.
 
 - `MODEL`, `LANGUAGE`, `HOST` — Ollama target and reply language.
-- `USE_RESEARCH_MODE` — read-only session: `write_file`, `edit_file`, `run_shell` are removed from the tool registry; only `read_file`, `grep`, `glob`, `web_search`, `fetch_url` remain.
-- `USE_PLAN_MODE` — before any tool calls, the model proposes a Markdown plan for your approval and saves it to `.sup/plans/` (see [Plans](#plans)).
+- `USE_PLAN_MODE` — the model first investigates the code with read-only tools (`read_file`, `grep`, `glob`), then proposes a Markdown plan for your approval and saves it to `.sup/plans/` (see [Plans](#plans)). No mutating or shell tools run before approval.
 - `USE_AUTONOMOUS_MODE` — disables every confirm-prompt and runs up to `AUTONOMOUS_STEP_BUDGET` tool calls without asking. Composes with `USE_PLAN_MODE`: you approve the plan once, then the loop runs unattended. Use deliberately.
 - `USE_NATIVE_OLLAMA_TOOLS` — switches between native Ollama tool-calls and prompt-based tool-calls.
 - `USE_PERMISSION_ALLOWLIST` — shell commands matching the allowlist skip the confirm-prompt. The allowlist itself (`AUTO_APPROVE_SHELL_PATTERNS`, e.g. `ls`, `pwd`, `git status`, …) lives in `src/config.ts`; anything containing shell metacharacters (`;`, `|`, `&`, `<`, `>`, backtick, `$`, newline) is never auto-approved.
@@ -34,7 +33,7 @@ See `.env.example` for the full list, including tool limits and Ollama-specific 
 
 ## Plans
 
-With `USE_PLAN_MODE` on, the model first writes a structured Markdown plan (Context / Steps / Affected files / Verification) and waits for your `y / n / feedback` approval. On approval the plan is saved to `.sup/plans/<random-name>.md` in the current project, so it survives across sessions.
+With `USE_PLAN_MODE` on, the model first reads the relevant files with read-only tools (`read_file`, `grep`, `glob`), then writes a structured Markdown plan (Context / Steps / Affected files / Verification) and waits for your `y / n / feedback` approval. On approval the plan is saved to `.sup/plans/<random-name>.md` in the current project, so it survives across sessions.
 
 - Edit a saved plan by hand at any time — it is re-read from disk whenever it is loaded.
 - In a later session, `/plan` lists saved plans (newest first) and `/plan <number>` runs one straight away — no approval step, since a saved plan is already approved. Reading it is a plain file read in the app, so it never depends on the model choosing to open the file.

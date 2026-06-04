@@ -13,7 +13,7 @@ import { getProvider } from './src/providers/index.ts'
 import { getContextWindowTokenLimit, getLastContextUsage, initializeContextWindow } from './src/providers/ollama/context-window.ts'
 import { SYSTEM_PROMPT } from './src/system-prompt.ts'
 import { BracketedPasteTransform, DISABLE_BRACKETED_PASTE, ENABLE_BRACKETED_PASTE, readUserInput } from './src/ui/multiline-input.ts'
-import { bold, brightGreen, gray } from './src/utils/colors.ts'
+import { bold, brightGreen, gray, red } from './src/utils/colors.ts'
 
 const PROMPT_MARKER = bold(brightGreen('> '))
 
@@ -118,18 +118,23 @@ async function main() {
         continue
       }
 
-      if (userInput.startsWith('/')) {
-        const result = await runSlashCommand(userInput, { messages })
-        if (result.kind === 'exit') {
-          break
+      try {
+        if (userInput.startsWith('/')) {
+          const result = await runSlashCommand(userInput, { messages })
+          if (result.kind === 'exit') {
+            break
+          }
+          if (result.kind === 'run') {
+            await run(provider, messages, readline, { skipPlanApproval: true })
+          }
+          continue
         }
-        if (result.kind === 'run') {
-          await run(provider, messages, readline, { skipPlanApproval: true })
-        }
-        continue
-      }
 
-      await handleUserTurn(provider, messages, readline, userInput)
+        await handleUserTurn(provider, messages, readline, userInput)
+      }
+      catch (error) {
+        console.error(red(`Error: ${error instanceof Error ? error.message : String(error)}`))
+      }
     }
   }
   finally {
