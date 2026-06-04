@@ -16,6 +16,7 @@ During a session, lines starting with `/` are commands instead of prompts:
 
 - `/help` — list available commands.
 - `/clear` — clear the conversation history (keeps the system prompt).
+- `/plan` — list saved plans, or run one immediately: `/plan <number>` (also accepts part of a plan's name or request). See [Plans](#plans).
 - `/exit` — quit the session (Ctrl+D and Ctrl+C also work).
 
 ## Configuration
@@ -24,12 +25,20 @@ All settings are read from `.env` at startup. Copy `.env.example` to `.env` and 
 
 - `MODEL`, `LANGUAGE`, `HOST` — Ollama target and reply language.
 - `USE_RESEARCH_MODE` — read-only session: `write_file`, `edit_file`, `run_shell` are removed from the tool registry; only `read_file`, `grep`, `glob`, `web_search`, `fetch_url` remain.
-- `USE_PLAN_MODE` — adds an explicit plan-approval step before any tool calls.
-- `USE_AUTONOMOUS_MODE` — disables every confirm-prompt and runs up to `AUTONOMOUS_STEP_BUDGET` tool calls without asking. Use deliberately.
+- `USE_PLAN_MODE` — before any tool calls, the model proposes a Markdown plan for your approval and saves it to `.sup/plans/` (see [Plans](#plans)).
+- `USE_AUTONOMOUS_MODE` — disables every confirm-prompt and runs up to `AUTONOMOUS_STEP_BUDGET` tool calls without asking. Composes with `USE_PLAN_MODE`: you approve the plan once, then the loop runs unattended. Use deliberately.
 - `USE_NATIVE_OLLAMA_TOOLS` — switches between native Ollama tool-calls and prompt-based tool-calls.
 - `USE_PERMISSION_ALLOWLIST` — shell commands matching the allowlist skip the confirm-prompt. The allowlist itself (`AUTO_APPROVE_SHELL_PATTERNS`, e.g. `ls`, `pwd`, `git status`, …) lives in `src/config.ts`; anything containing shell metacharacters (`;`, `|`, `&`, `<`, `>`, backtick, `$`, newline) is never auto-approved.
 
 See `.env.example` for the full list, including tool limits and Ollama-specific options.
+
+## Plans
+
+With `USE_PLAN_MODE` on, the model first writes a structured Markdown plan (Context / Steps / Affected files / Verification) and waits for your `y / n / feedback` approval. On approval the plan is saved to `.sup/plans/<random-name>.md` in the current project, so it survives across sessions.
+
+- Edit a saved plan by hand at any time — it is re-read from disk whenever it is loaded.
+- In a later session, `/plan` lists saved plans (newest first) and `/plan <number>` runs one straight away — no approval step, since a saved plan is already approved. Reading it is a plain file read in the app, so it never depends on the model choosing to open the file.
+- Add `.sup/` to your project's `.gitignore` if you don't want plans tracked in git.
 
 ## Project instructions
 

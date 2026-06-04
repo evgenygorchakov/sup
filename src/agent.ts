@@ -32,8 +32,12 @@ function lastBatchesAreIdentical(signatures: string[], threshold: number): boole
   return tail.every(item => item === tail[0])
 }
 
-export async function run(provider: ChatProvider, messages: Message[], readline: ReadlineInterface): Promise<void> {
-  if (Config.USE_PLAN_MODE && !Config.USE_AUTONOMOUS_MODE && messages[messages.length - 1]?.role === 'user') {
+export interface RunOptions {
+  skipPlanApproval?: boolean
+}
+
+export async function run(provider: ChatProvider, messages: Message[], readline: ReadlineInterface, options: RunOptions = {}): Promise<void> {
+  if (!options.skipPlanApproval && Config.USE_PLAN_MODE && messages[messages.length - 1]?.role === 'user') {
     const decision = await askForPlanApproval(provider, messages, readline)
 
     if (decision === 'quit') {

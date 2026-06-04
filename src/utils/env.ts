@@ -7,19 +7,6 @@ const DOUBLE_QUOTED_ESCAPE_PATTERN = /\\(["\\nrt])/g
 const TRUTHY_VALUES = new Set(['true', '1', 'yes', 'y', 'on'])
 const FALSY_VALUES = new Set(['false', '0', 'no', 'n', 'off', ''])
 
-/**
- * Loads variables from a .env file into `process.env` without overwriting
- * already-set values. Silently no-ops when the file is missing — env vars
- * exported by the shell still take precedence.
- *
- * Supports:
- *  - blank lines
- *  - whole-line comments starting with `#`
- *  - `export KEY=value` syntax
- *  - double-quoted values with `\n \r \t \" \\` escape sequences
- *  - single-quoted values (literal, no escaping)
- *  - unquoted values (trimmed; trailing inline ` # comment` stripped)
- */
 export function loadEnvFile(filePath: string = resolve(process.cwd(), '.env')): void {
   let raw: string
   try {

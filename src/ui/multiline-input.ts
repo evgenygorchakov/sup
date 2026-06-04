@@ -2,12 +2,6 @@ import type { Interface as ReadlineInterface } from 'node:readline/promises'
 import { Buffer } from 'node:buffer'
 import { Transform } from 'node:stream'
 
-// In bracketed paste mode (DECSET 2004) the terminal wraps pasted text in
-// ESC[200~ ... ESC[201~ markers. That gives us an exact paste boundary instead
-// of guessing by timing. Inside those markers newlines are part of the text,
-// not a "submit" signal, so we swap them for a Private Use Area placeholder
-// that readline will not treat as an end-of-line. readUserInput() turns the
-// placeholders back into real newlines once the whole line has been read.
 export const PASTE_PLACEHOLDER = ''
 
 export const ENABLE_BRACKETED_PASTE = '\x1B[?2004h'
@@ -20,10 +14,6 @@ const PASTE_START = Buffer.from('\x1B[200~')
 const PASTE_END = Buffer.from('\x1B[201~')
 const PLACEHOLDER_BYTES = Buffer.from(PASTE_PLACEHOLDER)
 
-// Sits between stdin and readline: strips the paste markers and replaces
-// newlines that occur *inside* a paste with PASTE_PLACEHOLDER. Everything
-// outside a paste (normal typing, arrow keys, Ctrl+C, a real Enter) passes
-// through untouched so readline keeps its line editing and history.
 export class BracketedPasteTransform extends Transform {
   private pending = Buffer.alloc(0)
   private inPaste = false
@@ -53,8 +43,6 @@ export class BracketedPasteTransform extends Transform {
 
       if (buffer[index] === ESC) {
         if (index + marker.length > buffer.length) {
-          // A marker may be split across chunks — wait for the rest unless this
-          // is the final flush, in which case we emit the bytes as-is below.
           if (!final) {
             break
           }
@@ -69,8 +57,6 @@ export class BracketedPasteTransform extends Transform {
       const byte = buffer[index]
       if (this.inPaste && (byte === NEWLINE || byte === CARRIAGE_RETURN)) {
         if (byte === CARRIAGE_RETURN) {
-          // Collapse a CRLF pair into a single placeholder; hold a trailing CR
-          // until we can see whether an LF follows it.
           if (index + 1 >= buffer.length && !final) {
             break
           }
@@ -93,9 +79,6 @@ export class BracketedPasteTransform extends Transform {
   }
 }
 
-// Reads one prompt's worth of input. Because BracketedPasteTransform has
-// collapsed any pasted block into a single line, readline.question() resolves
-// once; we just restore the embedded newlines.
 export async function readUserInput(readline: ReadlineInterface, promptText: string): Promise<string> {
   const line = await readline.question(promptText)
   return line.split(PASTE_PLACEHOLDER).join('\n')

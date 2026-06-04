@@ -143,7 +143,9 @@ export const fetchUrl: Tool = {
     try {
       hostname = new URL(url).hostname
     }
-    catch { /* keep url as-is */ }
+    catch {
+      hostname = url
+    }
 
     const firstBlankLineIndex = result.indexOf('\n\n')
     const metadata = firstBlankLineIndex === -1 ? '' : result.slice(0, firstBlankLineIndex)

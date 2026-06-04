@@ -110,7 +110,6 @@ function tryParseReply(jsonText: string): PromptToolsReply | null {
   }
 }
 
-// Find the first balanced {...} block, respecting "..." string literals.
 function extractFirstJsonObject(text: string): string | null {
   let braceDepth = 0
   let objectStartIndex = -1

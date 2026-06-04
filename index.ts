@@ -50,9 +50,6 @@ async function main() {
 
   const provider = getProvider()
 
-  // Filter stdin through the bracketed-paste transform before readline sees it,
-  // so a pasted multi-line block arrives as a single prompt instead of being
-  // split on its internal newlines.
   const interactive = Boolean(stdin.isTTY)
   const inputStream = new BracketedPasteTransform()
   stdin.pipe(inputStream)
@@ -122,8 +119,12 @@ async function main() {
       }
 
       if (userInput.startsWith('/')) {
-        if (runSlashCommand(userInput, { messages }).kind === 'exit') {
+        const result = await runSlashCommand(userInput, { messages })
+        if (result.kind === 'exit') {
           break
+        }
+        if (result.kind === 'run') {
+          await run(provider, messages, readline, { skipPlanApproval: true })
         }
         continue
       }
