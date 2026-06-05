@@ -4,6 +4,7 @@ import type { Message, ToolCall } from './types.ts'
 import process from 'node:process'
 
 import { Config } from './config.ts'
+import { isPlanModeActive, setPlanModeActive } from './plan-mode-state.ts'
 import { canAutoApproveCall } from './tools/auto-approve.ts'
 import { runTool, toolDefinitions, toolsByName } from './tools/registry.ts'
 import { CONFIRM_KIND, confirmToolCalls } from './ui/confirm.ts'
@@ -37,13 +38,15 @@ export interface RunOptions {
 }
 
 export async function run(provider: ChatProvider, messages: Message[], readline: ReadlineInterface, options: RunOptions = {}): Promise<void> {
-  if (!options.skipPlanApproval && Config.USE_PLAN_MODE && messages[messages.length - 1]?.role === 'user') {
+  if (!options.skipPlanApproval && isPlanModeActive() && messages[messages.length - 1]?.role === 'user') {
     const decision = await askForPlanApproval(provider, messages, readline)
 
     if (decision === 'quit') {
       console.error(red('Cancelled by user.'))
       return
     }
+
+    setPlanModeActive(false)
   }
 
   const stepBudget = Config.USE_AUTONOMOUS_MODE ? Config.AUTONOMOUS_STEP_BUDGET : MAX_TOOL_ITERATIONS

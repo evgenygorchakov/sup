@@ -9,13 +9,18 @@ import process, { stdin, stdout } from 'node:process'
 import { createInterface } from 'node:readline/promises'
 import { run } from './src/agent.ts'
 import { runSlashCommand } from './src/commands.ts'
+import { isPlanModeActive } from './src/plan-mode-state.ts'
 import { getProvider } from './src/providers/index.ts'
 import { getContextWindowTokenLimit, getLastContextUsage, initializeContextWindow } from './src/providers/ollama/context-window.ts'
 import { SYSTEM_PROMPT } from './src/system-prompt.ts'
 import { BracketedPasteTransform, DISABLE_BRACKETED_PASTE, ENABLE_BRACKETED_PASTE, readUserInput } from './src/ui/multiline-input.ts'
-import { bold, brightGreen, gray, red } from './src/utils/colors.ts'
+import { bold, brightGreen, gray, red, yellow } from './src/utils/colors.ts'
 
 const PROMPT_MARKER = bold(brightGreen('> '))
+
+function planModeIndicator(): string {
+  return isPlanModeActive() ? yellow('[plan] ') : ''
+}
 
 function contextStatusLine(): string {
   const usage = getLastContextUsage()
@@ -107,7 +112,7 @@ async function main() {
       let userInput: string
 
       try {
-        userInput = (await readUserInput(readline, `\n${contextStatusLine()}${PROMPT_MARKER}`)).trim()
+        userInput = (await readUserInput(readline, `\n${contextStatusLine()}${planModeIndicator()}${PROMPT_MARKER}`)).trim()
       }
 
       catch {

@@ -1,5 +1,6 @@
 import type { Message } from './types.ts'
 
+import { isPlanModeActive, setPlanModeActive } from './plan-mode-state.ts'
 import { formatTimestamp, listPlans, readPlanContent } from './plan-store.ts'
 import { bold, brightGreen, gray, red } from './utils/colors.ts'
 
@@ -50,7 +51,30 @@ const commands: SlashCommand[] = [
     description: 'List saved plans, or load one into the session: /plan [number].',
     run: loadPlanCommand,
   },
+  {
+    name: 'plan-mode',
+    description: 'Toggle plan mode: /plan-mode [on|off].',
+    run: planModeCommand,
+  },
 ]
+
+function planModeCommand(context: CommandContext): CommandResult {
+  const arg = context.args[0]?.toLowerCase()
+
+  if (!arg) {
+    console.warn(gray(`Plan mode is ${isPlanModeActive() ? 'on' : 'off'}. Use /plan-mode on|off to change it.`))
+    return { kind: 'continue' }
+  }
+
+  if (arg === 'on' || arg === 'off') {
+    setPlanModeActive(arg === 'on')
+    console.warn(gray(`Plan mode is now ${arg}.`))
+    return { kind: 'continue' }
+  }
+
+  console.warn(red('Usage: /plan-mode [on|off].'))
+  return { kind: 'continue' }
+}
 
 async function loadPlanCommand(context: CommandContext): Promise<CommandResult> {
   const plans = await listPlans()
