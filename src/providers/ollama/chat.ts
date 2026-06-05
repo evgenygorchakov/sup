@@ -4,7 +4,6 @@ import { Config, getThinkingModeFor } from '../../config.ts'
 import { getContextWindowTokenLimit, recordContextUsage } from './context-window.ts'
 
 const OLLAMA_HOST = Config.HOST
-const OLLAMA_MODEL = Config.MODEL
 const REQUEST_IDLE_TIMEOUT_MS = Config.OLLAMA_REQUEST_TIMEOUT_MS
 
 const VALID_ROLES: readonly Role[] = ['system', 'user', 'assistant', 'tool']
@@ -26,6 +25,7 @@ export interface ChatOptions {
 export async function chat(messages: Message[], options: ChatOptions = {}): Promise<Message> {
   const { tools, format, onStreamPart } = options
   const shouldStream = Boolean(onStreamPart) && Config.USE_STREAMING
+  const model = Config.MODEL
 
   const controller = new AbortController()
   let timedOut = false
@@ -44,11 +44,11 @@ export async function chat(messages: Message[], options: ChatOptions = {}): Prom
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model: OLLAMA_MODEL,
+        model,
         messages,
         tools,
         format,
-        think: getThinkingModeFor(OLLAMA_MODEL),
+        think: getThinkingModeFor(model),
         stream: shouldStream,
         options: {
           num_ctx: getContextWindowTokenLimit(),

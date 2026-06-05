@@ -16,6 +16,7 @@ During a session, lines starting with `/` are commands instead of prompts:
 
 - `/help` — list available commands.
 - `/clear` — reset the conversation: drops the whole chat history and keeps only the system prompt, so the next prompt starts fresh.
+- `/model` — list installed models (with the current one marked), or switch to one: `/model <number|name>` (name also accepts a partial match). Switching takes effect on the next prompt and keeps the conversation; it re-detects the new model's context window. No process restart.
 - `/plan` — list saved plans, or run one immediately: `/plan <number>` (also accepts part of a plan's name or request). See [Plans](#plans).
 - `/plan-mode [on|off]` — turn plan mode on or off for the current session (on by default); with no argument it reports the current state.
 - `/exit` — quit the session (Ctrl+D and Ctrl+C also work).
