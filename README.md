@@ -1,59 +1,64 @@
 # Agent
 
-A minimal local CLI assistant for a local [Ollama](https://ollama.com) model. By default it works plan-first and hands-off: it investigates your code with read-only tools, proposes a Markdown plan for your approval, then runs autonomously until the task is done. Prefer to watch every step? Turn autonomous mode off and confirm each tool call as it happens.
+A minimal local CLI assistant for an [Ollama](https://ollama.com) model. Plan-first and hands-off by default: it investigates your code with read-only tools, proposes a plan for your approval, then runs autonomously to completion. Turn autonomous mode off to confirm each tool call.
 
 ## Setup
 
-1. Install and launch [Ollama](https://ollama.com).
-2. Download a model.
-3. Clone the repository and open the project.
-4. Copy `.env.example` to `.env` and set at least `MODEL`. Everything else is optional — `OLLAMA_API_KEY` from [ollama.com](https://ollama.com) is only needed if you use the `web_search` tool.
-5. `npm link` — makes the `sup` command available globally. Run `sup` in any directory to start the agent.
+1. Install and launch [Ollama](https://ollama.com), then download a model.
+2. Clone this repo; copy `.env.example` to `.env` and set `MODEL`.
+3. `npm link`, then run `sup` in any directory to start.
 
 ## Slash commands
 
-During a session, lines starting with `/` are commands instead of prompts:
+Lines starting with `/` are commands. Typing `/` shows a live hint panel; `Tab` completes, `Enter` runs. Interactive menus use ↑/↓, `Enter` to confirm, `Esc` to cancel.
 
-- `/help` — list available commands.
-- `/clear` — reset the conversation: drops the whole chat history and keeps only the system prompt, so the next prompt starts fresh.
-- `/model` — list installed models (with the current one marked), or switch to one: `/model <number|name>` (name also accepts a partial match). Switching takes effect on the next prompt and keeps the conversation; it re-detects the new model's context window. No process restart.
-- `/plan` — list saved plans, or run one immediately: `/plan <number>` (also accepts part of a plan's name or request). See [Plans](#plans).
-- `/plan-mode [on|off]` — turn plan mode on or off for the current session (on by default); with no argument it reports the current state.
-- `/exit` — quit the session (Ctrl+D and Ctrl+C also work).
+- `/help` — list commands.
+- `/clear` — reset the conversation.
+- `/model [number|name]` — switch model (no argument opens a menu).
+- `/plan [number]` — list or run a saved plan.
+- `/plan-mode [on|off]` — toggle plan mode (no argument opens a menu).
+- `/thinking [on|off]` — toggle model thinking (no argument opens a menu).
+- `/show-thinking [on|off]` — toggle streaming of the thinking text.
+- `/verbose [on|off]` — toggle full, untruncated tool output.
+- `/skills` — list skills available from `.sup/skills`.
+- `/exit` — quit (Ctrl+D / Ctrl+C also work).
 
 ## Configuration
 
-All settings are read from `.env` at startup. Copy `.env.example` to `.env` and uncomment what you need — every key falls back to a sensible default if left unset.
+All settings come from `.env`, each with a sensible default. The main ones:
 
 - `MODEL`, `LANGUAGE`, `HOST` — Ollama target and reply language.
-- `USE_PLAN_MODE` (on by default) — the model first investigates the code with read-only tools (`read_file`, `grep`, `glob`), then proposes a Markdown plan for your approval and saves it to `.sup/plans/` (see [Plans](#plans)). No mutating or shell tools run before approval. Toggle it mid-session with `/plan-mode on|off`.
-- `USE_AUTONOMOUS_MODE` (on by default) — runs up to `AUTONOMOUS_STEP_BUDGET` tool calls without asking, skipping every confirm-prompt. Composes with `USE_PLAN_MODE`: you approve the plan once, then the loop runs unattended to completion. Set it to `false` when you want to review and confirm each mutating or network call as it happens — slower, but you see every step.
-- `USE_SHELL_TOOL` (off by default) — when off, the `run_shell` tool is not registered at all, so the model cannot run shell commands. Turn it on to let the model propose and run them (still subject to the confirm/allowlist rules below).
-- `USE_NATIVE_OLLAMA_TOOLS` — switches between native Ollama tool-calls and prompt-based tool-calls.
-- `USE_PERMISSION_ALLOWLIST` — shell commands matching the allowlist skip the confirm-prompt. The allowlist itself (`AUTO_APPROVE_SHELL_PATTERNS`, e.g. `ls`, `pwd`, `git status`, …) lives in `src/config.ts`; anything containing shell metacharacters (`;`, `|`, `&`, `<`, `>`, backtick, `$`, newline) is never auto-approved.
+- `USE_PLAN_MODE` (on) — investigate with read-only tools, then propose a plan for approval before anything mutates.
+- `USE_AUTONOMOUS_MODE` (on) — after approval, run up to `AUTONOMOUS_STEP_BUDGET` tool calls without prompting. Set `false` to confirm each call.
+- `USE_SHELL_TOOL` (off) — register the `run_shell` tool.
+- `USE_PERMISSION_ALLOWLIST` — shell commands matching `AUTO_APPROVE_SHELL_PATTERNS` (in `src/config.ts`) skip the confirm-prompt.
 
-See `.env.example` for the full list, including tool limits and Ollama-specific options.
+See `.env.example` for the full list.
 
 ## Plans
 
-With `USE_PLAN_MODE` on, the model first reads the relevant files with read-only tools (`read_file`, `grep`, `glob`), then writes a structured Markdown plan (Context / Steps / Affected files / Verification) and waits for your `y / n / feedback` approval. On approval the plan is saved to `.sup/plans/<random-name>.md` in the current project, so it survives across sessions.
+With `USE_PLAN_MODE` on, the model reads the relevant files, writes a Markdown plan, and waits for your `y / n / feedback`. Approved plans are saved to `.sup/plans/` and survive across sessions — load one later with `/plan`, no re-approval. Add `.sup/` to `.gitignore` to keep them untracked.
 
-- Edit a saved plan by hand at any time — it is re-read from disk whenever it is loaded.
-- In a later session, `/plan` lists saved plans (newest first) and `/plan <number>` runs one straight away — no approval step, since a saved plan is already approved. Reading it is a plain file read in the app, so it never depends on the model choosing to open the file.
-- Add `.sup/` to your project's `.gitignore` if you don't want plans tracked in git.
+## Skills
+
+Skills are reusable, on-demand instruction sets for specific tasks (like Claude Code skills). Each lives in its own folder `.sup/skills/<name>/SKILL.md`, with YAML frontmatter and a Markdown body:
+
+```markdown
+---
+name: git-review
+description: Review a git diff before committing — what to check and how to describe changes.
+---
+
+<full instructions; may reference sibling files placed next to SKILL.md>
+```
+
+Only each skill's name and `description` go into the system prompt (cheap on context). When a task matches, the model calls the `skill` tool to load the full `SKILL.md` body, then follows it — it can `read_file` any sibling files bundled in the skill folder. Skills are discovered once at startup, like `AGENTS.md`. List them with `/skills`.
 
 ## Project instructions
 
-If `AGENTS.md` is present in the working directory it is loaded automatically and appended to the system prompt at startup.
-
-## Pros
-
-- Zero runtime dependencies.
-- Plan-first by default — you approve the approach before anything runs.
-- Rejection becomes a conversation — provide feedback and the model will replan.
+If `AGENTS.md` is present in the working directory, it is appended to the system prompt at startup.
 
 ## Security
 
-- Local read-only tools (`read_file`, `glob`, `grep`) always run without confirmation. They are scoped to the current working directory.
-- Autonomous mode is on by default: the plan approval is your one checkpoint, and after it the loop runs every tool call without prompting. Set `USE_AUTONOMOUS_MODE=false` to get per-call confirmation back.
-- With autonomous mode off, network tools (`web_search`, `fetch_url`) and any mutating tool (`write_file`, `edit_file`, `run_shell`) require a `[y / n / type feedback]` prompt before each call; shell commands matching `AUTO_APPROVE_SHELL_PATTERNS` are auto-approved, everything else waits for confirmation.
+- Read-only tools (`read_file`, `glob`, `grep`) run without confirmation, scoped to the working directory.
+- Mutating (`write_file`, `edit_file`, `run_shell`) and network (`web_search`, `fetch_url`) tools require a `[y / n / feedback]` prompt — unless autonomous mode is on (you approve the plan once) or a shell command matches the allowlist.

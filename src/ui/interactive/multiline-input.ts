@@ -79,6 +79,13 @@ export class BracketedPasteTransform extends Transform {
   }
 }
 
+let sharedInputStream: BracketedPasteTransform | null = null
+
+export function getInputStream(): BracketedPasteTransform {
+  sharedInputStream ??= new BracketedPasteTransform()
+  return sharedInputStream
+}
+
 export async function readUserInput(readline: ReadlineInterface, promptText: string): Promise<string> {
   const line = await readline.question(promptText)
   return line.split(PASTE_PLACEHOLDER).join('\n')

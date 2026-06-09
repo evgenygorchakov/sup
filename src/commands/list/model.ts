@@ -1,64 +1,120 @@
+import type { SelectChoice } from '../../ui/interactive/select.ts'
 import type { CommandContext, CommandResult, SlashCommand } from '../types.ts'
+import { stdin } from 'node:process'
 import { Config } from '../../config.ts'
 import { initializeContextWindow } from '../../providers/ollama/context-window.ts'
 import { listInstalledModels } from '../../providers/ollama/models.ts'
+import { selectFromList } from '../../ui/interactive/select.ts'
 import { bold, brightGreen, gray, red } from '../../utils/colors.ts'
 
 function normalizeModelName(name: string): string {
   return name.includes(':') ? name : `${name}:latest`
 }
 
-async function run(context: CommandContext): Promise<CommandResult> {
+function isCurrentModel(model: string): boolean {
+  return normalizeModelName(model) === normalizeModelName(Config.MODEL)
+}
+
+async function loadInstalledModels(): Promise<string[] | null> {
   const result = await listInstalledModels()
 
   if (!result.ok) {
     console.warn(red(`Could not reach Ollama at ${Config.HOST}: ${result.error}.`))
-    return { kind: 'continue' }
+    return null
   }
 
-  const { models } = result
-  const current = normalizeModelName(Config.MODEL)
-  const selector = context.args[0]
-
-  if (!selector) {
-    if (models.length === 0) {
-      console.warn(gray('No models installed. Pull one with `ollama pull <name>`.'))
-      return { kind: 'continue' }
-    }
-
-    console.warn(bold(brightGreen('\nInstalled models:')))
-    models.forEach((model, index) => {
-      const marker = normalizeModelName(model) === current ? brightGreen(' (current)') : ''
-      console.warn(`  ${brightGreen(String(index + 1))}  ${model}${marker}`)
-    })
-    console.warn(gray('\nSwitch with /model <number|name>.'))
-    return { kind: 'continue' }
+  if (result.models.length === 0) {
+    console.warn(gray('No models installed. Pull one with `ollama pull <name>`.'))
+    return null
   }
 
-  const index = Number(selector)
-  const lowered = selector.toLowerCase()
-  const chosen = Number.isInteger(index) && index >= 1 && index <= models.length
-    ? models[index - 1]
-    : models.find(model => model === selector)
-      ?? models.find(model => model.toLowerCase().includes(lowered))
+  return result.models
+}
 
-  if (!chosen) {
-    console.warn(red(`No model matching "${selector}". Type /model to list installed models.`))
-    return { kind: 'continue' }
+function findRequestedModel(request: string, models: string[]): string | undefined {
+  const requestedNumber = Number(request)
+  if (Number.isInteger(requestedNumber) && requestedNumber >= 1 && requestedNumber <= models.length) {
+    return models[requestedNumber - 1]
   }
 
-  if (normalizeModelName(chosen) === current) {
-    console.warn(gray(`Already using ${chosen}.`))
-    return { kind: 'continue' }
+  const loweredRequest = request.toLowerCase()
+  return models.find(model => model === request)
+    ?? models.find(model => model.toLowerCase().includes(loweredRequest))
+}
+
+async function applyModel(model: string): Promise<void> {
+  if (isCurrentModel(model)) {
+    console.warn(gray(`Already using ${model}.`))
+    return
   }
 
-  Config.MODEL = chosen
+  Config.MODEL = model
   await initializeContextWindow()
+  console.warn(gray(`Switched to ${model}.`))
+}
+
+function printInstalledModels(models: string[]): void {
+  console.warn(bold(brightGreen('\nInstalled models:')))
+  models.forEach((model, index) => {
+    const marker = isCurrentModel(model) ? brightGreen(' (current)') : ''
+    console.warn(`  ${brightGreen(String(index + 1))}  ${model}${marker}`)
+  })
+  console.warn(gray('\nSwitch with /model <number|name>.'))
+}
+
+export async function changeModelInteractive(): Promise<void> {
+  const models = await loadInstalledModels()
+  if (!models) {
+    return
+  }
+
+  const currentIndex = models.findIndex(isCurrentModel)
+  const choices: SelectChoice[] = models.map(model => ({
+    label: model,
+    hint: isCurrentModel(model) ? '(current)' : undefined,
+  }))
+
+  const selectedIndex = await selectFromList('Select model', choices, Math.max(currentIndex, 0))
+  if (selectedIndex === null) {
+    return
+  }
+
+  await applyModel(models[selectedIndex])
+}
+
+async function run(context: CommandContext): Promise<CommandResult> {
+  const request = context.args[0]
+
+  if (!request) {
+    if (stdin.isTTY) {
+      await changeModelInteractive()
+    }
+    else {
+      const models = await loadInstalledModels()
+      if (models) {
+        printInstalledModels(models)
+      }
+    }
+    return { kind: 'continue' }
+  }
+
+  const models = await loadInstalledModels()
+  if (!models) {
+    return { kind: 'continue' }
+  }
+
+  const requestedModel = findRequestedModel(request, models)
+  if (!requestedModel) {
+    console.warn(red(`No model matching "${request}". Type /model to list installed models.`))
+    return { kind: 'continue' }
+  }
+
+  await applyModel(requestedModel)
   return { kind: 'continue' }
 }
 
 export const modelCommand: SlashCommand = {
   name: 'model',
-  description: 'List installed models, or switch to one: /model [number|name].',
+  description: 'Switch model: /model opens a menu, or /model <number|name>.',
   run,
 }

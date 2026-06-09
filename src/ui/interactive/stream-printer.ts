@@ -1,6 +1,6 @@
 import process from 'node:process'
-import { Config } from '../config.ts'
-import { gray } from '../utils/colors.ts'
+import { Config } from '../../config.ts'
+import { gray } from '../../utils/colors.ts'
 
 export interface StreamPart {
   content?: string
@@ -15,8 +15,6 @@ export interface StreamPrinter {
   didPrintContent: () => boolean
 }
 
-const showThinking = Config.SHOW_THINKING
-
 export function createStreamPrinter(colorize: (text: string) => string): StreamPrinter {
   let printedContent = false
   let printedThinking = false
@@ -25,7 +23,7 @@ export function createStreamPrinter(colorize: (text: string) => string): StreamP
 
   const onStreamPart: OnStreamPart = (part: StreamPart) => {
     if (part.thinking) {
-      if (!showThinking) {
+      if (!Config.SHOW_THINKING) {
         if (!hinted) {
           hinted = true
           printedThinking = true

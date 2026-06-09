@@ -1,12 +1,12 @@
 import type { Interface as ReadlineInterface } from 'node:readline/promises'
-import type { ChatProvider } from '../providers/types.ts'
-import type { Message, ToolDefinition } from '../types.ts'
+import type { ChatProvider } from '../../providers/types.ts'
+import type { Message, ToolDefinition } from '../../types.ts'
 import process from 'node:process'
 
-import { Config } from '../config.ts'
-import { savePlan } from '../plan-store.ts'
-import { readOnlyToolDefinitions, runTool, toolsByName } from '../tools/registry.ts'
-import { bold, brightBlue, brightGreen, gray, yellow } from '../utils/colors.ts'
+import { Config } from '../../config.ts'
+import { savePlan } from '../../plan/store.ts'
+import { readOnlyToolDefinitions, runTool, toolsByName } from '../../tools/registry.ts'
+import { bold, brightBlue, brightGreen, gray, yellow } from '../../utils/colors.ts'
 import { renderToolHeader } from './render-tool-call.ts'
 import { createStreamPrinter } from './stream-printer.ts'
 

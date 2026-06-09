@@ -1,5 +1,5 @@
 import type { Message, Role, ToolCall, ToolDefinition } from '../../types.ts'
-import type { OnStreamPart } from '../../ui/stream-printer.ts'
+import type { OnStreamPart } from '../../ui/interactive/stream-printer.ts'
 import { Config, getThinkingModeFor } from '../../config.ts'
 import { getContextWindowTokenLimit, recordContextUsage } from './context-window.ts'
 

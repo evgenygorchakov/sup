@@ -1,10 +1,9 @@
-import type { Tool, ToolCall } from '../types.ts'
-import { Config } from '../config.ts'
-import { bold, gray, red, yellow } from '../utils/colors.ts'
+import type { Tool, ToolCall } from '../../types.ts'
+import { Config } from '../../config.ts'
+import { bold, gray, red, yellow } from '../../utils/colors.ts'
 
 const MAX_HEADER_VALUE_LENGTH = 80
 const MAX_RESULT_LINES = 15
-const verboseOutput = Config.VERBOSE_TOOL_OUTPUT
 
 function shortenScalar(value: unknown): string {
   if (typeof value === 'string') {
@@ -60,11 +59,11 @@ function truncateByLines(text: string, maxLines: number): string {
 
 export function renderToolResult(tool: Tool | undefined, call: ToolCall, result: string): string {
   if (result.startsWith('ERROR:')) {
-    const errorBody = verboseOutput ? result : truncateByLines(result, MAX_RESULT_LINES)
+    const errorBody = Config.VERBOSE_TOOL_OUTPUT ? result : truncateByLines(result, MAX_RESULT_LINES)
     return red(withLeafPrefix(errorBody))
   }
 
-  if (verboseOutput) {
+  if (Config.VERBOSE_TOOL_OUTPUT) {
     return gray(withLeafPrefix(result))
   }
 

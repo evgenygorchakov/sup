@@ -4,13 +4,13 @@ import type { Message, ToolCall } from './types.ts'
 import process from 'node:process'
 
 import { Config } from './config.ts'
-import { isPlanModeActive, setPlanModeActive } from './plan-mode-state.ts'
+import { isPlanModeActive, setPlanModeActive } from './plan/mode-state.ts'
 import { canAutoApproveCall } from './tools/auto-approve.ts'
 import { runTool, toolDefinitions, toolsByName } from './tools/registry.ts'
-import { CONFIRM_KIND, confirmToolCalls } from './ui/confirm.ts'
-import { askForPlanApproval } from './ui/plan-approval.ts'
-import { renderToolHeader } from './ui/render-tool-call.ts'
-import { createStreamPrinter } from './ui/stream-printer.ts'
+import { CONFIRM_KIND, confirmToolCalls } from './ui/interactive/confirm.ts'
+import { askForPlanApproval } from './ui/interactive/plan-approval.ts'
+import { renderToolHeader } from './ui/interactive/render-tool-call.ts'
+import { createStreamPrinter } from './ui/interactive/stream-printer.ts'
 import { red } from './utils/colors.ts'
 
 const MAX_TOOL_ITERATIONS = 10

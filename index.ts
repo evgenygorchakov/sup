@@ -8,12 +8,14 @@ import { resolve } from 'node:path'
 import process, { stdin, stdout } from 'node:process'
 import { createInterface } from 'node:readline/promises'
 import { run } from './src/agent.ts'
-import { runSlashCommand } from './src/commands/registry.ts'
-import { isPlanModeActive } from './src/plan-mode-state.ts'
+import { commands, runSlashCommand } from './src/commands/registry.ts'
+import { isPlanModeActive } from './src/plan/mode-state.ts'
 import { getProvider } from './src/providers/index.ts'
 import { getContextWindowTokenLimit, getLastContextUsage, initializeContextWindow } from './src/providers/ollama/context-window.ts'
+import { buildSkillsPromptSection, skills } from './src/skills/registry.ts'
 import { SYSTEM_PROMPT } from './src/system-prompt.ts'
-import { BracketedPasteTransform, DISABLE_BRACKETED_PASTE, ENABLE_BRACKETED_PASTE, readUserInput } from './src/ui/multiline-input.ts'
+import { createSlashCompleter, installCommandHints } from './src/ui/interactive/command-hints.ts'
+import { DISABLE_BRACKETED_PASTE, ENABLE_BRACKETED_PASTE, getInputStream, readUserInput } from './src/ui/interactive/multiline-input.ts'
 import { bold, brightGreen, gray, red, yellow } from './src/utils/colors.ts'
 
 const PROMPT_MARKER = bold(brightGreen('> '))
@@ -56,14 +58,18 @@ async function main() {
   const provider = getProvider()
 
   const interactive = Boolean(stdin.isTTY)
-  const inputStream = new BracketedPasteTransform()
+  const inputStream = getInputStream()
   stdin.pipe(inputStream)
-  const readline = createInterface({ input: inputStream, output: stdout, terminal: interactive })
+  const readline = createInterface({ input: inputStream, output: stdout, terminal: interactive, completer: createSlashCompleter(commands) })
 
   if (interactive) {
     stdin.setRawMode(true)
     stdout.write(ENABLE_BRACKETED_PASTE)
   }
+
+  const commandHints = interactive
+    ? installCommandHints(inputStream, readline as unknown as { line?: string, cursor?: number }, commands)
+    : null
 
   let cleanedUp = false
   function cleanup(): void {
@@ -90,12 +96,19 @@ async function main() {
   })
 
   const projectInstructions = await loadProjectInstructions()
-  const systemContent = projectInstructions
-    ? `${SYSTEM_PROMPT}\n\nProject instructions (from AGENTS.md):\n${projectInstructions}`
-    : SYSTEM_PROMPT
+  const systemContent = [
+    SYSTEM_PROMPT,
+    buildSkillsPromptSection(),
+    projectInstructions ? `Project instructions (from AGENTS.md):\n${projectInstructions}` : '',
+  ]
+    .filter(Boolean)
+    .join('\n\n')
 
   const messages: Message[] = [{ role: 'system', content: systemContent }]
 
+  if (skills.length > 0) {
+    console.warn(gray(`Loaded ${skills.length} ${skills.length === 1 ? 'skill' : 'skills'}`))
+  }
   if (projectInstructions) {
     console.warn(gray('Loaded AGENTS.md'))
   }
@@ -111,12 +124,15 @@ async function main() {
     while (true) {
       let userInput: string
 
+      commandHints?.setActive(true)
       try {
         userInput = (await readUserInput(readline, `\n${contextStatusLine()}${planModeIndicator()}${PROMPT_MARKER}`)).trim()
       }
-
       catch {
         break
+      }
+      finally {
+        commandHints?.setActive(false)
       }
 
       if (!userInput) {

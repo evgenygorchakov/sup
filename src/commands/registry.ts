@@ -6,14 +6,22 @@ import { helpCommand } from './list/help.ts'
 import { modelCommand } from './list/model.ts'
 import { planModeCommand } from './list/plan-mode.ts'
 import { planCommand } from './list/plan.ts'
+import { showThinkingCommand } from './list/show-thinking.ts'
+import { skillsCommand } from './list/skills.ts'
+import { thinkingCommand } from './list/thinking.ts'
+import { verboseCommand } from './list/verbose.ts'
 
-const commands: SlashCommand[] = [
+export const commands: SlashCommand[] = [
   exitCommand,
   helpCommand,
   clearCommand,
   modelCommand,
   planCommand,
   planModeCommand,
+  thinkingCommand,
+  showThinkingCommand,
+  verboseCommand,
+  skillsCommand,
 ]
 
 const commandsByName = new Map(commands.map(command => [command.name, command]))

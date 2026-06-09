@@ -1,7 +1,8 @@
 import type { Tool, ToolCall, ToolDefinition } from '../types.ts'
 
 import { Config } from '../config.ts'
-import { renderToolResult } from '../ui/render-tool-call.ts'
+import { skills } from '../skills/registry.ts'
+import { renderToolResult } from '../ui/interactive/render-tool-call.ts'
 import { red } from '../utils/colors.ts'
 import { editFile } from './list/edit-file.ts'
 import { fetchUrl } from './list/fetch-url.ts'
@@ -9,6 +10,7 @@ import { glob } from './list/glob.ts'
 import { grep } from './list/grep.ts'
 import { readFile } from './list/read-file.ts'
 import { runShell } from './list/run-shell.ts'
+import { skill } from './list/skill.ts'
 import { webSearch } from './list/web-search.ts'
 import { writeFile } from './list/write-file.ts'
 
@@ -21,6 +23,7 @@ const allTools: Tool[] = [
   glob,
   webSearch,
   fetchUrl,
+  ...(skills.length > 0 ? [skill] : []),
 ]
 
 const availableTools: Tool[] = Config.USE_READ_ONLY_MODE

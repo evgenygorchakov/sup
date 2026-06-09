@@ -1,8 +1,8 @@
 import type { Interface as ReadlineInterface } from 'node:readline/promises'
-import type { ToolCall } from '../types.ts'
+import type { ToolCall } from '../../types.ts'
 
-import { toolsByName } from '../tools/registry.ts'
-import { bold, brightBlue, brightGreen, yellow } from '../utils/colors.ts'
+import { toolsByName } from '../../tools/registry.ts'
+import { bold, brightBlue, brightGreen, yellow } from '../../utils/colors.ts'
 import { renderToolHeader } from './render-tool-call.ts'
 
 export const CONFIRM_KIND = {
