@@ -12,7 +12,7 @@ import { runShell } from './list/run-shell.ts'
 import { webSearch } from './list/web-search.ts'
 import { writeFile } from './list/write-file.ts'
 
-const availableTools: Tool[] = [
+const allTools: Tool[] = [
   ...(Config.USE_SHELL_TOOL ? [runShell] : []),
   readFile,
   writeFile,
@@ -22,6 +22,10 @@ const availableTools: Tool[] = [
   webSearch,
   fetchUrl,
 ]
+
+const availableTools: Tool[] = Config.USE_READ_ONLY_MODE
+  ? allTools.filter(tool => !tool.mutates)
+  : allTools
 
 export const toolDefinitions: ToolDefinition[] = availableTools.map(tool => tool.definition)
 

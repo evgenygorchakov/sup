@@ -76,4 +76,5 @@ export const writeFile: Tool = {
   },
   primaryArgs: ['path', 'overwrite'],
   accentColor: blue,
+  mutates: true,
 }

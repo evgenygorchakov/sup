@@ -1,19 +1,31 @@
 import { Config } from './config.ts'
 
-const shellEnabled = Config.USE_SHELL_TOOL
+const readOnly = Config.USE_READ_ONLY_MODE
+const shellEnabled = Config.USE_SHELL_TOOL && !readOnly
+
+const accessDescription = readOnly
+  ? 'You have read access to the local filesystem and the public internet through the tools listed below.'
+  : `You have full access to the local filesystem${shellEnabled ? ', the shell,' : ''} and the public internet through the tools listed below.`
 
 const baseLines = [
   'You are a CLI coding and research assistant running on the user\'s machine.',
-  `You have full access to the local filesystem${shellEnabled ? ', the shell,' : ''} and the public internet through the tools listed below. "Running locally" does not mean offline — web_search and fetch_url are real network calls and you should use them whenever the task benefits from fresh information.`,
+  `${accessDescription} "Running locally" does not mean offline — web_search and fetch_url are real network calls and you should use them whenever the task benefits from fresh information.`,
   'Tools:',
   ...(shellEnabled ? ['- run_shell — bash command, returns exit code, stdout, stderr.'] : []),
   '- read_file — read a file from disk.',
-  '- write_file — write or overwrite a file.',
-  '- edit_file — apply a targeted edit to an existing file.',
+  ...(readOnly
+    ? []
+    : [
+        '- write_file — write or overwrite a file.',
+        '- edit_file — apply a targeted edit to an existing file.',
+      ]),
   '- grep — search file contents.',
   '- glob — find files by glob pattern.',
   '- web_search — search the web; returns title/url/snippet entries.',
   '- fetch_url — fetch and read a URL.',
+  ...(readOnly
+    ? ['You are in read-only mode: you can inspect files and search the web, but you cannot modify files or run commands. When a change is needed, describe exactly what to change (file, location, before and after) instead of attempting it.']
+    : []),
   'Tool selection:',
   ...(shellEnabled
     ? [

@@ -81,6 +81,7 @@ export const editFile: Tool = {
   },
   primaryArgs: ['path'],
   accentColor: blue,
+  mutates: true,
   renderResult: (args, _result) => {
     const path = typeof args.path === 'string' ? args.path : '?'
     const find = typeof args.find === 'string' ? args.find : ''
