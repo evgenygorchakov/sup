@@ -36,7 +36,7 @@ export const Config: ConfigShape = {
   HOST: getEnvString('HOST', 'http://host.docker.internal:11434'),
   MODEL: getEnvString('MODEL', 'qwen3.6'),
   LANGUAGE: getEnvString('LANGUAGE', 'russian'),
-  USE_PLAN_MODE: getEnvBoolean('USE_PLAN_MODE', true),
+  USE_PLAN_MODE: getEnvBoolean('USE_PLAN_MODE', false),
   USE_READ_ONLY_MODE: getEnvBoolean('USE_READ_ONLY_MODE', false),
   USE_SHELL_TOOL: getEnvBoolean('USE_SHELL_TOOL', false),
   USE_NATIVE_OLLAMA_TOOLS: getEnvBoolean('USE_NATIVE_OLLAMA_TOOLS', true),
