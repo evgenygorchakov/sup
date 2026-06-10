@@ -6,7 +6,10 @@ type ResolvedPath = | { ok: true, absolute: string } | { ok: false, error: strin
 
 const OUTPUT_CHAR_LIMIT = 20_000
 
+// Skipped only while recursing: an explicit search path (or read_file) inside
+// one of these still works.
 export const IGNORED_DIRECTORY_NAMES = new Set([
+  'node_modules',
   '.git',
   '.ssh',
   '.aws',
@@ -57,7 +60,11 @@ async function realPathOfPossiblyMissing(absolute: string): Promise<string> {
     return await realpath(absolute)
   }
   catch {
-    const parentReal = await realpath(dirname(absolute))
+    const parent = dirname(absolute)
+    if (parent === absolute) {
+      return absolute
+    }
+    const parentReal = await realPathOfPossiblyMissing(parent)
     return join(parentReal, basename(absolute))
   }
 }

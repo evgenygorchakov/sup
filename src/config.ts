@@ -54,7 +54,9 @@ export const Config: ConfigShape = {
   AUTONOMOUS_STEP_BUDGET: getEnvNumber('AUTONOMOUS_STEP_BUDGET', 100),
   AUTONOMOUS_REPEAT_THRESHOLD: getEnvNumber('AUTONOMOUS_REPEAT_THRESHOLD', 3),
   AUTO_APPROVE_SHELL_PATTERNS: [
-    /^(ls|pwd|cat|head|tail|wc|file|stat|which|echo|date|uname|whoami|id|env|tree)(\s|$)/,
+    // cat/head/tail/env deliberately excluded: they can dump sensitive files
+    // or secrets from outside the working directory without confirmation.
+    /^(ls|pwd|wc|file|stat|which|echo|date|uname|whoami|id|tree)(\s|$)/,
     /^git (status|diff|log|show|branch|remote|rev-parse|blame|ls-files)(\s|$)/,
     /^(node|tsc|eslint|npm|pnpm|yarn|deno|bun) --version$/,
   ],
@@ -62,14 +64,21 @@ export const Config: ConfigShape = {
 
 export type ThinkingMode = false | true | 'low' | 'medium' | 'high'
 
+function baseModelName(model: string): string {
+  const colonIndex = model.indexOf(':')
+  return colonIndex === -1 ? model : model.slice(0, colonIndex)
+}
+
 export function getThinkingModeFor(model: string): ThinkingMode {
   if (!Config.USE_THINKING) {
     return false
   }
 
-  if (model === 'gpt-oss') {
+  const baseName = baseModelName(model)
+
+  if (baseName === 'gpt-oss') {
     return 'high'
   }
 
-  return THINKING_MODELS.has(model)
+  return THINKING_MODELS.has(model) || THINKING_MODELS.has(baseName)
 }

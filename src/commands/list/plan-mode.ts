@@ -1,6 +1,7 @@
 import type { SelectChoice } from '../../ui/interactive/select.ts'
 import type { CommandContext, CommandResult, SlashCommand } from '../types.ts'
 import { stdin } from 'node:process'
+import { Config } from '../../config.ts'
 import { isPlanModeActive, setPlanModeActive } from '../../plan/mode-state.ts'
 import { selectFromList } from '../../ui/interactive/select.ts'
 import { gray, red } from '../../utils/colors.ts'
@@ -15,6 +16,11 @@ const PLAN_MODE_CHOICES: PlanModeChoice[] = [
 ]
 
 function setPlanMode(enabled: boolean): void {
+  if (enabled && Config.USE_READ_ONLY_MODE) {
+    console.warn(red('Plan mode is unavailable in read-only mode: an approved plan could not be executed.'))
+    return
+  }
+
   setPlanModeActive(enabled)
   console.warn(gray(`Plan mode is now ${enabled ? 'on' : 'off'}.`))
 }

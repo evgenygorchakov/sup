@@ -2,7 +2,9 @@ import type { Interface as ReadlineInterface } from 'node:readline/promises'
 import { Buffer } from 'node:buffer'
 import { Transform } from 'node:stream'
 
-export const PASTE_PLACEHOLDER = ''
+// U+E000 (private use): stands in for newlines inside a paste so readline
+// sees a single line; readUserInput converts it back to '\n'.
+export const PASTE_PLACEHOLDER = '\uE000'
 
 export const ENABLE_BRACKETED_PASTE = '\x1B[?2004h'
 export const DISABLE_BRACKETED_PASTE = '\x1B[?2004l'
@@ -43,7 +45,7 @@ export class BracketedPasteTransform extends Transform {
 
       if (buffer[index] === ESC) {
         if (index + marker.length > buffer.length) {
-          if (!final) {
+          if (!final && marker.subarray(0, buffer.length - index).equals(buffer.subarray(index))) {
             break
           }
         }

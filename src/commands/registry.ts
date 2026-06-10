@@ -28,7 +28,7 @@ const commandsByName = new Map(commands.map(command => [command.name, command]))
 
 export async function runSlashCommand(input: string, env: CommandEnv): Promise<CommandResult> {
   const parts = input.slice(1).trim().split(/\s+/)
-  const name = (parts[0] ?? '').toLowerCase()
+  const name = (parts[0] ?? '').toLowerCase() || 'help'
   const args = parts.slice(1)
   const command = commandsByName.get(name)
 

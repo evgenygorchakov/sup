@@ -32,7 +32,7 @@ const availableTools: Tool[] = Config.USE_READ_ONLY_MODE
 
 export const toolDefinitions: ToolDefinition[] = availableTools.map(tool => tool.definition)
 
-export const readOnlyToolDefinitions: ToolDefinition[] = availableTools
+export const autoApprovedToolDefinitions: ToolDefinition[] = availableTools
   .filter(tool => tool.autoApprove === true)
   .map(tool => tool.definition)
 

@@ -25,6 +25,16 @@ function buildBatchSignature(calls: ToolCall[]): string {
     .join('|')
 }
 
+function pushRejectedToolResults(messages: Message[], calls: ToolCall[]): void {
+  for (const call of calls) {
+    messages.push({
+      role: 'tool',
+      content: 'Rejected by user. Do not run this command.',
+      tool_call_id: call.id,
+    })
+  }
+}
+
 function lastBatchesAreIdentical(signatures: string[], threshold: number): boolean {
   if (signatures.length < threshold) {
     return false
@@ -108,19 +118,13 @@ export async function run(provider: ChatProvider, messages: Message[], readline:
       const decision = await confirmToolCalls(reply.tool_calls, reply.content, readline)
 
       if (decision.kind === CONFIRM_KIND.quit) {
+        pushRejectedToolResults(messages, reply.tool_calls)
         console.error(red('Cancelled by user.'))
         return
       }
 
       if (decision.kind === CONFIRM_KIND.replan) {
-        for (const call of reply.tool_calls) {
-          messages.push({
-            role: 'tool',
-            content: 'Rejected by user. Do not run this command.',
-            tool_call_id: call.id,
-          })
-        }
-
+        pushRejectedToolResults(messages, reply.tool_calls)
         messages.push({ role: 'user', content: decision.feedback })
         continue
       }

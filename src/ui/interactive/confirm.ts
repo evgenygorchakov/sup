@@ -29,16 +29,20 @@ export async function confirmToolCalls(calls: ToolCall[], fallbackIntent: string
     console.warn(renderToolHeader(call, toolsByName[call.function.name]))
   }
 
-  const userAnswer = (await readline.question(brightGreen('\n[y / n / type feedback] '))).trim()
-  const loweredAnswer = userAnswer.toLowerCase()
+  while (true) {
+    const userAnswer = (await readline.question(brightGreen('\n[y / n / type feedback] '))).trim()
+    const loweredAnswer = userAnswer.toLowerCase()
 
-  if (loweredAnswer === 'y') {
-    return { kind: CONFIRM_KIND.approve }
+    if (loweredAnswer === 'y') {
+      return { kind: CONFIRM_KIND.approve }
+    }
+
+    if (loweredAnswer === 'n') {
+      return { kind: CONFIRM_KIND.quit }
+    }
+
+    if (userAnswer) {
+      return { kind: CONFIRM_KIND.replan, feedback: userAnswer }
+    }
   }
-
-  if (!userAnswer || loweredAnswer === 'n') {
-    return { kind: CONFIRM_KIND.quit }
-  }
-
-  return { kind: CONFIRM_KIND.replan, feedback: userAnswer }
 }

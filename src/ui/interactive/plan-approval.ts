@@ -5,25 +5,27 @@ import process from 'node:process'
 
 import { Config } from '../../config.ts'
 import { savePlan } from '../../plan/store.ts'
-import { readOnlyToolDefinitions, runTool, toolsByName } from '../../tools/registry.ts'
+import { autoApprovedToolDefinitions, runTool, toolsByName } from '../../tools/registry.ts'
 import { bold, brightBlue, brightGreen, gray, yellow } from '../../utils/colors.ts'
 import { renderToolHeader } from './render-tool-call.ts'
 import { createStreamPrinter } from './stream-printer.ts'
 
 const MAX_PLAN_EXPLORATION_STEPS = 8
 
+const planToolNames = new Set(autoApprovedToolDefinitions.map(definition => definition.function.name))
+const planToolNamesList = [...planToolNames].join(', ')
+
 const PLAN_REQUEST_MESSAGE = [
-  `Before doing anything, produce an action plan as Markdown in ${Config.LANGUAGE}.`,
-  'First investigate with read_file, grep, and glob so the plan is grounded in the real code — do not plan blind. These are the only tools available right now; do not write, edit, or run shell yet.',
-  'When you have enough context, output the plan with these sections (translate the headings into that language):',
+  `Before doing anything, produce an action plan as Markdown. Write the plan, including section headings, in ${Config.LANGUAGE}.`,
+  `First investigate with ${planToolNamesList} so the plan is grounded in the real code — do not plan blind. You have at most ${MAX_PLAN_EXPLORATION_STEPS} rounds of tool calls for investigation — start with the most relevant files. These are the only tools available right now; do not write, edit, or run shell yet.`,
+  'When you have enough context, output the plan with these sections:',
   '- "Context" — what is being asked and why, plus the key facts you found while investigating.',
   '- "Steps" — a numbered list of concrete actions. Each step names the specific files, functions, or symbols it changes and how, not a vague action.',
   '- "Affected files" — files/paths you expect to touch (omit if unknown).',
   '- "Verification" — concrete commands or checks that prove the result works.',
+  'Do not ask the user questions. If something is ambiguous, make a reasonable assumption and record it in the plan under an "Assumptions" section.',
   'Be specific and complete, not terse. The final plan message must contain only the Markdown plan: no preamble, no closing remarks, no tool calls. Wait for approval.',
 ].join('\n')
-
-const readOnlyNames = new Set(readOnlyToolDefinitions.map(definition => definition.function.name))
 
 async function streamPlanReply(provider: ChatProvider, messages: Message[], tools: ToolDefinition[]): Promise<Message> {
   const { onStreamPart, didPrintAnything } = createStreamPrinter(yellow)
@@ -43,7 +45,7 @@ async function buildPlan(provider: ChatProvider, messages: Message[]): Promise<M
   const planMessages: Message[] = [...messages, { role: 'user', content: PLAN_REQUEST_MESSAGE }]
 
   for (let step = 0; step < MAX_PLAN_EXPLORATION_STEPS; step += 1) {
-    const reply = await streamPlanReply(provider, planMessages, readOnlyToolDefinitions)
+    const reply = await streamPlanReply(provider, planMessages, autoApprovedToolDefinitions)
     planMessages.push(reply)
 
     if (!reply.tool_calls?.length) {
@@ -51,10 +53,10 @@ async function buildPlan(provider: ChatProvider, messages: Message[]): Promise<M
     }
 
     for (const call of reply.tool_calls) {
-      if (!readOnlyNames.has(call.function.name)) {
+      if (!planToolNames.has(call.function.name)) {
         planMessages.push({
           role: 'tool',
-          content: 'Only read_file, grep, and glob are available while planning. Do not call this tool now.',
+          content: `Only ${planToolNamesList} are available while planning. Do not call this tool now.`,
           tool_call_id: call.id,
         })
         continue
@@ -78,14 +80,17 @@ export async function askForPlanApproval(provider: ChatProvider, messages: Messa
 
     const plan = await buildPlan(provider, messages)
 
-    const userAnswer = (await readline.question(brightGreen('\n[y / n / type feedback] '))).trim()
+    let userAnswer = ''
+    while (!userAnswer) {
+      userAnswer = (await readline.question(brightGreen('\n[y / n / type feedback] '))).trim()
+    }
     const loweredAnswer = userAnswer.toLowerCase()
 
     if (loweredAnswer === 'y') {
       messages.push(plan)
       messages.push({
         role: 'user',
-        content: 'The plan above is approved. Begin executing it now, starting with the first step, and use tools as needed.',
+        content: 'The plan above is approved. All tools are available now, including write_file and edit_file. Execute the steps in order, starting with step 1. After the last step, run the checks from the "Verification" section.',
       })
 
       const savedPath = await savePlan(plan.content, userRequest)
@@ -96,7 +101,7 @@ export async function askForPlanApproval(provider: ChatProvider, messages: Messa
       return 'proceed'
     }
 
-    if (!userAnswer || loweredAnswer === 'n') {
+    if (loweredAnswer === 'n') {
       return 'quit'
     }
 

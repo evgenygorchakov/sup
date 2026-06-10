@@ -31,15 +31,22 @@ async function loadInstalledModels(): Promise<string[] | null> {
   return result.models
 }
 
-function findRequestedModel(request: string, models: string[]): string | undefined {
-  const requestedNumber = Number(request)
-  if (Number.isInteger(requestedNumber) && requestedNumber >= 1 && requestedNumber <= models.length) {
-    return models[requestedNumber - 1]
+function findRequestedModels(request: string, models: string[]): string[] {
+  if (/^\d+$/.test(request)) {
+    const requestedNumber = Number(request)
+    if (requestedNumber >= 1 && requestedNumber <= models.length) {
+      return [models[requestedNumber - 1]]
+    }
+    return []
+  }
+
+  const exact = models.find(model => model === request)
+  if (exact) {
+    return [exact]
   }
 
   const loweredRequest = request.toLowerCase()
-  return models.find(model => model === request)
-    ?? models.find(model => model.toLowerCase().includes(loweredRequest))
+  return models.filter(model => model.toLowerCase().includes(loweredRequest))
 }
 
 async function applyModel(model: string): Promise<void> {
@@ -103,13 +110,19 @@ async function run(context: CommandContext): Promise<CommandResult> {
     return { kind: 'continue' }
   }
 
-  const requestedModel = findRequestedModel(request, models)
-  if (!requestedModel) {
+  const requestedModels = findRequestedModels(request, models)
+
+  if (requestedModels.length === 0) {
     console.warn(red(`No model matching "${request}". Type /model to list installed models.`))
     return { kind: 'continue' }
   }
 
-  await applyModel(requestedModel)
+  if (requestedModels.length > 1) {
+    console.warn(red(`"${request}" matches ${requestedModels.length} models: ${requestedModels.join(', ')}. Be more specific.`))
+    return { kind: 'continue' }
+  }
+
+  await applyModel(requestedModels[0])
   return { kind: 'continue' }
 }
 

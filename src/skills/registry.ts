@@ -64,7 +64,7 @@ export function buildSkillsPromptSection(): string {
   }
 
   return [
-    'Skills:',
+    '# Skills',
     '- Skills are reusable, on-demand instruction sets for specific tasks.',
     '- When the current task matches a skill below, call the `skill` tool with its name to load the full instructions BEFORE proceeding, then follow them.',
     ...skills.map(skill => `- ${skill.name} — ${skill.description}`),

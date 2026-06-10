@@ -99,7 +99,7 @@ async function main() {
   const systemContent = [
     SYSTEM_PROMPT,
     buildSkillsPromptSection(),
-    projectInstructions ? `Project instructions (from AGENTS.md):\n${projectInstructions}` : '',
+    projectInstructions ? `# Project instructions (from AGENTS.md)\n${projectInstructions}` : '',
   ]
     .filter(Boolean)
     .join('\n\n')

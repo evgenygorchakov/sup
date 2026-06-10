@@ -1,9 +1,9 @@
 import type { Tool } from '../../types.ts'
 import { Buffer } from 'node:buffer'
 import { mkdir, stat, writeFile as writeToDisk } from 'node:fs/promises'
-import { dirname } from 'node:path'
+import { basename, dirname } from 'node:path'
 import { blue } from '../../utils/colors.ts'
-import { resolveInsideWorkingDirectory } from './shared.ts'
+import { isSensitiveFileName, resolveInsideWorkingDirectory } from './shared.ts'
 
 async function fileExists(absolute: string): Promise<boolean> {
   try {
@@ -58,6 +58,10 @@ export const writeFile: Tool = {
     const resolved = await resolveInsideWorkingDirectory(path)
     if (!resolved.ok) {
       return `ERROR: ${resolved.error}`
+    }
+
+    if (isSensitiveFileName(basename(resolved.absolute))) {
+      return `ERROR: refused to write sensitive file "${path}"`
     }
 
     if (!overwrite && await fileExists(resolved.absolute)) {

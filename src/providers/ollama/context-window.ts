@@ -28,6 +28,10 @@ export function getLastContextUsage(): ContextUsage | null {
   return lastContextUsage
 }
 
+export function resetContextUsage(): void {
+  lastContextUsage = null
+}
+
 function readModelContextLength(modelInfo: Record<string, unknown>): number | null {
   const contextLengthKey = Object.keys(modelInfo).find(key => key.endsWith('.context_length'))
   if (!contextLengthKey) {
@@ -44,6 +48,10 @@ function reportFallback(reason: string): void {
 
 export async function initializeContextWindow(): Promise<void> {
   const userRequestedLimit = Config.CONTEXT_WINDOW_TOKEN_LIMIT
+
+  // Start from the configured limit so a failed detection below never leaves
+  // a limit inherited from a previously selected model.
+  resolvedContextWindowTokenLimit = userRequestedLimit
 
   let response: Response
   try {
