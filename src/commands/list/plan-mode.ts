@@ -32,7 +32,7 @@ export async function changePlanModeInteractive(): Promise<void> {
     return
   }
 
-  setPlanMode(PLAN_MODE_CHOICES[selectedIndex].enabled)
+  setPlanMode(PLAN_MODE_CHOICES[selectedIndex]!.enabled)
 }
 
 async function run(context: CommandContext): Promise<CommandResult> {

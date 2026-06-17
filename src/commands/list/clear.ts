@@ -1,4 +1,5 @@
 import type { SlashCommand } from '../types.ts'
+import { clearActivePlan } from '../../plan/active-plan.ts'
 import { resetContextUsage } from '../../providers/ollama/context-window.ts'
 import { gray } from '../../utils/colors.ts'
 
@@ -8,6 +9,7 @@ export const clearCommand: SlashCommand = {
   run: (context) => {
     context.messages.length = 1
     resetContextUsage()
+    clearActivePlan()
     console.warn(gray('Conversation cleared.'))
     return { kind: 'continue' }
   },

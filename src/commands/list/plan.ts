@@ -1,4 +1,5 @@
 import type { CommandContext, CommandResult, SlashCommand } from '../types.ts'
+import { setActivePlan } from '../../plan/active-plan.ts'
 import { formatTimestamp, listPlans, readPlanContent } from '../../plan/store.ts'
 import { bold, brightGreen, gray, red } from '../../utils/colors.ts'
 
@@ -40,6 +41,7 @@ async function run(context: CommandContext): Promise<CommandResult> {
     return { kind: 'continue' }
   }
 
+  setActivePlan(content)
   context.messages.push({
     role: 'user',
     content: `Execute the following plan now, step by step, using tools as needed:\n\n${content}`,

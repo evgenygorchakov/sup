@@ -4,7 +4,9 @@ import type { Message, ToolDefinition } from '../../types.ts'
 import process from 'node:process'
 
 import { Config } from '../../config.ts'
+import { setActivePlan } from '../../plan/active-plan.ts'
 import { savePlan } from '../../plan/store.ts'
+import { canAutoApproveCall } from '../../tools/auto-approve.ts'
 import { autoApprovedToolDefinitions, runTool, toolsByName } from '../../tools/registry.ts'
 import { bold, brightBlue, brightGreen, gray, yellow } from '../../utils/colors.ts'
 import { renderToolHeader } from './render-tool-call.ts'
@@ -12,12 +14,19 @@ import { createStreamPrinter } from './stream-printer.ts'
 
 const MAX_PLAN_EXPLORATION_STEPS = 8
 
-const planToolNames = new Set(autoApprovedToolDefinitions.map(definition => definition.function.name))
+const planShellTool = toolsByName.run_shell
+const planShellEnabled = planShellTool !== undefined
+
+const planToolDefinitions = [
+  ...autoApprovedToolDefinitions,
+  ...(planShellTool === undefined ? [] : [planShellTool.definition]),
+]
+const planToolNames = new Set(planToolDefinitions.map(definition => definition.function.name))
 const planToolNamesList = [...planToolNames].join(', ')
 
 const PLAN_REQUEST_MESSAGE = [
   `Before doing anything, produce an action plan as Markdown. Write the plan, including section headings, in ${Config.LANGUAGE}.`,
-  `First investigate with ${planToolNamesList} so the plan is grounded in the real code — do not plan blind. You have at most ${MAX_PLAN_EXPLORATION_STEPS} rounds of tool calls for investigation — start with the most relevant files. These are the only tools available right now; do not write, edit, or run shell yet.`,
+  `First investigate with ${planToolNamesList} so the plan is grounded in the real code — do not plan blind. You have at most ${MAX_PLAN_EXPLORATION_STEPS} rounds of tool calls for investigation — start with the most relevant files. These are the only tools available right now; do not write or edit yet.${planShellEnabled ? ' run_shell is limited to read-only commands (e.g. git status/diff/log, ls) while planning.' : ''}`,
   'When you have enough context, output the plan with these sections:',
   '- "Context" — what is being asked and why, plus the key facts you found while investigating.',
   '- "Steps" — a numbered list of concrete actions. Each step names the specific files, functions, or symbols it changes and how, not a vague action.',
@@ -45,7 +54,7 @@ async function buildPlan(provider: ChatProvider, messages: Message[]): Promise<M
   const planMessages: Message[] = [...messages, { role: 'user', content: PLAN_REQUEST_MESSAGE }]
 
   for (let step = 0; step < MAX_PLAN_EXPLORATION_STEPS; step += 1) {
-    const reply = await streamPlanReply(provider, planMessages, autoApprovedToolDefinitions)
+    const reply = await streamPlanReply(provider, planMessages, planToolDefinitions)
     planMessages.push(reply)
 
     if (!reply.tool_calls?.length) {
@@ -57,6 +66,15 @@ async function buildPlan(provider: ChatProvider, messages: Message[]): Promise<M
         planMessages.push({
           role: 'tool',
           content: `Only ${planToolNamesList} are available while planning. Do not call this tool now.`,
+          tool_call_id: call.id,
+        })
+        continue
+      }
+
+      if (call.function.name === 'run_shell' && !canAutoApproveCall(call)) {
+        planMessages.push({
+          role: 'tool',
+          content: 'Only allowlisted read-only shell commands (e.g. git status/diff/log, ls) without pipes or chaining are available while planning. Do not run this command now.',
           tool_call_id: call.id,
         })
         continue
@@ -92,6 +110,8 @@ export async function askForPlanApproval(provider: ChatProvider, messages: Messa
         role: 'user',
         content: 'The plan above is approved. All tools are available now, including write_file and edit_file. Execute the steps in order, starting with step 1. After the last step, run the checks from the "Verification" section.',
       })
+
+      setActivePlan(plan.content)
 
       const savedPath = await savePlan(plan.content, userRequest)
       if (savedPath) {

@@ -52,6 +52,7 @@ export async function chat(messages: Message[], options: ChatOptions = {}): Prom
         stream: shouldStream,
         options: {
           num_ctx: getContextWindowTokenLimit(),
+          temperature: Config.TEMPERATURE,
         },
       }),
       signal: controller.signal,

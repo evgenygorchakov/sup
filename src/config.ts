@@ -17,6 +17,7 @@ export interface ConfigShape {
   USE_NATIVE_OLLAMA_TOOLS: boolean
   CONTEXT_WINDOW_TOKEN_LIMIT: number
   OLLAMA_REQUEST_TIMEOUT_MS: number
+  TEMPERATURE: number
   USE_THINKING: boolean
   SHOW_THINKING: boolean
   USE_STREAMING: boolean
@@ -28,6 +29,9 @@ export interface ConfigShape {
   USE_AUTONOMOUS_MODE: boolean
   AUTONOMOUS_STEP_BUDGET: number
   AUTONOMOUS_REPEAT_THRESHOLD: number
+  USE_TOOL_RESULT_COLLAPSE: boolean
+  TOOL_RESULT_KEEP_RECENT: number
+  TOOL_RESULT_COLLAPSE_MIN_CHARS: number
   AUTO_APPROVE_SHELL_PATTERNS: readonly RegExp[]
 }
 
@@ -38,21 +42,25 @@ export const Config: ConfigShape = {
   LANGUAGE: getEnvString('LANGUAGE', 'russian'),
   USE_PLAN_MODE: getEnvBoolean('USE_PLAN_MODE', false),
   USE_READ_ONLY_MODE: getEnvBoolean('USE_READ_ONLY_MODE', false),
-  USE_SHELL_TOOL: getEnvBoolean('USE_SHELL_TOOL', false),
+  USE_SHELL_TOOL: getEnvBoolean('USE_SHELL_TOOL', true),
   USE_NATIVE_OLLAMA_TOOLS: getEnvBoolean('USE_NATIVE_OLLAMA_TOOLS', true),
   CONTEXT_WINDOW_TOKEN_LIMIT: getEnvNumber('CONTEXT_WINDOW_TOKEN_LIMIT', 80_000),
   OLLAMA_REQUEST_TIMEOUT_MS: getEnvNumber('OLLAMA_REQUEST_TIMEOUT_MS', 300_000),
+  TEMPERATURE: getEnvNumber('TEMPERATURE', 0.2),
   USE_THINKING: getEnvBoolean('USE_THINKING', true),
   SHOW_THINKING: getEnvBoolean('SHOW_THINKING', true),
   USE_STREAMING: getEnvBoolean('USE_STREAMING', true),
   VERBOSE_TOOL_OUTPUT: getEnvBoolean('VERBOSE_TOOL_OUTPUT', false),
   WEB_SEARCH_MAX_RESULTS: getEnvNumber('WEB_SEARCH_MAX_RESULTS', 5),
-  FETCH_URL_MAX_BYTES: getEnvNumber('FETCH_URL_MAX_BYTES', 200_000),
+  FETCH_URL_MAX_BYTES: getEnvNumber('FETCH_URL_MAX_BYTES', 50_000),
   FETCH_URL_TIMEOUT_MS: getEnvNumber('FETCH_URL_TIMEOUT_MS', 15_000),
   USE_PERMISSION_ALLOWLIST: getEnvBoolean('USE_PERMISSION_ALLOWLIST', true),
   USE_AUTONOMOUS_MODE: getEnvBoolean('USE_AUTONOMOUS_MODE', true),
   AUTONOMOUS_STEP_BUDGET: getEnvNumber('AUTONOMOUS_STEP_BUDGET', 100),
   AUTONOMOUS_REPEAT_THRESHOLD: getEnvNumber('AUTONOMOUS_REPEAT_THRESHOLD', 3),
+  USE_TOOL_RESULT_COLLAPSE: getEnvBoolean('USE_TOOL_RESULT_COLLAPSE', true),
+  TOOL_RESULT_KEEP_RECENT: getEnvNumber('TOOL_RESULT_KEEP_RECENT', 8),
+  TOOL_RESULT_COLLAPSE_MIN_CHARS: getEnvNumber('TOOL_RESULT_COLLAPSE_MIN_CHARS', 1500),
   AUTO_APPROVE_SHELL_PATTERNS: [
     // cat/head/tail/env deliberately excluded: they can dump sensitive files
     // or secrets from outside the working directory without confirmation.

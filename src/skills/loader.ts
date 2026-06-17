@@ -21,7 +21,7 @@ export function parseFrontmatter(raw: string): ParsedFrontmatter {
 
   const meta: Record<string, string> = {}
 
-  for (const line of match[1].split('\n')) {
+  for (const line of match[1]!.split('\n')) {
     const trimmed = line.trim()
     if (!trimmed || trimmed.startsWith('#')) {
       continue

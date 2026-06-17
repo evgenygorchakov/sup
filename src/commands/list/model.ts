@@ -33,11 +33,8 @@ async function loadInstalledModels(): Promise<string[] | null> {
 
 function findRequestedModels(request: string, models: string[]): string[] {
   if (/^\d+$/.test(request)) {
-    const requestedNumber = Number(request)
-    if (requestedNumber >= 1 && requestedNumber <= models.length) {
-      return [models[requestedNumber - 1]]
-    }
-    return []
+    const model = models[Number(request) - 1]
+    return model === undefined ? [] : [model]
   }
 
   const exact = models.find(model => model === request)
@@ -86,7 +83,7 @@ export async function changeModelInteractive(): Promise<void> {
     return
   }
 
-  await applyModel(models[selectedIndex])
+  await applyModel(models[selectedIndex]!)
 }
 
 async function run(context: CommandContext): Promise<CommandResult> {
@@ -122,7 +119,7 @@ async function run(context: CommandContext): Promise<CommandResult> {
     return { kind: 'continue' }
   }
 
-  await applyModel(requestedModels[0])
+  await applyModel(requestedModels[0]!)
   return { kind: 'continue' }
 }
 

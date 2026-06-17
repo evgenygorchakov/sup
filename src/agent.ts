@@ -4,8 +4,10 @@ import type { Message, ToolCall } from './types.ts'
 import process from 'node:process'
 
 import { Config } from './config.ts'
+import { collapseOldToolResults } from './context/collapse.ts'
+import { buildPlanReminder, clearActivePlan } from './plan/active-plan.ts'
 import { isPlanModeActive, setPlanModeActive } from './plan/mode-state.ts'
-import { canAutoApproveCall } from './tools/auto-approve.ts'
+import { shouldAutoApprove } from './tools/auto-approve.ts'
 import { runTool, toolDefinitions, toolsByName } from './tools/registry.ts'
 import { CONFIRM_KIND, confirmToolCalls } from './ui/interactive/confirm.ts'
 import { askForPlanApproval } from './ui/interactive/plan-approval.ts'
@@ -43,6 +45,14 @@ function lastBatchesAreIdentical(signatures: string[], threshold: number): boole
   return tail.every(item => item === tail[0])
 }
 
+function withPlanReminder(messages: Message[]): Message[] {
+  const reminder = buildPlanReminder()
+  if (!reminder || messages[messages.length - 1]?.role !== 'tool') {
+    return messages
+  }
+  return [...messages, reminder]
+}
+
 export interface RunOptions {
   skipPlanApproval?: boolean
 }
@@ -64,12 +74,16 @@ export async function run(provider: ChatProvider, messages: Message[], readline:
   let iterations = 0
 
   while (true) {
+    collapseOldToolResults(messages)
+
     const { onStreamPart, didPrintAnything, didPrintContent } = createStreamPrinter(text => text)
-    const reply = await provider.chat(messages, toolDefinitions, onStreamPart)
+    const reply = await provider.chat(withPlanReminder(messages), toolDefinitions, onStreamPart)
 
     messages.push(reply)
 
     if (!reply.tool_calls?.length) {
+      clearActivePlan()
+
       if (didPrintAnything()) {
         process.stderr.write('\n')
       }
@@ -105,9 +119,7 @@ export async function run(provider: ChatProvider, messages: Message[], readline:
       }
     }
 
-    const canAutoApproveBatch
-      = Config.USE_AUTONOMOUS_MODE
-        || (Config.USE_PERMISSION_ALLOWLIST && reply.tool_calls.every(canAutoApproveCall))
+    const canAutoApproveBatch = reply.tool_calls.every(shouldAutoApprove)
 
     if (canAutoApproveBatch) {
       for (const call of reply.tool_calls) {

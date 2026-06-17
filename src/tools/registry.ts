@@ -13,6 +13,7 @@ import { runShell } from './list/run-shell.ts'
 import { skill } from './list/skill.ts'
 import { webSearch } from './list/web-search.ts'
 import { writeFile } from './list/write-file.ts'
+import { validateArguments } from './validate-arguments.ts'
 
 const allTools: Tool[] = [
   ...(Config.USE_SHELL_TOOL ? [runShell] : []),
@@ -43,10 +44,17 @@ export const toolsByName: Record<string, Tool> = Object.fromEntries(
 export async function runTool(call: ToolCall): Promise<string> {
   const tool = toolsByName[call.function.name]
   if (!tool) {
-    const message = `Unknown tool: ${call.function.name}`
+    const message = `Unknown tool: ${call.function.name}. Available tools: ${Object.keys(toolsByName).join(', ')}.`
     console.error(red(`  ⎿  ${message}`))
 
     return message
+  }
+
+  const problem = validateArguments(tool.definition, call.function.arguments)
+  if (problem) {
+    console.error(red(`  ⎿  ${problem}`))
+
+    return problem
   }
 
   const result = await tool
