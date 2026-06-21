@@ -3,9 +3,10 @@ import type { ChatProvider } from './providers/types.ts'
 import type { Message, ToolCall } from './types.ts'
 import process from 'node:process'
 
+import { buildHarnessReminder, finishTask, recordAssistant, recordLedgerState, recordToolCall, recordToolResult, runCompletionGate, startTurn } from './babysitter/index.ts'
 import { Config } from './config.ts'
 import { collapseOldToolResults } from './context/collapse.ts'
-import { buildPlanReminder, clearActivePlan } from './plan/active-plan.ts'
+import { clearActivePlan } from './plan/active-plan.ts'
 import { isPlanModeActive, setPlanModeActive } from './plan/mode-state.ts'
 import { shouldAutoApprove } from './tools/auto-approve.ts'
 import { runTool, toolDefinitions, toolsByName } from './tools/registry.ts'
@@ -46,7 +47,7 @@ function lastBatchesAreIdentical(signatures: string[], threshold: number): boole
 }
 
 function withPlanReminder(messages: Message[]): Message[] {
-  const reminder = buildPlanReminder()
+  const reminder = buildHarnessReminder()
   if (!reminder || messages[messages.length - 1]?.role !== 'tool') {
     return messages
   }
@@ -58,6 +59,8 @@ export interface RunOptions {
 }
 
 export async function run(provider: ChatProvider, messages: Message[], readline: ReadlineInterface, options: RunOptions = {}): Promise<void> {
+  startTurn(messages)
+
   if (!options.skipPlanApproval && isPlanModeActive() && messages[messages.length - 1]?.role === 'user') {
     const decision = await askForPlanApproval(provider, messages, readline)
 
@@ -80,13 +83,20 @@ export async function run(provider: ChatProvider, messages: Message[], readline:
     const reply = await provider.chat(withPlanReminder(messages), toolDefinitions, onStreamPart)
 
     messages.push(reply)
+    recordAssistant(reply)
 
     if (!reply.tool_calls?.length) {
-      clearActivePlan()
-
       if (didPrintAnything()) {
         process.stderr.write('\n')
       }
+
+      const gateDecision = await runCompletionGate(messages, readline)
+      if (gateDecision === 'continue') {
+        continue
+      }
+
+      finishTask()
+      clearActivePlan()
 
       if (!didPrintContent() && reply.content) {
         console.warn(reply.content)
@@ -143,8 +153,12 @@ export async function run(provider: ChatProvider, messages: Message[], readline:
     }
 
     for (const call of reply.tool_calls) {
+      recordToolCall(call)
       const toolResult = await runTool(call)
+      recordToolResult(call, toolResult)
       messages.push({ role: 'tool', content: toolResult, tool_call_id: call.id })
     }
+
+    recordLedgerState()
   }
 }

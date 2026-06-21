@@ -1,0 +1,132 @@
+// The completion gate: when the model tries to finish (no tool calls) and a
+// verification source is active, run its checks first and block the finish until
+// they pass — bounded by an attempt budget so the loop can never get stuck.
+
+import type { Interface as ReadlineInterface } from 'node:readline/promises'
+import type { Message } from '../types.ts'
+import { Config } from '../config.ts'
+import { runShell } from '../tools/list/run-shell.ts'
+import { gray, red, yellow } from '../utils/colors.ts'
+import { appendEvent } from './journal.ts'
+import { extractCommands } from './parse-sections.ts'
+import {
+  getGateAttempts,
+  getVerificationSource,
+  hasShellRunSinceGate,
+  isGatePassed,
+  markAllStepsDone,
+  markGatePassed,
+  recordGateAttempt,
+  requireFreshShellRun,
+} from './session.ts'
+
+export type GateDecision = 'finish' | 'continue'
+
+const EXIT_CODE_LINE = /^exit=(-?\d+)/
+
+function gateEnabled(): boolean {
+  return Config.USE_BABYSITTER && Config.BABYSITTER_VERIFICATION_GATE
+}
+
+function shellAvailable(): boolean {
+  return Config.USE_SHELL_TOOL && !Config.USE_READ_ONLY_MODE
+}
+
+function parseExitCode(shellResult: string): number | null {
+  const match = EXIT_CODE_LINE.exec(shellResult)
+  return match ? Number(match[1]) : null
+}
+
+// Run each check via the shell tool; return the output of the ones that failed.
+async function runChecks(commands: string[]): Promise<string[]> {
+  const failures: string[] = []
+  for (const command of commands) {
+    console.warn(yellow(`  [gate] $ ${command}`))
+    const result = await runShell.handler({ command })
+    const exitCode = parseExitCode(result)
+    appendEvent('gate', { command, exit: exitCode })
+    if (exitCode !== 0) {
+      failures.push(`$ ${command}\n${result}`)
+    }
+  }
+  return failures
+}
+
+// No machine-runnable checks were found: make the model verify once itself, and
+// only accept the finish after it has actually run something in the shell.
+function requireManualVerification(messages: Message[], verificationSource: string): GateDecision {
+  if (hasShellRunSinceGate()) {
+    markGatePassed()
+    appendEvent('gate', { result: 'manual_done' })
+    return 'finish'
+  }
+
+  recordGateAttempt()
+  requireFreshShellRun()
+  appendEvent('gate', { result: 'manual_required', attempts: getGateAttempts() })
+  messages.push({
+    role: 'user',
+    content: [
+      'Reminder from the harness, not from the user. Do not finish yet — you must verify the result first.',
+      'Run the checks below with run_shell, look at the output, fix anything that fails, then finish.',
+      '',
+      verificationSource,
+    ].join('\n'),
+  })
+  return 'continue'
+}
+
+function reportFailedChecks(messages: Message[], failures: string[]): void {
+  messages.push({
+    role: 'user',
+    content: [
+      'Reminder from the harness, not from the user. The verification checks failed, so the task is not done.',
+      'Fix the problems shown below, then continue. The checks will run again when you next try to finish.',
+      '',
+      ...failures,
+    ].join('\n\n'),
+  })
+}
+
+export async function runCompletionGate(messages: Message[], _readline: ReadlineInterface): Promise<GateDecision> {
+  if (!gateEnabled()) {
+    return 'finish'
+  }
+
+  const verificationSource = getVerificationSource()
+  if (isGatePassed() || !verificationSource) {
+    return 'finish'
+  }
+  if (!shellAvailable()) {
+    // Cannot verify without a shell; do not trap the user.
+    appendEvent('gate', { result: 'no_shell' })
+    return 'finish'
+  }
+  if (getGateAttempts() >= Config.BABYSITTER_GATE_MAX_ATTEMPTS) {
+    console.warn(yellow(`[gate] gave up after ${getGateAttempts()} attempt(s); allowing finish.`))
+    appendEvent('gate', { result: 'gave_up', attempts: getGateAttempts() })
+    return 'finish'
+  }
+
+  const commands = extractCommands(verificationSource)
+  if (commands.length === 0) {
+    return requireManualVerification(messages, verificationSource)
+  }
+
+  console.warn(gray(`[gate] running ${commands.length} verification check(s)...`))
+  const failures = await runChecks(commands)
+
+  if (failures.length === 0) {
+    markGatePassed()
+    markAllStepsDone()
+    appendEvent('gate', { result: 'pass', checks: commands.length })
+    console.warn(gray('[gate] verification passed.'))
+    return 'finish'
+  }
+
+  recordGateAttempt()
+  appendEvent('gate', { result: 'fail', attempts: getGateAttempts(), failed: failures.length })
+  console.warn(red(`[gate] verification failed (${failures.length}/${commands.length}); continuing.`))
+  reportFailedChecks(messages, failures)
+  return 'continue'
+}

@@ -8,6 +8,7 @@ import { editFile } from './list/edit-file.ts'
 import { fetchUrl } from './list/fetch-url.ts'
 import { glob } from './list/glob.ts'
 import { grep } from './list/grep.ts'
+import { ledgerUpdate } from './list/ledger-update.ts'
 import { readFile } from './list/read-file.ts'
 import { runShell } from './list/run-shell.ts'
 import { skill } from './list/skill.ts'
@@ -25,6 +26,7 @@ const allTools: Tool[] = [
   webSearch,
   fetchUrl,
   ...(skills.length > 0 ? [skill] : []),
+  ...(Config.USE_BABYSITTER && Config.BABYSITTER_LEDGER ? [ledgerUpdate] : []),
 ]
 
 const availableTools: Tool[] = Config.USE_READ_ONLY_MODE

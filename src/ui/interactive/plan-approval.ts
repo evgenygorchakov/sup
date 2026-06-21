@@ -3,6 +3,7 @@ import type { ChatProvider } from '../../providers/types.ts'
 import type { Message, ToolDefinition } from '../../types.ts'
 import process from 'node:process'
 
+import { activatePlan } from '../../babysitter/index.ts'
 import { Config } from '../../config.ts'
 import { setActivePlan } from '../../plan/active-plan.ts'
 import { savePlan } from '../../plan/store.ts'
@@ -112,6 +113,7 @@ export async function askForPlanApproval(provider: ChatProvider, messages: Messa
       })
 
       setActivePlan(plan.content)
+      activatePlan(plan.content)
 
       const savedPath = await savePlan(plan.content, userRequest)
       if (savedPath) {

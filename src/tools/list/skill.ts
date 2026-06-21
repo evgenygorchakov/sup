@@ -1,6 +1,7 @@
 import type { Tool } from '../../types.ts'
 import { join, relative } from 'node:path'
 import process from 'node:process'
+import { activateSkill } from '../../babysitter/index.ts'
 import { skills, skillsByName } from '../../skills/registry.ts'
 import { blue } from '../../utils/colors.ts'
 
@@ -44,6 +45,11 @@ export const skill: Tool = {
     if (found.files.length > 0) {
       const paths = found.files.map(file => relative(process.cwd(), join(found.dir, file)))
       sections.push('', `Bundled files you can open with read_file: ${paths.join(', ')}`)
+    }
+
+    const gateNote = activateSkill(found)
+    if (gateNote) {
+      sections.push(gateNote)
     }
 
     return sections.join('\n')

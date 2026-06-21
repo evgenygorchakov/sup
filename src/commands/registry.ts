@@ -1,5 +1,6 @@
 import type { CommandEnv, CommandResult, SlashCommand } from './types.ts'
 import { red } from '../utils/colors.ts'
+import { babysitterCommand } from './list/babysitter.ts'
 import { clearCommand } from './list/clear.ts'
 import { exitCommand } from './list/exit.ts'
 import { helpCommand } from './list/help.ts'
@@ -22,6 +23,7 @@ export const commands: SlashCommand[] = [
   showThinkingCommand,
   verboseCommand,
   skillsCommand,
+  babysitterCommand,
 ]
 
 const commandsByName = new Map(commands.map(command => [command.name, command]))

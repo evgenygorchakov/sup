@@ -8,6 +8,7 @@ import { resolve } from 'node:path'
 import process, { stdin, stdout } from 'node:process'
 import { createInterface } from 'node:readline/promises'
 import { run } from './src/agent.ts'
+import { resumeIntoMessages } from './src/babysitter/index.ts'
 import { commands, runSlashCommand } from './src/commands/registry.ts'
 import { isPlanModeActive } from './src/plan/mode-state.ts'
 import { getProvider } from './src/providers/index.ts'
@@ -113,7 +114,33 @@ async function main() {
     console.warn(gray('Loaded AGENTS.md'))
   }
 
-  const commandLinePrompt = process.argv.slice(2).join(' ').trim()
+  let resumeRequested = false
+  let resumeRunId: string | undefined
+  const promptArgs: string[] = []
+  for (const arg of process.argv.slice(2)) {
+    if (arg === '--resume') {
+      resumeRequested = true
+    }
+    else if (arg.startsWith('--resume=')) {
+      resumeRequested = true
+      resumeRunId = arg.slice('--resume='.length) || undefined
+    }
+    else {
+      promptArgs.push(arg)
+    }
+  }
+
+  if (resumeRequested) {
+    const outcome = resumeIntoMessages(resumeRunId, messages)
+    if (outcome.ok) {
+      console.warn(gray(`Resumed run ${outcome.runId} (${outcome.restored} messages restored)`))
+    }
+    else {
+      console.warn(yellow('Nothing to resume (enable USE_BABYSITTER and BABYSITTER_JOURNAL, or run a task first).'))
+    }
+  }
+
+  const commandLinePrompt = promptArgs.join(' ').trim()
   if (commandLinePrompt) {
     await handleUserTurn(provider, messages, readline, commandLinePrompt)
   }

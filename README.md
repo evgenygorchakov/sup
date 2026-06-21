@@ -16,6 +16,15 @@ A minimal CLI agent for local [Ollama](https://ollama.com) models. Autonomous by
 - `AGENTS.md` in the working directory is appended to the system prompt.
 - Skills (like Claude Code skills): drop `.sup/skills/<name>/SKILL.md` with `name` + `description` frontmatter; the body is loaded on demand via the `skill` tool.
 
+## Babysitter mode
+
+Optional deterministic control inspired by [a5c-ai/babysitter](https://github.com/a5c-ai/babysitter), off by default (`USE_BABYSITTER=true` to enable). All of it lives in `src/babysitter/`; with the flag off the agent behaves exactly as before.
+
+- **Verification gate** — when a plan or gated skill is active, the agent cannot end a turn until the commands in its `Verification` section pass. Failures are fed back and the loop continues, bounded by `BABYSITTER_GATE_MAX_ATTEMPTS`.
+- **Journal + resume** — every step is appended to `.sup/runs/<id>/journal.jsonl`. `sup --resume` (or `sup --resume=<id>`) restores the conversation and the step ledger.
+- **TODO ledger** — a plan's numbered `Steps` become a tracked checklist re-injected each turn; the model marks progress with the `ledger_update` tool.
+- **Gated skills** — a `SKILL.md` with a `## Steps` section drives the model step-by-step, and its `## Verification` section feeds the gate.
+
 ## Security
 
 - All file tools are confined to the working directory; sensitive files (`.env`, keys, credentials) are refused for both reading and writing.
