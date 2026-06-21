@@ -14,9 +14,9 @@ export interface ConfigShape {
   USE_PLAN_MODE: boolean
   USE_READ_ONLY_MODE: boolean
   USE_SHELL_TOOL: boolean
-  USE_NATIVE_OLLAMA_TOOLS: boolean
+  USE_NATIVE_TOOLS: boolean
   CONTEXT_WINDOW_TOKEN_LIMIT: number
-  OLLAMA_REQUEST_TIMEOUT_MS: number
+  REQUEST_TIMEOUT_MS: number
   TEMPERATURE: number
   USE_THINKING: boolean
   SHOW_THINKING: boolean
@@ -49,9 +49,9 @@ export const Config: ConfigShape = {
   USE_PLAN_MODE: getEnvBoolean('USE_PLAN_MODE', false),
   USE_READ_ONLY_MODE: getEnvBoolean('USE_READ_ONLY_MODE', false),
   USE_SHELL_TOOL: getEnvBoolean('USE_SHELL_TOOL', true),
-  USE_NATIVE_OLLAMA_TOOLS: getEnvBoolean('USE_NATIVE_OLLAMA_TOOLS', true),
+  USE_NATIVE_TOOLS: getEnvBoolean('USE_NATIVE_TOOLS', true),
   CONTEXT_WINDOW_TOKEN_LIMIT: getEnvNumber('CONTEXT_WINDOW_TOKEN_LIMIT', 80_000),
-  OLLAMA_REQUEST_TIMEOUT_MS: getEnvNumber('OLLAMA_REQUEST_TIMEOUT_MS', 300_000),
+  REQUEST_TIMEOUT_MS: getEnvNumber('REQUEST_TIMEOUT_MS', 300_000),
   TEMPERATURE: getEnvNumber('TEMPERATURE', 0.2),
   USE_THINKING: getEnvBoolean('USE_THINKING', true),
   SHOW_THINKING: getEnvBoolean('SHOW_THINKING', true),

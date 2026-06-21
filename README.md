@@ -1,17 +1,17 @@
 # sup
 
-A minimal CLI agent for local [Ollama](https://ollama.com) models. Autonomous by default: it runs tool calls to completion without prompting. Optional plan mode (`USE_PLAN_MODE`) proposes a plan for approval before any changes.
+A minimal CLI agent for local models, via [Ollama](https://ollama.com) or [llama.cpp](https://github.com/ggml-org/llama.cpp). Autonomous by default: it runs tool calls to completion without prompting. Optional plan mode (`USE_PLAN_MODE`) proposes a plan for approval before any changes.
 
 ## Setup
 
-1. Install [Ollama](https://ollama.com), pull a model.
-2. Copy `.env.example` to `.env`, set `MODEL`.
+1. Run a backend: [Ollama](https://ollama.com) (`ollama pull <model>`) or [llama.cpp](https://github.com/ggml-org/llama.cpp) (`llama-server --jinja`).
+2. Copy `.env.example` to `.env`, set `PROVIDER` and the matching `HOST`/`MODEL`.
 3. `npm link`, then run `sup` in any directory.
 
 ## Usage
 
 - Type `/` to see commands (`Tab` completes): switch model, toggle plan mode / thinking / verbose output, list saved plans, clear history.
-- Tuned for small local models: low default temperature, tool arguments validated against the schema with precise repair errors, the approved plan re-injected near the end of the context every turn, old tool outputs collapsed to keep the context short.
+- Tuned for small local models: low default temperature, tool arguments validated against the schema with precise repair errors, the approved plan re-injected near the end of the context every turn, old tool outputs collapsed to keep the context short. Models without native tool calling fall back to prompt-engineered tools (`USE_NATIVE_TOOLS=false`).
 - Every setting is an `.env` variable with a sane default — see `.env.example`.
 - `AGENTS.md` in the working directory is appended to the system prompt.
 - Skills (like Claude Code skills): drop `.sup/skills/<name>/SKILL.md` with `name` + `description` frontmatter; the body is loaded on demand via the `skill` tool.

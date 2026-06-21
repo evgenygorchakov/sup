@@ -1,26 +1,26 @@
 import type { ModelListResult } from '../types.ts'
 import { Config } from '../../config.ts'
 
-const TAGS_REQUEST_TIMEOUT_MS = 10_000
+const MODELS_REQUEST_TIMEOUT_MS = 10_000
 
-interface OllamaTagsResponse {
-  models?: { name?: unknown }[]
+interface OpenAiModelsResponse {
+  data?: { id?: unknown }[]
 }
 
 export async function listInstalledModels(): Promise<ModelListResult> {
   try {
-    const response = await fetch(`${Config.HOST}/api/tags`, {
-      signal: AbortSignal.timeout(TAGS_REQUEST_TIMEOUT_MS),
+    const response = await fetch(`${Config.HOST}/v1/models`, {
+      signal: AbortSignal.timeout(MODELS_REQUEST_TIMEOUT_MS),
     })
 
     if (!response.ok) {
       return { ok: false, error: `HTTP ${response.status}` }
     }
 
-    const payload = await response.json() as OllamaTagsResponse
-    const models = (payload.models ?? [])
-      .map(entry => entry.name)
-      .filter((name): name is string => typeof name === 'string')
+    const payload = await response.json() as OpenAiModelsResponse
+    const models = (payload.data ?? [])
+      .map(entry => entry.id)
+      .filter((id): id is string => typeof id === 'string')
       .sort((first, second) => first.localeCompare(second))
 
     return { ok: true, models }

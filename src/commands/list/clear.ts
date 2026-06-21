@@ -1,6 +1,6 @@
 import type { SlashCommand } from '../types.ts'
 import { clearActivePlan } from '../../plan/active-plan.ts'
-import { resetContextUsage } from '../../providers/ollama/context-window.ts'
+import { resetContextUsage } from '../../providers/context-usage.ts'
 import { gray } from '../../utils/colors.ts'
 
 export const clearCommand: SlashCommand = {

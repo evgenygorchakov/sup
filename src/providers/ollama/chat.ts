@@ -1,19 +1,26 @@
+// Chat against Ollama's native /api/chat endpoint.
+//
+// Ollama's wire format already matches our internal Message shape, so there is
+// no translation here — just assembling the request and folding the streamed
+// newline-delimited JSON back into a single Message.
+
 import type { Message, Role, ToolCall, ToolDefinition } from '../../types.ts'
 import type { OnStreamPart } from '../../ui/interactive/stream-printer.ts'
 import { Config, getThinkingModeFor } from '../../config.ts'
-import { getContextWindowTokenLimit, recordContextUsage } from './context-window.ts'
+import { recordContextUsage } from '../context-usage.ts'
+import { startIdleTimeout } from '../idle-timeout.ts'
+import { readResponseLines } from '../stream-lines.ts'
+import { getContextWindowTokenLimit } from './context-window.ts'
 
 const OLLAMA_HOST = Config.HOST
-const REQUEST_IDLE_TIMEOUT_MS = Config.OLLAMA_REQUEST_TIMEOUT_MS
+const REQUEST_IDLE_TIMEOUT_MS = Config.REQUEST_TIMEOUT_MS
 
 const VALID_ROLES: readonly Role[] = ['system', 'user', 'assistant', 'tool']
 
 function reportContextUsage(promptTokens: unknown, completionTokens: unknown): void {
-  if (typeof promptTokens !== 'number' || typeof completionTokens !== 'number') {
-    return
+  if (typeof promptTokens === 'number' && typeof completionTokens === 'number') {
+    recordContextUsage(promptTokens, completionTokens)
   }
-
-  recordContextUsage(promptTokens, completionTokens)
 }
 
 export interface ChatOptions {
@@ -25,69 +32,66 @@ export interface ChatOptions {
 export async function chat(messages: Message[], options: ChatOptions = {}): Promise<Message> {
   const { tools, format, onStreamPart } = options
   const shouldStream = Boolean(onStreamPart) && Config.USE_STREAMING
-  const model = Config.MODEL
 
-  const controller = new AbortController()
-  let timedOut = false
-  let idleTimer: ReturnType<typeof setTimeout> | undefined
-  const refreshTimer = (): void => {
-    clearTimeout(idleTimer)
-    idleTimer = setTimeout(() => {
-      timedOut = true
-      controller.abort()
-    }, REQUEST_IDLE_TIMEOUT_MS)
-  }
-  refreshTimer()
+  const idle = startIdleTimeout(REQUEST_IDLE_TIMEOUT_MS)
 
   try {
     const response = await fetch(`${OLLAMA_HOST}/api/chat`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model,
-        messages,
-        tools,
-        format,
-        think: getThinkingModeFor(model),
-        stream: shouldStream,
-        options: {
-          num_ctx: getContextWindowTokenLimit(),
-          temperature: Config.TEMPERATURE,
-        },
-      }),
-      signal: controller.signal,
+      body: JSON.stringify(buildRequestBody(messages, shouldStream, tools, format)),
+      signal: idle.signal,
     })
 
     if (!response.ok) {
       throw new Error(`Ollama HTTP ${response.status}: ${await response.text()}`)
     }
 
-    if (!shouldStream) {
-      const responseBody: unknown = await response.json()
-      const responseEnvelope = responseBody as { message?: unknown, prompt_eval_count?: unknown, eval_count?: unknown }
-      const responseMessage = responseEnvelope?.message
-
-      if (!responseMessage || typeof responseMessage !== 'object') {
-        throw new Error('Ollama returned unexpected response shape')
-      }
-
-      reportContextUsage(responseEnvelope.prompt_eval_count, responseEnvelope.eval_count)
-
-      return responseMessage as Message
-    }
-
-    return await readStreamingResponse(response, onStreamPart!, refreshTimer)
+    return shouldStream
+      ? await readStreamingResponse(response, onStreamPart!, idle.refresh)
+      : await readCompleteResponse(response)
   }
   catch (error) {
-    if (timedOut) {
+    if (idle.abortedByTimeout()) {
       throw new Error(`Ollama request timed out: no data for ${Math.round(REQUEST_IDLE_TIMEOUT_MS / 1000)}s`)
     }
     throw error
   }
   finally {
-    clearTimeout(idleTimer)
+    idle.stop()
   }
 }
+
+function buildRequestBody(messages: Message[], shouldStream: boolean, tools?: ToolDefinition[], format?: object): Record<string, unknown> {
+  const model = Config.MODEL
+  return {
+    model,
+    messages,
+    tools,
+    format,
+    think: getThinkingModeFor(model),
+    stream: shouldStream,
+    options: {
+      num_ctx: getContextWindowTokenLimit(),
+      temperature: Config.TEMPERATURE,
+    },
+  }
+}
+
+async function readCompleteResponse(response: Response): Promise<Message> {
+  const envelope = await response.json() as { message?: unknown, prompt_eval_count?: unknown, eval_count?: unknown }
+  const message = envelope?.message
+
+  if (!message || typeof message !== 'object') {
+    throw new Error('Ollama returned unexpected response shape')
+  }
+
+  reportContextUsage(envelope.prompt_eval_count, envelope.eval_count)
+
+  return message as Message
+}
+
+// --- Streaming: newline-delimited JSON -> internal Message ---
 
 interface StreamedLine {
   message?: {
@@ -102,7 +106,32 @@ interface StreamedLine {
   eval_count?: unknown
 }
 
-function mergeLineIntoMessage(line: StreamedLine, accumulated: Message, onStreamPart: OnStreamPart): void {
+async function readStreamingResponse(response: Response, onStreamPart: OnStreamPart, onActivity: () => void): Promise<Message> {
+  const reply: Message = { role: 'assistant', content: '' }
+
+  for await (const rawLine of readResponseLines(response, onActivity)) {
+    const line = rawLine.trim()
+    if (!line) {
+      continue
+    }
+
+    const parsedLine = parseJsonLine(line)
+    if (!parsedLine) {
+      continue
+    }
+
+    mergeLineIntoMessage(parsedLine, reply, onStreamPart)
+
+    if (parsedLine.done) {
+      reportContextUsage(parsedLine.prompt_eval_count, parsedLine.eval_count)
+      break
+    }
+  }
+
+  return reply
+}
+
+function mergeLineIntoMessage(line: StreamedLine, reply: Message, onStreamPart: OnStreamPart): void {
   if (line.error) {
     throw new Error(`Ollama stream error: ${line.error}`)
   }
@@ -113,11 +142,11 @@ function mergeLineIntoMessage(line: StreamedLine, accumulated: Message, onStream
   }
 
   if (typeof partial.role === 'string' && (VALID_ROLES as readonly string[]).includes(partial.role)) {
-    accumulated.role = partial.role as Role
+    reply.role = partial.role as Role
   }
 
   if (typeof partial.content === 'string' && partial.content.length > 0) {
-    accumulated.content += partial.content
+    reply.content += partial.content
     onStreamPart({ content: partial.content })
   }
 
@@ -126,74 +155,14 @@ function mergeLineIntoMessage(line: StreamedLine, accumulated: Message, onStream
   }
 
   if (Array.isArray(partial.tool_calls) && partial.tool_calls.length > 0) {
-    accumulated.tool_calls = partial.tool_calls as ToolCall[]
+    reply.tool_calls = partial.tool_calls as ToolCall[]
   }
-}
-
-async function readStreamingResponse(response: Response, onStreamPart: OnStreamPart, onActivity: () => void): Promise<Message> {
-  if (!response.body) {
-    throw new Error('Ollama stream has no body')
-  }
-
-  const reader = response.body.getReader()
-  const decoder = new TextDecoder('utf-8')
-  let buffer = ''
-
-  const accumulatedMessage: Message = { role: 'assistant', content: '' }
-
-  while (true) {
-    const { value: bytes, done } = await reader.read()
-
-    if (done) {
-      break
-    }
-
-    onActivity()
-
-    buffer += decoder.decode(bytes, { stream: true })
-
-    let newlineIndex = buffer.indexOf('\n')
-    while (newlineIndex !== -1) {
-      const rawLine = buffer.slice(0, newlineIndex).trim()
-      buffer = buffer.slice(newlineIndex + 1)
-      newlineIndex = buffer.indexOf('\n')
-
-      if (!rawLine) {
-        continue
-      }
-
-      const parsedLine = parseJsonLine(rawLine)
-      if (!parsedLine) {
-        continue
-      }
-
-      mergeLineIntoMessage(parsedLine, accumulatedMessage, onStreamPart)
-
-      if (parsedLine.done) {
-        reportContextUsage(parsedLine.prompt_eval_count, parsedLine.eval_count)
-        return accumulatedMessage
-      }
-    }
-  }
-
-  const remainingLine = buffer.trim()
-  if (remainingLine) {
-    const parsedLine = parseJsonLine(remainingLine)
-    if (parsedLine) {
-      mergeLineIntoMessage(parsedLine, accumulatedMessage, onStreamPart)
-    }
-  }
-
-  return accumulatedMessage
 }
 
 function parseJsonLine(rawLine: string): StreamedLine | null {
   try {
     const parsed: unknown = JSON.parse(rawLine)
-    if (typeof parsed !== 'object' || parsed === null) {
-      return null
-    }
-    return parsed as StreamedLine
+    return typeof parsed === 'object' && parsed !== null ? parsed as StreamedLine : null
   }
   catch {
     return null

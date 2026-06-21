@@ -11,8 +11,8 @@ import { run } from './src/agent.ts'
 import { resumeIntoMessages } from './src/babysitter/index.ts'
 import { commands, runSlashCommand } from './src/commands/registry.ts'
 import { isPlanModeActive } from './src/plan/mode-state.ts'
+import { getLastContextUsage } from './src/providers/context-usage.ts'
 import { getProvider } from './src/providers/index.ts'
-import { getContextWindowTokenLimit, getLastContextUsage, initializeContextWindow } from './src/providers/ollama/context-window.ts'
 import { buildSkillsPromptSection, skills } from './src/skills/registry.ts'
 import { SYSTEM_PROMPT } from './src/system-prompt.ts'
 import { createSlashCompleter, installCommandHints } from './src/ui/interactive/command-hints.ts'
@@ -32,7 +32,7 @@ function contextStatusLine(): string {
   }
 
   const total = usage.prompt + usage.completion
-  const limit = getContextWindowTokenLimit()
+  const limit = getProvider().getContextWindowTokenLimit()
   const percent = Math.round((total / limit) * 100)
   return gray(`[ctx: ${total} / ${limit} (${percent}%)]\n`)
 }
@@ -54,9 +54,8 @@ async function handleUserTurn(provider: ChatProvider, messages: Message[], readl
 }
 
 async function main() {
-  await initializeContextWindow()
-
   const provider = getProvider()
+  await provider.initializeContextWindow()
 
   const interactive = Boolean(stdin.isTTY)
   const inputStream = getInputStream()

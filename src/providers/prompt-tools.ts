@@ -1,4 +1,9 @@
-import type { ToolCall, ToolDefinition } from '../../types.ts'
+// Prompt-engineered tool calling, for models without a native tool API (or with
+// it switched off). We describe the tools in the prompt and force the reply into
+// a { message, tool_calls } JSON object, then parse the tool calls back out —
+// tolerating slightly malformed replies. Shared by both providers.
+
+import type { ToolCall, ToolDefinition } from '../types.ts'
 
 export interface PromptToolsReply {
   message: string

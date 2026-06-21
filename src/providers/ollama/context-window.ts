@@ -13,25 +13,6 @@ export function getContextWindowTokenLimit(): number {
   return resolvedContextWindowTokenLimit
 }
 
-interface ContextUsage {
-  prompt: number
-  completion: number
-}
-
-let lastContextUsage: ContextUsage | null = null
-
-export function recordContextUsage(prompt: number, completion: number): void {
-  lastContextUsage = { prompt, completion }
-}
-
-export function getLastContextUsage(): ContextUsage | null {
-  return lastContextUsage
-}
-
-export function resetContextUsage(): void {
-  lastContextUsage = null
-}
-
 function readModelContextLength(modelInfo: Record<string, unknown>): number | null {
   const contextLengthKey = Object.keys(modelInfo).find(key => key.endsWith('.context_length'))
   if (!contextLengthKey) {

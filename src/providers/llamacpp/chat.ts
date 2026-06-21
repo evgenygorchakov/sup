@@ -1,0 +1,314 @@
+// Chat against llama-server's OpenAI-compatible /v1/chat/completions endpoint.
+//
+// This module is mostly translation: our internal Message shape <-> the OpenAI
+// wire format, in both directions, for streaming and non-streaming replies.
+// llama-server differs from our model in two ways worth remembering:
+//   - tool-call arguments are JSON *strings*, not objects;
+//   - every tool call has an id that its tool result must echo back.
+
+import type { Message, Role, ToolCall, ToolDefinition } from '../../types.ts'
+import type { OnStreamPart } from '../../ui/interactive/stream-printer.ts'
+import { Config } from '../../config.ts'
+import { recordContextUsage } from '../context-usage.ts'
+import { startIdleTimeout } from '../idle-timeout.ts'
+import { readResponseLines } from '../stream-lines.ts'
+
+const LLAMACPP_HOST = Config.HOST
+const REQUEST_IDLE_TIMEOUT_MS = Config.REQUEST_TIMEOUT_MS
+
+function reportContextUsage(promptTokens: unknown, completionTokens: unknown): void {
+  if (typeof promptTokens === 'number' && typeof completionTokens === 'number') {
+    recordContextUsage(promptTokens, completionTokens)
+  }
+}
+
+export interface ChatOptions {
+  tools?: ToolDefinition[]
+  responseFormat?: object
+  onStreamPart?: OnStreamPart
+}
+
+export async function chat(messages: Message[], options: ChatOptions = {}): Promise<Message> {
+  const { tools, responseFormat, onStreamPart } = options
+  const shouldStream = Boolean(onStreamPart) && Config.USE_STREAMING
+
+  const idle = startIdleTimeout(REQUEST_IDLE_TIMEOUT_MS)
+
+  try {
+    const response = await fetch(`${LLAMACPP_HOST}/v1/chat/completions`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(buildRequestBody(messages, shouldStream, tools, responseFormat)),
+      signal: idle.signal,
+    })
+
+    if (!response.ok) {
+      throw new Error(`llama.cpp HTTP ${response.status}: ${await response.text()}`)
+    }
+
+    return shouldStream
+      ? await readStreamingResponse(response, onStreamPart!, idle.refresh)
+      : await readCompleteResponse(response)
+  }
+  catch (error) {
+    if (idle.abortedByTimeout()) {
+      throw new Error(`llama.cpp request timed out: no data for ${Math.round(REQUEST_IDLE_TIMEOUT_MS / 1000)}s`)
+    }
+    throw error
+  }
+  finally {
+    idle.stop()
+  }
+}
+
+function buildRequestBody(messages: Message[], shouldStream: boolean, tools?: ToolDefinition[], responseFormat?: object): Record<string, unknown> {
+  const body: Record<string, unknown> = {
+    model: Config.MODEL,
+    messages: toOpenAiMessages(messages),
+    stream: shouldStream,
+    temperature: Config.TEMPERATURE,
+  }
+
+  if (tools?.length) {
+    body.tools = tools
+    body.tool_choice = 'auto'
+  }
+  if (responseFormat) {
+    body.response_format = responseFormat
+  }
+  if (shouldStream) {
+    // Ask for token counts in a trailing chunk so the context status line stays accurate.
+    body.stream_options = { include_usage: true }
+  }
+
+  return body
+}
+
+// --- Outgoing: internal Message[] -> OpenAI wire format ---
+
+interface OpenAiToolCall {
+  id: string
+  type: 'function'
+  function: { name: string, arguments: string }
+}
+
+interface OpenAiMessage {
+  role: Role
+  content: string | null
+  tool_calls?: OpenAiToolCall[]
+  tool_call_id?: string
+}
+
+function toOpenAiMessages(messages: Message[]): OpenAiMessage[] {
+  // Tool-call ids may be missing on the prompt-tools fallback path. We assign
+  // stable ids to assistant calls and replay them, in order, onto the matching
+  // tool results so the round-trip stays valid for strict OpenAI servers.
+  const pendingToolCallIds: string[] = []
+  let synthCounter = 0
+  const nextSynthId = (): string => `call_${synthCounter++}`
+
+  return messages.map((message): OpenAiMessage => {
+    if (message.role === 'assistant' && message.tool_calls?.length) {
+      const toolCalls = message.tool_calls.map((call): OpenAiToolCall => {
+        const id = call.id ?? nextSynthId()
+        pendingToolCallIds.push(id)
+        return {
+          id,
+          type: 'function',
+          function: {
+            name: call.function.name,
+            arguments: JSON.stringify(call.function.arguments ?? {}),
+          },
+        }
+      })
+      return { role: message.role, content: message.content || null, tool_calls: toolCalls }
+    }
+
+    if (message.role === 'tool') {
+      const toolCallId = message.tool_call_id ?? pendingToolCallIds.shift() ?? nextSynthId()
+      return { role: message.role, content: message.content, tool_call_id: toolCallId }
+    }
+
+    return { role: message.role, content: message.content }
+  })
+}
+
+// --- Incoming: OpenAI wire format -> internal Message ---
+
+function parseArguments(raw: unknown): Record<string, unknown> {
+  if (typeof raw !== 'string' || raw.trim() === '') {
+    return {}
+  }
+
+  try {
+    const parsed: unknown = JSON.parse(raw)
+    return typeof parsed === 'object' && parsed !== null ? parsed as Record<string, unknown> : {}
+  }
+  catch {
+    return {}
+  }
+}
+
+interface ResponseToolCall {
+  id?: unknown
+  function?: { name?: unknown, arguments?: unknown }
+}
+
+function mapToolCalls(rawToolCalls: unknown): ToolCall[] | undefined {
+  if (!Array.isArray(rawToolCalls) || rawToolCalls.length === 0) {
+    return undefined
+  }
+
+  const calls: ToolCall[] = []
+  for (const entry of rawToolCalls as ResponseToolCall[]) {
+    const name = entry?.function?.name
+    if (typeof name !== 'string') {
+      continue
+    }
+    calls.push({
+      id: typeof entry.id === 'string' ? entry.id : undefined,
+      function: { name, arguments: parseArguments(entry.function?.arguments) },
+    })
+  }
+
+  return calls.length ? calls : undefined
+}
+
+async function readCompleteResponse(response: Response): Promise<Message> {
+  const body = await response.json() as {
+    choices?: { message?: { content?: unknown, tool_calls?: unknown } }[]
+    usage?: { prompt_tokens?: unknown, completion_tokens?: unknown }
+  }
+  const message = body.choices?.[0]?.message
+
+  if (!message || typeof message !== 'object') {
+    throw new Error('llama.cpp returned unexpected response shape')
+  }
+
+  reportContextUsage(body.usage?.prompt_tokens, body.usage?.completion_tokens)
+
+  return {
+    role: 'assistant',
+    content: typeof message.content === 'string' ? message.content : '',
+    tool_calls: mapToolCalls(message.tool_calls),
+  }
+}
+
+// --- Incoming streaming: Server-Sent Events -> internal Message ---
+
+interface StreamDelta {
+  content?: unknown
+  reasoning_content?: unknown
+  reasoning?: unknown
+  tool_calls?: { index?: unknown, id?: unknown, function?: { name?: unknown, arguments?: unknown } }[]
+}
+
+interface StreamChunk {
+  choices?: { delta?: StreamDelta }[]
+  usage?: { prompt_tokens?: unknown, completion_tokens?: unknown }
+  error?: unknown
+}
+
+// A tool call arrives spread across many chunks: the name once, the arguments
+// in fragments. We accumulate per choice index until the stream ends.
+interface ToolCallAccumulator {
+  id?: string
+  name: string
+  arguments: string
+}
+
+async function readStreamingResponse(response: Response, onStreamPart: OnStreamPart, onActivity: () => void): Promise<Message> {
+  const reply: Message = { role: 'assistant', content: '' }
+  const toolCalls = new Map<number, ToolCallAccumulator>()
+
+  for await (const rawLine of readResponseLines(response, onActivity)) {
+    const line = rawLine.trim()
+    if (!line.startsWith('data:')) {
+      continue
+    }
+
+    const payload = line.slice('data:'.length).trim()
+    if (payload === '[DONE]') {
+      break
+    }
+
+    const chunk = parseJsonChunk(payload)
+    if (chunk) {
+      applyChunk(chunk, reply, toolCalls, onStreamPart)
+    }
+  }
+
+  reply.tool_calls = finalizeToolCalls(toolCalls)
+  return reply
+}
+
+function applyChunk(chunk: StreamChunk, reply: Message, toolCalls: Map<number, ToolCallAccumulator>, onStreamPart: OnStreamPart): void {
+  if (chunk.error) {
+    throw new Error(`llama.cpp stream error: ${typeof chunk.error === 'string' ? chunk.error : JSON.stringify(chunk.error)}`)
+  }
+
+  if (chunk.usage) {
+    reportContextUsage(chunk.usage.prompt_tokens, chunk.usage.completion_tokens)
+  }
+
+  const delta = chunk.choices?.[0]?.delta
+  if (!delta) {
+    return
+  }
+
+  if (typeof delta.content === 'string' && delta.content.length > 0) {
+    reply.content += delta.content
+    onStreamPart({ content: delta.content })
+  }
+
+  // Thinking text comes as reasoning_content (some builds use reasoning).
+  const reasoning = typeof delta.reasoning_content === 'string'
+    ? delta.reasoning_content
+    : typeof delta.reasoning === 'string' ? delta.reasoning : ''
+  if (reasoning.length > 0) {
+    onStreamPart({ thinking: reasoning })
+  }
+
+  if (Array.isArray(delta.tool_calls)) {
+    for (const part of delta.tool_calls) {
+      const index = typeof part.index === 'number' ? part.index : 0
+      const entry = toolCalls.get(index) ?? { name: '', arguments: '' }
+      if (typeof part.id === 'string') {
+        entry.id = part.id
+      }
+      if (typeof part.function?.name === 'string' && part.function.name.length > 0) {
+        entry.name = part.function.name
+      }
+      if (typeof part.function?.arguments === 'string') {
+        entry.arguments += part.function.arguments
+      }
+      toolCalls.set(index, entry)
+    }
+  }
+}
+
+function finalizeToolCalls(toolCalls: Map<number, ToolCallAccumulator>): ToolCall[] | undefined {
+  if (toolCalls.size === 0) {
+    return undefined
+  }
+
+  const calls = [...toolCalls.entries()]
+    .sort(([a], [b]) => a - b)
+    .map(([, entry]): ToolCall => ({
+      id: entry.id,
+      function: { name: entry.name, arguments: parseArguments(entry.arguments) },
+    }))
+    .filter(call => call.function.name.length > 0)
+
+  return calls.length ? calls : undefined
+}
+
+function parseJsonChunk(rawPayload: string): StreamChunk | null {
+  try {
+    const parsed: unknown = JSON.parse(rawPayload)
+    return typeof parsed === 'object' && parsed !== null ? parsed as StreamChunk : null
+  }
+  catch {
+    return null
+  }
+}

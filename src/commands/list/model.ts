@@ -2,8 +2,7 @@ import type { SelectChoice } from '../../ui/interactive/select.ts'
 import type { CommandContext, CommandResult, SlashCommand } from '../types.ts'
 import { stdin } from 'node:process'
 import { Config } from '../../config.ts'
-import { initializeContextWindow } from '../../providers/ollama/context-window.ts'
-import { listInstalledModels } from '../../providers/ollama/models.ts'
+import { getProvider } from '../../providers/index.ts'
 import { selectFromList } from '../../ui/interactive/select.ts'
 import { bold, brightGreen, gray, red } from '../../utils/colors.ts'
 
@@ -16,15 +15,15 @@ function isCurrentModel(model: string): boolean {
 }
 
 async function loadInstalledModels(): Promise<string[] | null> {
-  const result = await listInstalledModels()
+  const result = await getProvider().listInstalledModels()
 
   if (!result.ok) {
-    console.warn(red(`Could not reach Ollama at ${Config.HOST}: ${result.error}.`))
+    console.warn(red(`Could not reach ${Config.PROVIDER} at ${Config.HOST}: ${result.error}.`))
     return null
   }
 
   if (result.models.length === 0) {
-    console.warn(gray('No models installed. Pull one with `ollama pull <name>`.'))
+    console.warn(gray('No models available from the provider.'))
     return null
   }
 
@@ -53,7 +52,7 @@ async function applyModel(model: string): Promise<void> {
   }
 
   Config.MODEL = model
-  await initializeContextWindow()
+  await getProvider().initializeContextWindow()
   console.warn(gray(`Switched to ${model}.`))
 }
 

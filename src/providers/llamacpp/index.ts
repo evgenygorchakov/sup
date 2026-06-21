@@ -1,10 +1,9 @@
-// The Ollama provider: turns the low-level chat() into a ChatProvider.
+// The llama.cpp provider: turns the low-level chat() into a ChatProvider.
 //
 // Tool calling has two strategies, picked by USE_NATIVE_TOOLS:
-//   - native: hand the tools to Ollama's tool API;
+//   - native: hand the tools straight to llama-server's OpenAI tool API;
 //   - fallback: describe the tools in the prompt and constrain the reply to a
-//     JSON schema (Ollama's `format`), then parse the tool calls out of it
-//     (with one reformat retry).
+//     JSON schema, then parse the tool calls out of it (with one reformat retry).
 // The fallback is what lets weak local models call tools without native support.
 
 import type { Message, ToolDefinition } from '../../types.ts'
@@ -37,6 +36,15 @@ function prependToolsInstruction(messages: Message[], instruction: string): Mess
   return [{ role: 'system', content: instruction }, ...messages]
 }
 
+// llama-server enforces structured output through OpenAI's response_format with
+// a JSON schema, where Ollama uses its own `format` field.
+function toResponseFormat(tools: ToolDefinition[]): object {
+  return {
+    type: 'json_schema',
+    json_schema: { name: 'tool_reply', strict: true, schema: buildReplyFormat(tools) },
+  }
+}
+
 function filterOnlyThinkingParts(onStreamPart?: OnStreamPart): OnStreamPart | undefined {
   if (!onStreamPart) {
     return undefined
@@ -67,10 +75,10 @@ async function chat(messages: Message[], tools: ToolDefinition[], onStreamPart?:
 
   // Fallback: prompt-engineered tools, with the reply constrained to a JSON schema.
   const messagesWithInstruction = prependToolsInstruction(messages, buildToolsInstruction(tools))
-  const replySchema = buildReplyFormat(tools)
+  const responseFormat = toResponseFormat(tools)
 
   const firstReply = await rawChat(messagesWithInstruction, {
-    format: replySchema,
+    responseFormat,
     onStreamPart: filterOnlyThinkingParts(onStreamPart),
   })
   const parsedFirstReply = tryParsePromptToolsReply(firstReply.content)
@@ -85,7 +93,7 @@ async function chat(messages: Message[], tools: ToolDefinition[], onStreamPart?:
 
   const retryReply = await rawChat(
     [...messagesWithInstruction, firstReply, { role: 'user', content: REFORMAT_INSTRUCTION }],
-    { format: replySchema, onStreamPart: filterOnlyThinkingParts(onStreamPart) },
+    { responseFormat, onStreamPart: filterOnlyThinkingParts(onStreamPart) },
   )
   const parsedRetryReply = tryParsePromptToolsReply(retryReply.content)
 
@@ -100,4 +108,4 @@ async function chat(messages: Message[], tools: ToolDefinition[], onStreamPart?:
   return firstReply
 }
 
-export const ollama: ChatProvider = { chat, initializeContextWindow, getContextWindowTokenLimit, listInstalledModels }
+export const llamacpp: ChatProvider = { chat, initializeContextWindow, getContextWindowTokenLimit, listInstalledModels }
