@@ -6,7 +6,7 @@ import { exitCommand } from './list/exit.ts'
 import { helpCommand } from './list/help.ts'
 import { modelCommand } from './list/model.ts'
 import { planModeCommand } from './list/plan-mode.ts'
-import { planCommand } from './list/plan.ts'
+import { runPlanCommand } from './list/run-plan.ts'
 import { showThinkingCommand } from './list/show-thinking.ts'
 import { skillsCommand } from './list/skills.ts'
 import { thinkingCommand } from './list/thinking.ts'
@@ -17,7 +17,7 @@ export const commands: SlashCommand[] = [
   helpCommand,
   clearCommand,
   modelCommand,
-  planCommand,
+  runPlanCommand,
   planModeCommand,
   thinkingCommand,
   showThinkingCommand,

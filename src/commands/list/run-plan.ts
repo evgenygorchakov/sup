@@ -19,7 +19,7 @@ async function run(context: CommandContext): Promise<CommandResult> {
       const request = plan.request ? ` — ${plan.request}` : ''
       console.warn(`  ${brightGreen(String(index + 1))}  ${plan.name} ${gray(`(${formatTimestamp(plan.modified)})${request}`)}`)
     })
-    console.warn(gray('\nLoad one with /plan <number>.'))
+    console.warn(gray('\nLoad one with /run-plan <number>.'))
     return { kind: 'continue' }
   }
 
@@ -31,7 +31,7 @@ async function run(context: CommandContext): Promise<CommandResult> {
       ?? plans.find(plan => plan.name.toLowerCase().includes(lowered) || plan.request.toLowerCase().includes(lowered))
 
   if (!chosen) {
-    console.warn(red(`No plan matching "${selector}". Type /plan to list them.`))
+    console.warn(red(`No plan matching "${selector}". Type /run-plan to list them.`))
     return { kind: 'continue' }
   }
 
@@ -51,8 +51,8 @@ async function run(context: CommandContext): Promise<CommandResult> {
   return { kind: 'run' }
 }
 
-export const planCommand: SlashCommand = {
-  name: 'plan',
-  description: 'List saved plans, or load one into the session: /plan [number].',
+export const runPlanCommand: SlashCommand = {
+  name: 'run-plan',
+  description: 'List saved plans, or load one into the session: /run-plan [number].',
   run,
 }
