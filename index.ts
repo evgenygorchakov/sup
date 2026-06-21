@@ -10,12 +10,14 @@ import { createInterface } from 'node:readline/promises'
 import { run } from './src/agent.ts'
 import { resumeIntoMessages } from './src/babysitter/index.ts'
 import { commands, runSlashCommand } from './src/commands/registry.ts'
+import { buildUserMessage } from './src/images/build-message.ts'
 import { isPlanModeActive } from './src/plan/mode-state.ts'
 import { getLastContextUsage } from './src/providers/context-usage.ts'
 import { getProvider } from './src/providers/index.ts'
 import { buildSkillsPromptSection, skills } from './src/skills/registry.ts'
 import { SYSTEM_PROMPT } from './src/system-prompt.ts'
 import { createSlashCompleter, installCommandHints } from './src/ui/interactive/command-hints.ts'
+import { installImagePasteHandler } from './src/ui/interactive/image-paste.ts'
 import { DISABLE_BRACKETED_PASTE, ENABLE_BRACKETED_PASTE, getInputStream, readUserInput } from './src/ui/interactive/multiline-input.ts'
 import { bold, brightGreen, gray, red, yellow } from './src/utils/colors.ts'
 
@@ -49,7 +51,7 @@ async function loadProjectInstructions(): Promise<string | null> {
 }
 
 async function handleUserTurn(provider: ChatProvider, messages: Message[], readline: ReadlineInterface, userInput: string): Promise<void> {
-  messages.push({ role: 'user', content: userInput })
+  messages.push(await buildUserMessage(userInput))
   await run(provider, messages, readline)
 }
 
@@ -69,6 +71,9 @@ async function main() {
 
   const commandHints = interactive
     ? installCommandHints(inputStream, readline as unknown as { line?: string, cursor?: number }, commands)
+    : null
+  const imagePaste = interactive
+    ? installImagePasteHandler(inputStream, readline)
     : null
 
   let cleanedUp = false
@@ -151,6 +156,7 @@ async function main() {
       let userInput: string
 
       commandHints?.setActive(true)
+      imagePaste?.setActive(true)
       try {
         userInput = (await readUserInput(readline, `\n${contextStatusLine()}${planModeIndicator()}${PROMPT_MARKER}`)).trim()
       }
@@ -159,6 +165,7 @@ async function main() {
       }
       finally {
         commandHints?.setActive(false)
+        imagePaste?.setActive(false)
       }
 
       if (!userInput) {

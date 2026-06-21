@@ -32,7 +32,9 @@ export function startTurn(messages: Message[]): void {
   ensureRun()
   const last = messages[messages.length - 1]
   if (last?.role === 'user') {
-    appendEvent('user', { message: last })
+    // Drop image bytes before journaling: base64 would bloat the JSONL and isn't
+    // needed to resume a run. (undefined keys are omitted by JSON.stringify.)
+    appendEvent('user', { message: last.images ? { ...last, images: undefined } : last })
   }
   resetGate()
 }

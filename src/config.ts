@@ -39,6 +39,8 @@ export interface ConfigShape {
   BABYSITTER_LEDGER: boolean
   BABYSITTER_GATED_SKILLS: boolean
   BABYSITTER_GATE_MAX_ATTEMPTS: number
+  USE_IMAGE_INPUT: boolean
+  IMAGE_MAX_BYTES: number
 }
 
 export const Config: ConfigShape = {
@@ -80,6 +82,8 @@ export const Config: ConfigShape = {
   BABYSITTER_LEDGER: getEnvBoolean('BABYSITTER_LEDGER', true),
   BABYSITTER_GATED_SKILLS: getEnvBoolean('BABYSITTER_GATED_SKILLS', true),
   BABYSITTER_GATE_MAX_ATTEMPTS: getEnvNumber('BABYSITTER_GATE_MAX_ATTEMPTS', 3),
+  USE_IMAGE_INPUT: getEnvBoolean('USE_IMAGE_INPUT', true),
+  IMAGE_MAX_BYTES: getEnvNumber('IMAGE_MAX_BYTES', 10_000_000),
 }
 
 export type ThinkingMode = false | true | 'low' | 'medium' | 'high'

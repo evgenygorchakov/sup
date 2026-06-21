@@ -92,11 +92,28 @@ interface OpenAiToolCall {
   function: { name: string, arguments: string }
 }
 
+type ContentPart
+  = | { type: 'text', text: string }
+    | { type: 'image_url', image_url: { url: string } }
+
 interface OpenAiMessage {
   role: Role
-  content: string | null
+  content: string | ContentPart[] | null
   tool_calls?: OpenAiToolCall[]
   tool_call_id?: string
+}
+
+// Images travel as OpenAI multipart content: the text first, then each image as
+// a data-URI image_url part.
+function toMultipartContent(text: string, images: NonNullable<Message['images']>): ContentPart[] {
+  const parts: ContentPart[] = []
+  if (text) {
+    parts.push({ type: 'text', text })
+  }
+  for (const image of images) {
+    parts.push({ type: 'image_url', image_url: { url: `data:${image.mimeType};base64,${image.data}` } })
+  }
+  return parts
 }
 
 function toOpenAiMessages(messages: Message[]): OpenAiMessage[] {
@@ -127,6 +144,10 @@ function toOpenAiMessages(messages: Message[]): OpenAiMessage[] {
     if (message.role === 'tool') {
       const toolCallId = message.tool_call_id ?? pendingToolCallIds.shift() ?? nextSynthId()
       return { role: message.role, content: message.content, tool_call_id: toolCallId }
+    }
+
+    if (message.images?.length) {
+      return { role: message.role, content: toMultipartContent(message.content, message.images) }
     }
 
     return { role: message.role, content: message.content }

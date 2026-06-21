@@ -62,11 +62,22 @@ export async function chat(messages: Message[], options: ChatOptions = {}): Prom
   }
 }
 
+// Ollama's wire format matches our Message shape except for images, which it
+// expects as a flat array of base64 strings on the message (no data-URI prefix).
+function toOllamaMessages(messages: Message[]): Record<string, unknown>[] {
+  return messages.map((message) => {
+    if (!message.images?.length) {
+      return message
+    }
+    return { ...message, images: message.images.map(image => image.data) }
+  })
+}
+
 function buildRequestBody(messages: Message[], shouldStream: boolean, tools?: ToolDefinition[], format?: object): Record<string, unknown> {
   const model = Config.MODEL
   return {
     model,
-    messages,
+    messages: toOllamaMessages(messages),
     tools,
     format,
     think: getThinkingModeFor(model),

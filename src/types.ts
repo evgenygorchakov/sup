@@ -1,8 +1,14 @@
 export type Role = 'system' | 'user' | 'assistant' | 'tool'
 
+export interface ImageAttachment {
+  data: string // base64-encoded image bytes, without a data-URI prefix
+  mimeType: string // e.g. 'image/png', 'image/jpeg'
+}
+
 export interface Message {
   role: Role
   content: string
+  images?: ImageAttachment[]
   tool_calls?: ToolCall[]
   tool_call_id?: string
 }

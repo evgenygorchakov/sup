@@ -12,13 +12,18 @@ export const DISABLE_BRACKETED_PASTE = '\x1B[?2004l'
 const ESC = 0x1B
 const NEWLINE = 0x0A
 const CARRIAGE_RETURN = 0x0D
+const CTRL_V = 0x16
 const PASTE_START = Buffer.from('\x1B[200~')
 const PASTE_END = Buffer.from('\x1B[201~')
 const PLACEHOLDER_BYTES = Buffer.from(PASTE_PLACEHOLDER)
 
+const SPACE = 0x20
+const TAB = 0x09
+
 export class BracketedPasteTransform extends Transform {
   private pending = Buffer.alloc(0)
   private inPaste = false
+  private pasteHadContent = false
 
   override _transform(chunk: Buffer, _encoding: BufferEncoding, done: () => void): void {
     this.pending = Buffer.concat([this.pending, chunk])
@@ -50,13 +55,30 @@ export class BracketedPasteTransform extends Transform {
           }
         }
         else if (buffer.subarray(index, index + marker.length).equals(marker)) {
-          this.inPaste = !this.inPaste
+          const enteringPaste = !this.inPaste
+          this.inPaste = enteringPaste
+          // An empty paste (no real characters) is how some terminals — notably
+          // Windows Terminal on WSL — surface Ctrl+V of an image, which has no
+          // text form. Treat it as an image-paste request too.
+          if (enteringPaste) {
+            this.pasteHadContent = false
+          }
+          else if (!this.pasteHadContent) {
+            this.emit('ctrl-v')
+          }
           index += marker.length
           continue
         }
       }
 
       const byte = buffer[index]
+      // Ctrl+V outside a paste means "paste an image from the clipboard": swallow
+      // the byte (so readline never inserts ^V) and let a listener handle it.
+      if (!this.inPaste && byte === CTRL_V) {
+        this.emit('ctrl-v')
+        index++
+        continue
+      }
       if (this.inPaste && (byte === NEWLINE || byte === CARRIAGE_RETURN)) {
         if (byte === CARRIAGE_RETURN) {
           if (index + 1 >= buffer.length && !final) {
@@ -69,6 +91,9 @@ export class BracketedPasteTransform extends Transform {
         output.push(PLACEHOLDER_BYTES)
       }
       else {
+        if (this.inPaste && byte !== SPACE && byte !== TAB) {
+          this.pasteHadContent = true
+        }
         output.push(buffer.subarray(index, index + 1))
       }
       index++
