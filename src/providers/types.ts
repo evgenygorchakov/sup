@@ -6,7 +6,7 @@ export type ModelListResult
     | { ok: false, error: string }
 
 export interface ChatProvider {
-  chat: (messages: Message[], tools: ToolDefinition[], onStreamPart?: OnStreamPart) => Promise<Message>
+  chat: (messages: Message[], tools: ToolDefinition[], onStreamPart?: OnStreamPart, signal?: AbortSignal) => Promise<Message>
   initializeContextWindow: () => Promise<void>
   getContextWindowTokenLimit: () => number
   listInstalledModels: () => Promise<ModelListResult>

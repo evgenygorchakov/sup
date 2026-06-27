@@ -2,7 +2,7 @@ import type { Tool } from '../../types.ts'
 import { readFile as readFromDisk } from 'node:fs/promises'
 import { basename } from 'node:path'
 import { green } from '../../utils/colors.ts'
-import { isSensitiveFileName, resolveInsideWorkingDirectory, truncateText } from './shared.ts'
+import { isSensitiveFileName, OUTPUT_CHAR_LIMIT, resolveInsideWorkingDirectory } from './shared.ts'
 
 const DEFAULT_LIMIT = 2000
 
@@ -64,27 +64,54 @@ export const readFile: Tool = {
     }
 
     const lines = content.split('\n')
-    const chunk = lines.slice(offset - 1, offset - 1 + limit)
+    const start = offset - 1
 
-    if (chunk.length === 0) {
+    if (start >= lines.length) {
       return `File has ${lines.length} lines; offset ${offset} is past end.`
     }
 
-    const lastShown = offset - 1 + chunk.length
-    const numbered = chunk
-      .map((line, index) => `${String(offset + index).padStart(6, ' ')}\t${line}`)
-      .join('\n')
+    // Budget the output by character count, but one whole line at a time. Slicing
+    // the joined text by characters (the old approach) cut mid-file while the
+    // header still claimed "end of file" — two contradictory signals that left
+    // the model unable to continue. Counting per line keeps lastShown honest, so
+    // the header and offset-based pagination stay correct.
+    const numbered: string[] = []
+    let charCount = 0
+    let index = start
+    for (; index < lines.length && numbered.length < limit; index++) {
+      let entry = `${String(index + 1).padStart(6, ' ')}\t${lines[index]}`
+      // A single line longer than the whole budget would still blow the context,
+      // so truncate that one line rather than refusing to show it.
+      if (numbered.length === 0 && entry.length > OUTPUT_CHAR_LIMIT) {
+        entry = `${entry.slice(0, OUTPUT_CHAR_LIMIT)} …[line truncated]`
+      }
+      else if (charCount + entry.length + 1 > OUTPUT_CHAR_LIMIT) {
+        break
+      }
+      numbered.push(entry)
+      charCount += entry.length + 1
+    }
 
-    const suffix = lastShown < lines.length ? '' : ' (end of file)'
+    const lastShown = start + numbered.length
+    const remaining = lines.length - lastShown
+    const body = numbered.join('\n')
 
-    return `Showing lines ${offset}-${lastShown} of ${lines.length}${suffix}:\n${truncateText(numbered)}`
+    if (remaining === 0) {
+      return `Showing lines ${offset}-${lastShown} of ${lines.length} (end of file):\n${body}`
+    }
+
+    const more = remaining === 1 ? '1 more line' : `${remaining} more lines`
+    return `Showing lines ${offset}-${lastShown} of ${lines.length}:\n${body}\n…[output limit reached: ${more}; call read_file with offset ${lastShown + 1} to continue]`
   },
   primaryArgs: ['path', 'offset', 'limit'],
   accentColor: green,
   renderResult: (_args, result) => {
-    const match = result.match(/^Showing lines \d+-\d+ of (\d+)/)
+    const match = result.match(/^Showing lines (\d+)-(\d+) of (\d+)/)
     if (match) {
-      return `Read ${match[1]} lines`
+      const [, from, to, total] = match
+      const remaining = Number(total) - Number(to)
+      const more = remaining > 0 ? ` (+${remaining})` : ''
+      return `Read lines ${from}–${to} of ${total}${more}`
     }
 
     return result

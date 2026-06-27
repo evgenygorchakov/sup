@@ -7,6 +7,7 @@
 import type { Message, Role, ToolCall, ToolDefinition } from '../../types.ts'
 import type { OnStreamPart } from '../../ui/interactive/stream-printer.ts'
 import { Config, getThinkingModeFor } from '../../config.ts'
+import { RequestCancelledError } from '../cancel.ts'
 import { recordContextUsage } from '../context-usage.ts'
 import { startIdleTimeout } from '../idle-timeout.ts'
 import { readResponseLines } from '../stream-lines.ts'
@@ -14,6 +15,7 @@ import { getContextWindowTokenLimit } from './context-window.ts'
 
 const OLLAMA_HOST = Config.HOST
 const REQUEST_IDLE_TIMEOUT_MS = Config.REQUEST_TIMEOUT_MS
+const REQUEST_FIRST_TOKEN_TIMEOUT_MS = Config.REQUEST_FIRST_TOKEN_TIMEOUT_MS
 
 const VALID_ROLES: readonly Role[] = ['system', 'user', 'assistant', 'tool']
 
@@ -27,20 +29,22 @@ export interface ChatOptions {
   tools?: ToolDefinition[]
   format?: object
   onStreamPart?: OnStreamPart
+  signal?: AbortSignal
 }
 
 export async function chat(messages: Message[], options: ChatOptions = {}): Promise<Message> {
-  const { tools, format, onStreamPart } = options
+  const { tools, format, onStreamPart, signal: userSignal } = options
   const shouldStream = Boolean(onStreamPart) && Config.USE_STREAMING
 
-  const idle = startIdleTimeout(REQUEST_IDLE_TIMEOUT_MS)
+  const idle = startIdleTimeout(REQUEST_IDLE_TIMEOUT_MS, REQUEST_FIRST_TOKEN_TIMEOUT_MS)
+  const signal = userSignal ? AbortSignal.any([idle.signal, userSignal]) : idle.signal
 
   try {
     const response = await fetch(`${OLLAMA_HOST}/api/chat`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(buildRequestBody(messages, shouldStream, tools, format)),
-      signal: idle.signal,
+      signal,
     })
 
     if (!response.ok) {
@@ -52,8 +56,13 @@ export async function chat(messages: Message[], options: ChatOptions = {}): Prom
       : await readCompleteResponse(response)
   }
   catch (error) {
+    if (userSignal?.aborted) {
+      throw new RequestCancelledError()
+    }
     if (idle.abortedByTimeout()) {
-      throw new Error(`Ollama request timed out: no data for ${Math.round(REQUEST_IDLE_TIMEOUT_MS / 1000)}s`)
+      throw new Error(idle.abortedBeforeFirstChunk()
+        ? `Ollama request timed out: no response within ${Math.round(REQUEST_FIRST_TOKEN_TIMEOUT_MS / 1000)}s (the model may still be loading or the prompt is too large)`
+        : `Ollama request timed out: stream stalled, no data for ${Math.round(REQUEST_IDLE_TIMEOUT_MS / 1000)}s`)
     }
     throw error
   }

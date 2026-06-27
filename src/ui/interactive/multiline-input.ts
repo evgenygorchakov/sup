@@ -40,6 +40,15 @@ export class BracketedPasteTransform extends Transform {
     done()
   }
 
+  // Discard any half-parsed bytes (notably a lone Esc held back while waiting to
+  // see if a paste sequence follows). Used after an Esc interrupt so the byte
+  // doesn't leak into the next prompt.
+  resetPending(): void {
+    this.pending = Buffer.alloc(0)
+    this.inPaste = false
+    this.pasteHadContent = false
+  }
+
   private consume(final: boolean): void {
     const buffer = this.pending
     const output: Buffer[] = []

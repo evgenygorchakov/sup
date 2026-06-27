@@ -9,12 +9,14 @@
 import type { Message, Role, ToolCall, ToolDefinition } from '../../types.ts'
 import type { OnStreamPart } from '../../ui/interactive/stream-printer.ts'
 import { Config } from '../../config.ts'
+import { RequestCancelledError } from '../cancel.ts'
 import { recordContextUsage } from '../context-usage.ts'
 import { startIdleTimeout } from '../idle-timeout.ts'
 import { readResponseLines } from '../stream-lines.ts'
 
 const LLAMACPP_HOST = Config.HOST
 const REQUEST_IDLE_TIMEOUT_MS = Config.REQUEST_TIMEOUT_MS
+const REQUEST_FIRST_TOKEN_TIMEOUT_MS = Config.REQUEST_FIRST_TOKEN_TIMEOUT_MS
 
 function reportContextUsage(promptTokens: unknown, completionTokens: unknown): void {
   if (typeof promptTokens === 'number' && typeof completionTokens === 'number') {
@@ -26,20 +28,22 @@ export interface ChatOptions {
   tools?: ToolDefinition[]
   responseFormat?: object
   onStreamPart?: OnStreamPart
+  signal?: AbortSignal
 }
 
 export async function chat(messages: Message[], options: ChatOptions = {}): Promise<Message> {
-  const { tools, responseFormat, onStreamPart } = options
+  const { tools, responseFormat, onStreamPart, signal: userSignal } = options
   const shouldStream = Boolean(onStreamPart) && Config.USE_STREAMING
 
-  const idle = startIdleTimeout(REQUEST_IDLE_TIMEOUT_MS)
+  const idle = startIdleTimeout(REQUEST_IDLE_TIMEOUT_MS, REQUEST_FIRST_TOKEN_TIMEOUT_MS)
+  const signal = userSignal ? AbortSignal.any([idle.signal, userSignal]) : idle.signal
 
   try {
     const response = await fetch(`${LLAMACPP_HOST}/v1/chat/completions`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(buildRequestBody(messages, shouldStream, tools, responseFormat)),
-      signal: idle.signal,
+      signal,
     })
 
     if (!response.ok) {
@@ -51,8 +55,13 @@ export async function chat(messages: Message[], options: ChatOptions = {}): Prom
       : await readCompleteResponse(response)
   }
   catch (error) {
+    if (userSignal?.aborted) {
+      throw new RequestCancelledError()
+    }
     if (idle.abortedByTimeout()) {
-      throw new Error(`llama.cpp request timed out: no data for ${Math.round(REQUEST_IDLE_TIMEOUT_MS / 1000)}s`)
+      throw new Error(idle.abortedBeforeFirstChunk()
+        ? `llama.cpp request timed out: no response within ${Math.round(REQUEST_FIRST_TOKEN_TIMEOUT_MS / 1000)}s (the model may still be loading or the prompt is too large)`
+        : `llama.cpp request timed out: stream stalled, no data for ${Math.round(REQUEST_IDLE_TIMEOUT_MS / 1000)}s`)
     }
     throw error
   }

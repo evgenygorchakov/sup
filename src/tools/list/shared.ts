@@ -4,7 +4,7 @@ import process from 'node:process'
 
 type ResolvedPath = | { ok: true, absolute: string } | { ok: false, error: string }
 
-const OUTPUT_CHAR_LIMIT = 20_000
+export const OUTPUT_CHAR_LIMIT = 20_000
 
 // Skipped only while recursing: an explicit search path (or read_file) inside
 // one of these still works.

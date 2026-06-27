@@ -1,8 +1,9 @@
 import type { Interface as ReadlineInterface } from 'node:readline/promises'
 import type { ChatProvider } from './providers/types.ts'
 import type { Message, ToolCall } from './types.ts'
-import process from 'node:process'
+import type { OnStreamPart } from './ui/interactive/stream-printer.ts'
 
+import process from 'node:process'
 import { buildHarnessReminder, finishTask, recordAssistant, recordLedgerState, recordToolCall, recordToolResult, runCompletionGate, startTurn } from './babysitter/index.ts'
 import { Config } from './config.ts'
 import { collapseOldToolResults } from './context/collapse.ts'
@@ -11,8 +12,10 @@ import { isPlanModeActive, setPlanModeActive } from './plan/mode-state.ts'
 import { shouldAutoApprove } from './tools/auto-approve.ts'
 import { runTool, toolDefinitions, toolsByName } from './tools/registry.ts'
 import { CONFIRM_KIND, confirmToolCalls } from './ui/interactive/confirm.ts'
+import { withRequestInterrupt } from './ui/interactive/interrupt.ts'
 import { askForPlanApproval } from './ui/interactive/plan-approval.ts'
 import { renderToolHeader } from './ui/interactive/render-tool-call.ts'
+import { startSpinner } from './ui/interactive/spinner.ts'
 import { createStreamPrinter } from './ui/interactive/stream-printer.ts'
 import { red } from './utils/colors.ts'
 
@@ -80,7 +83,23 @@ export async function run(provider: ChatProvider, messages: Message[], readline:
     collapseOldToolResults(messages)
 
     const { onStreamPart, didPrintAnything, didPrintContent } = createStreamPrinter(text => text)
-    const reply = await provider.chat(withPlanReminder(messages), toolDefinitions, onStreamPart)
+
+    // Show a throbber for the silent gap before the first token, and clear it
+    // the moment any output (thinking or content) starts.
+    const spinner = startSpinner('Thinking…')
+    const handleStreamPart: OnStreamPart = (part) => {
+      spinner.stop()
+      onStreamPart(part)
+    }
+
+    let reply: Message
+    try {
+      reply = await withRequestInterrupt(signal =>
+        provider.chat(withPlanReminder(messages), toolDefinitions, handleStreamPart, signal))
+    }
+    finally {
+      spinner.stop()
+    }
 
     messages.push(reply)
     recordAssistant(reply)

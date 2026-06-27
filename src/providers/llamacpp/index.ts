@@ -64,13 +64,13 @@ function filterOnlyThinkingParts(onStreamPart?: OnStreamPart): OnStreamPart | un
   }
 }
 
-async function chat(messages: Message[], tools: ToolDefinition[], onStreamPart?: OnStreamPart): Promise<Message> {
+async function chat(messages: Message[], tools: ToolDefinition[], onStreamPart?: OnStreamPart, signal?: AbortSignal): Promise<Message> {
   if (!tools.length) {
-    return await rawChat(messages, { onStreamPart })
+    return await rawChat(messages, { onStreamPart, signal })
   }
 
   if (nativeToolsEnabled) {
-    return await rawChat(messages, { tools, onStreamPart })
+    return await rawChat(messages, { tools, onStreamPart, signal })
   }
 
   // Fallback: prompt-engineered tools, with the reply constrained to a JSON schema.
@@ -80,6 +80,7 @@ async function chat(messages: Message[], tools: ToolDefinition[], onStreamPart?:
   const firstReply = await rawChat(messagesWithInstruction, {
     responseFormat,
     onStreamPart: filterOnlyThinkingParts(onStreamPart),
+    signal,
   })
   const parsedFirstReply = tryParsePromptToolsReply(firstReply.content)
 
@@ -93,7 +94,7 @@ async function chat(messages: Message[], tools: ToolDefinition[], onStreamPart?:
 
   const retryReply = await rawChat(
     [...messagesWithInstruction, firstReply, { role: 'user', content: REFORMAT_INSTRUCTION }],
-    { responseFormat, onStreamPart: filterOnlyThinkingParts(onStreamPart) },
+    { responseFormat, onStreamPart: filterOnlyThinkingParts(onStreamPart), signal },
   )
   const parsedRetryReply = tryParsePromptToolsReply(retryReply.content)
 

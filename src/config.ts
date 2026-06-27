@@ -17,6 +17,7 @@ export interface ConfigShape {
   USE_NATIVE_TOOLS: boolean
   CONTEXT_WINDOW_TOKEN_LIMIT: number
   REQUEST_TIMEOUT_MS: number
+  REQUEST_FIRST_TOKEN_TIMEOUT_MS: number
   TEMPERATURE: number
   USE_THINKING: boolean
   SHOW_THINKING: boolean
@@ -54,6 +55,9 @@ export const Config: ConfigShape = {
   USE_NATIVE_TOOLS: getEnvBoolean('USE_NATIVE_TOOLS', true),
   CONTEXT_WINDOW_TOKEN_LIMIT: getEnvNumber('CONTEXT_WINDOW_TOKEN_LIMIT', 80_000),
   REQUEST_TIMEOUT_MS: getEnvNumber('REQUEST_TIMEOUT_MS', 300_000),
+  // Time-to-first-token can be long for a big local model (load + prefill +
+  // grammar compile) while the server stays silent, so this window is generous.
+  REQUEST_FIRST_TOKEN_TIMEOUT_MS: getEnvNumber('REQUEST_FIRST_TOKEN_TIMEOUT_MS', 600_000),
   TEMPERATURE: getEnvNumber('TEMPERATURE', 0.2),
   USE_THINKING: getEnvBoolean('USE_THINKING', true),
   SHOW_THINKING: getEnvBoolean('SHOW_THINKING', true),

@@ -12,6 +12,7 @@ import { resumeIntoMessages } from './src/babysitter/index.ts'
 import { commands, runSlashCommand } from './src/commands/registry.ts'
 import { buildUserMessage } from './src/images/build-message.ts'
 import { isPlanModeActive } from './src/plan/mode-state.ts'
+import { RequestCancelledError } from './src/providers/cancel.ts'
 import { getLastContextUsage } from './src/providers/context-usage.ts'
 import { getProvider } from './src/providers/index.ts'
 import { buildSkillsPromptSection, skills } from './src/skills/registry.ts'
@@ -50,9 +51,23 @@ async function loadProjectInstructions(): Promise<string | null> {
   }
 }
 
+const CANCELLED_NOTICE = yellow('\n⏹  Cancelled. Type your message again.')
+
 async function handleUserTurn(provider: ChatProvider, messages: Message[], readline: ReadlineInterface, userInput: string): Promise<void> {
+  const mark = messages.length
   messages.push(await buildUserMessage(userInput))
-  await run(provider, messages, readline)
+  try {
+    await run(provider, messages, readline)
+  }
+  catch (error) {
+    if (error instanceof RequestCancelledError) {
+      // Rewind the cancelled turn so the user can rewrite from a clean slate.
+      messages.length = mark
+      console.warn(CANCELLED_NOTICE)
+      return
+    }
+    throw error
+  }
 }
 
 async function main() {
@@ -187,7 +202,12 @@ async function main() {
         await handleUserTurn(provider, messages, readline, userInput)
       }
       catch (error) {
-        console.error(red(`Error: ${error instanceof Error ? error.message : String(error)}`))
+        if (error instanceof RequestCancelledError) {
+          console.warn(CANCELLED_NOTICE)
+        }
+        else {
+          console.error(red(`Error: ${error instanceof Error ? error.message : String(error)}`))
+        }
       }
     }
   }
