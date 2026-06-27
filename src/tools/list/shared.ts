@@ -6,8 +6,6 @@ type ResolvedPath = | { ok: true, absolute: string } | { ok: false, error: strin
 
 export const OUTPUT_CHAR_LIMIT = 20_000
 
-// Skipped only while recursing: an explicit search path (or read_file) inside
-// one of these still works.
 export const IGNORED_DIRECTORY_NAMES = new Set([
   'node_modules',
   '.git',

@@ -1,11 +1,3 @@
-// Chat against llama-server's OpenAI-compatible /v1/chat/completions endpoint.
-//
-// This module is mostly translation: our internal Message shape <-> the OpenAI
-// wire format, in both directions, for streaming and non-streaming replies.
-// llama-server differs from our model in two ways worth remembering:
-//   - tool-call arguments are JSON *strings*, not objects;
-//   - every tool call has an id that its tool result must echo back.
-
 import type { Message, Role, ToolCall, ToolDefinition } from '../../types.ts'
 import type { OnStreamPart } from '../../ui/interactive/stream-printer.ts'
 import { Config } from '../../config.ts'
@@ -86,14 +78,11 @@ function buildRequestBody(messages: Message[], shouldStream: boolean, tools?: To
     body.response_format = responseFormat
   }
   if (shouldStream) {
-    // Ask for token counts in a trailing chunk so the context status line stays accurate.
     body.stream_options = { include_usage: true }
   }
 
   return body
 }
-
-// --- Outgoing: internal Message[] -> OpenAI wire format ---
 
 interface OpenAiToolCall {
   id: string
@@ -112,31 +101,26 @@ interface OpenAiMessage {
   tool_call_id?: string
 }
 
-// Images travel as OpenAI multipart content: the text first, then each image as
-// a data-URI image_url part.
 function toMultipartContent(text: string, images: NonNullable<Message['images']>): ContentPart[] {
   const parts: ContentPart[] = []
   if (text) {
     parts.push({ type: 'text', text })
   }
   for (const image of images) {
-    parts.push({ type: 'image_url', image_url: { url: `data:${image.mimeType};base64,${image.data}` } })
+    parts.push({ type: 'image_url', image_url: { url: `data:${image.mimeType};base64,${image.base64}` } })
   }
   return parts
 }
 
 function toOpenAiMessages(messages: Message[]): OpenAiMessage[] {
-  // Tool-call ids may be missing on the prompt-tools fallback path. We assign
-  // stable ids to assistant calls and replay them, in order, onto the matching
-  // tool results so the round-trip stays valid for strict OpenAI servers.
   const pendingToolCallIds: string[] = []
-  let synthCounter = 0
-  const nextSynthId = (): string => `call_${synthCounter++}`
+  let generatedIdCount = 0
+  const nextGeneratedId = (): string => `call_${generatedIdCount++}`
 
   return messages.map((message): OpenAiMessage => {
     if (message.role === 'assistant' && message.tool_calls?.length) {
       const toolCalls = message.tool_calls.map((call): OpenAiToolCall => {
-        const id = call.id ?? nextSynthId()
+        const id = call.id ?? nextGeneratedId()
         pendingToolCallIds.push(id)
         return {
           id,
@@ -151,7 +135,7 @@ function toOpenAiMessages(messages: Message[]): OpenAiMessage[] {
     }
 
     if (message.role === 'tool') {
-      const toolCallId = message.tool_call_id ?? pendingToolCallIds.shift() ?? nextSynthId()
+      const toolCallId = message.tool_call_id ?? pendingToolCallIds.shift() ?? nextGeneratedId()
       return { role: message.role, content: message.content, tool_call_id: toolCallId }
     }
 
@@ -162,8 +146,6 @@ function toOpenAiMessages(messages: Message[]): OpenAiMessage[] {
     return { role: message.role, content: message.content }
   })
 }
-
-// --- Incoming: OpenAI wire format -> internal Message ---
 
 function parseArguments(raw: unknown): Record<string, unknown> {
   if (typeof raw !== 'string' || raw.trim() === '') {
@@ -224,8 +206,6 @@ async function readCompleteResponse(response: Response): Promise<Message> {
   }
 }
 
-// --- Incoming streaming: Server-Sent Events -> internal Message ---
-
 interface StreamDelta {
   content?: unknown
   reasoning_content?: unknown
@@ -239,8 +219,6 @@ interface StreamChunk {
   error?: unknown
 }
 
-// A tool call arrives spread across many chunks: the name once, the arguments
-// in fragments. We accumulate per choice index until the stream ends.
 interface ToolCallAccumulator {
   id?: string
   name: string
@@ -291,10 +269,7 @@ function applyChunk(chunk: StreamChunk, reply: Message, toolCalls: Map<number, T
     onStreamPart({ content: delta.content })
   }
 
-  // Thinking text comes as reasoning_content (some builds use reasoning).
-  const reasoning = typeof delta.reasoning_content === 'string'
-    ? delta.reasoning_content
-    : typeof delta.reasoning === 'string' ? delta.reasoning : ''
+  const reasoning = extractReasoning(delta)
   if (reasoning.length > 0) {
     onStreamPart({ thinking: reasoning })
   }
@@ -315,6 +290,16 @@ function applyChunk(chunk: StreamChunk, reply: Message, toolCalls: Map<number, T
       toolCalls.set(index, entry)
     }
   }
+}
+
+function extractReasoning(delta: StreamDelta): string {
+  if (typeof delta.reasoning_content === 'string') {
+    return delta.reasoning_content
+  }
+  if (typeof delta.reasoning === 'string') {
+    return delta.reasoning
+  }
+  return ''
 }
 
 function finalizeToolCalls(toolCalls: Map<number, ToolCallAccumulator>): ToolCall[] | undefined {

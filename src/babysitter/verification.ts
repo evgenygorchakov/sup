@@ -1,7 +1,3 @@
-// The completion gate: when the model tries to finish (no tool calls) and a
-// verification source is active, run its checks first and block the finish until
-// they pass — bounded by an attempt budget so the loop can never get stuck.
-
 import type { Interface as ReadlineInterface } from 'node:readline/promises'
 import type { Message } from '../types.ts'
 import { Config } from '../config.ts'
@@ -37,7 +33,6 @@ function parseExitCode(shellResult: string): number | null {
   return match ? Number(match[1]) : null
 }
 
-// Run each check via the shell tool; return the output of the ones that failed.
 async function runChecks(commands: string[]): Promise<string[]> {
   const failures: string[] = []
   for (const command of commands) {
@@ -52,8 +47,6 @@ async function runChecks(commands: string[]): Promise<string[]> {
   return failures
 }
 
-// No machine-runnable checks were found: make the model verify once itself, and
-// only accept the finish after it has actually run something in the shell.
 function requireManualVerification(messages: Message[], verificationSource: string): GateDecision {
   if (hasShellRunSinceGate()) {
     markGatePassed()
@@ -98,7 +91,6 @@ export async function runCompletionGate(messages: Message[], _readline: Readline
     return 'finish'
   }
   if (!shellAvailable()) {
-    // Cannot verify without a shell; do not trap the user.
     appendEvent('gate', { result: 'no_shell' })
     return 'finish'
   }

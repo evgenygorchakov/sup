@@ -1,11 +1,3 @@
-// The llama.cpp provider: turns the low-level chat() into a ChatProvider.
-//
-// Tool calling has two strategies, picked by USE_NATIVE_TOOLS:
-//   - native: hand the tools straight to llama-server's OpenAI tool API;
-//   - fallback: describe the tools in the prompt and constrain the reply to a
-//     JSON schema, then parse the tool calls out of it (with one reformat retry).
-// The fallback is what lets weak local models call tools without native support.
-
 import type { Message, ToolDefinition } from '../../types.ts'
 import type { OnStreamPart } from '../../ui/interactive/stream-printer.ts'
 import type { ChatProvider } from '../types.ts'
@@ -36,8 +28,6 @@ function prependToolsInstruction(messages: Message[], instruction: string): Mess
   return [{ role: 'system', content: instruction }, ...messages]
 }
 
-// llama-server enforces structured output through OpenAI's response_format with
-// a JSON schema, where Ollama uses its own `format` field.
 function toResponseFormat(tools: ToolDefinition[]): object {
   return {
     type: 'json_schema',
@@ -73,7 +63,6 @@ async function chat(messages: Message[], tools: ToolDefinition[], onStreamPart?:
     return await rawChat(messages, { tools, onStreamPart, signal })
   }
 
-  // Fallback: prompt-engineered tools, with the reply constrained to a JSON schema.
   const messagesWithInstruction = prependToolsInstruction(messages, buildToolsInstruction(tools))
   const responseFormat = toResponseFormat(tools)
 

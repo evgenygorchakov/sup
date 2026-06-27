@@ -1,15 +1,8 @@
-// Lightweight markdown parsing shared by the ledger (Steps section) and the
-// verification gate (Verification section). Tolerant of how small models emit
-// headings: "## Steps", "**Steps**", "Steps:".
-
 const MARKDOWN_HEADING = /^#{1,6}[ \t]+(\S.*)$/
 const BOLD_MARKERS = ['**', '__'] as const
 const LIST_ITEM = /^(?:\d+[.)]|[-*])[ \t]+(\S.*)$/
 const INLINE_CODE_SPANS = /`([^`]+)`/g
 
-// Commands we are willing to run automatically during verification. Kept strict
-// on purpose: the gate executes these without re-confirmation, so only known
-// build/test/lint runners qualify.
 const RUNNER_COMMAND = /^(?:\$\s*)?(?:npm|pnpm|yarn|bun|npx|node|deno|tsc|eslint|prettier|biome|jest|vitest|mocha|playwright|pytest|python3?|ruff|mypy|go|cargo|make|gradle|mvn|dotnet|rspec|rake|git)\b/
 
 const MAX_COMMANDS = 12
@@ -26,7 +19,6 @@ function headingKey(line: string): string | null {
     return normalizeHeading(headingMatch[1]!)
   }
 
-  // Bold-only heading: **Heading** / __Heading__, optionally with a trailing colon.
   for (const marker of BOLD_MARKERS) {
     if (!trimmed.startsWith(marker)) {
       continue
@@ -42,8 +34,6 @@ function headingKey(line: string): string | null {
   return null
 }
 
-// Return the body lines of the first section whose heading starts with `name`
-// (case-insensitive), or null if no such section is found.
 export function findSection(markdown: string, name: string): string | null {
   const target = name.toLowerCase()
   const lines = markdown.split('\n')
@@ -70,7 +60,6 @@ export function findSection(markdown: string, name: string): string | null {
   return body || null
 }
 
-// Extract ordered step texts from a Steps section (one per list item).
 export function extractSteps(stepsSection: string): string[] {
   const steps: string[] = []
   for (const raw of stepsSection.split('\n')) {
@@ -89,8 +78,6 @@ function stripShellPrompt(line: string): string {
   return line.replace(/^\$\s*/, '').trim()
 }
 
-// Extract runnable verification commands from a Verification section. Looks at
-// fenced code blocks, `$`-prefixed lines, inline-code, and bare runner lines.
 export function extractCommands(verificationSection: string): string[] {
   const commands: string[] = []
   let inFence = false
@@ -122,7 +109,6 @@ export function extractCommands(verificationSection: string): string[] {
       continue
     }
 
-    // Inline-code spans anywhere in the line, e.g. "Run `tsc --noEmit` to check".
     let foundInline = false
     for (const span of line.matchAll(INLINE_CODE_SPANS)) {
       const candidate = span[1]!.trim()

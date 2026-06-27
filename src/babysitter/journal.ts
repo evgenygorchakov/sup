@@ -1,7 +1,3 @@
-// Event-sourced journal: an append-only .sup/runs/<runId>/journal.jsonl that
-// records every step of a run so it can be audited and resumed. Mirrors
-// Babysitter's .a5c/runs/ ledger. All writes are best-effort and never throw.
-
 import type { Message } from '../types.ts'
 import type { LedgerStep } from './session.ts'
 import { appendFileSync, mkdirSync, readdirSync, readFileSync, statSync } from 'node:fs'
@@ -54,13 +50,9 @@ export function appendEvent(type: JournalEventType, payload: Record<string, unkn
   try {
     appendFileSync(join(currentRunDir, JOURNAL_FILE), `${JSON.stringify(event)}\n`, 'utf8')
   }
-  catch {
-    // Journal is best-effort; never break the agent loop over a write failure.
-  }
+  catch {}
 }
 
-// Lazily create the run directory on first use and reuse it for the rest of the
-// process. Returns the run id, or null when journaling is disabled / unwritable.
 export function ensureRun(): string | null {
   if (!journalEnabled()) {
     return null
@@ -84,7 +76,6 @@ export function ensureRun(): string | null {
   return id
 }
 
-// Adopt an existing run so new events append to its journal (used on --resume).
 export function adoptRun(runId: string): boolean {
   if (!journalEnabled()) {
     return false
@@ -142,14 +133,11 @@ export function loadRunEvents(runId: string): JournalEvent[] {
     try {
       events.push(JSON.parse(trimmed) as JournalEvent)
     }
-    catch {
-      // Skip a corrupt line rather than abandoning the whole journal.
-    }
+    catch {}
   }
   return events
 }
 
-// Rebuild the conversation from journalled user/assistant/tool messages.
 export function reconstructMessages(events: JournalEvent[]): Message[] {
   const messages: Message[] = []
   for (const event of events) {
@@ -165,7 +153,6 @@ export interface TaskSnapshot {
   verificationSource: string | null
 }
 
-// The most recent ledger snapshot, so a resumed run keeps its step state.
 export function lastTaskSnapshot(events: JournalEvent[]): TaskSnapshot | null {
   for (let index = events.length - 1; index >= 0; index -= 1) {
     const event = events[index]!

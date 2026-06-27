@@ -67,7 +67,6 @@ async function handleUserTurn(provider: ChatProvider, messages: Message[], readl
   }
   catch (error) {
     if (error instanceof RequestCancelledError) {
-      // Rewind the cancelled turn so the user can rewrite from a clean slate.
       messages.length = mark
       console.warn(CANCELLED_NOTICE)
       return

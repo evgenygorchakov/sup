@@ -74,7 +74,7 @@ export async function loadImageFile(rawPath: string): Promise<ImageAttachment | 
   }
 
   const bytes = await readFile(path)
-  return { data: bytes.toString('base64'), mimeType: detectMimeType(bytes, path) }
+  return { base64: bytes.toString('base64'), mimeType: detectMimeType(bytes, path) }
 }
 
 function unquote(token: string): string {

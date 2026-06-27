@@ -1,11 +1,3 @@
-// Reading an image out of the OS clipboard. Terminals don't deliver image
-// bytes over stdin, so a Ctrl+V "paste" has to shell out to a platform tool:
-//   - WSL2:    powershell.exe (bridge to the Windows clipboard) -> base64 PNG
-//   - macOS:   pngpaste -> raw PNG bytes
-//   - Wayland: wl-paste --type image/png
-//   - X11:     xclip -selection clipboard -t image/png -o
-// Any failure (no tool, no image) resolves to null; the caller stays quiet-ish.
-
 import type { ImageAttachment } from '../types.ts'
 import { Buffer } from 'node:buffer'
 import { spawn } from 'node:child_process'
@@ -68,20 +60,18 @@ function mimeFromBytes(bytes: Buffer): string {
   return 'image/png'
 }
 
-// Returns the captured image, or a non-empty buffer that wasn't an image at all
-// (e.g. an empty/whitespace clipboard text) is treated as "no image" -> null.
 function fromRawBytes(bytes: Buffer | null): ImageAttachment | null {
   if (!bytes || bytes.length === 0) {
     return null
   }
-  return { data: bytes.toString('base64'), mimeType: mimeFromBytes(bytes) }
+  return { base64: bytes.toString('base64'), mimeType: mimeFromBytes(bytes) }
 }
 
 export async function readClipboardImage(): Promise<ImageAttachment | null> {
   if (isWsl()) {
     const out = await capture('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', POWERSHELL_SCRIPT])
     const base64 = out?.toString('utf8').trim()
-    return base64 ? { data: base64, mimeType: 'image/png' } : null
+    return base64 ? { base64, mimeType: 'image/png' } : null
   }
 
   if (process.platform === 'darwin') {

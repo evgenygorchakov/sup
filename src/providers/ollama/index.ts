@@ -1,12 +1,3 @@
-// The Ollama provider: turns the low-level chat() into a ChatProvider.
-//
-// Tool calling has two strategies, picked by USE_NATIVE_TOOLS:
-//   - native: hand the tools to Ollama's tool API;
-//   - fallback: describe the tools in the prompt and constrain the reply to a
-//     JSON schema (Ollama's `format`), then parse the tool calls out of it
-//     (with one reformat retry).
-// The fallback is what lets weak local models call tools without native support.
-
 import type { Message, ToolDefinition } from '../../types.ts'
 import type { OnStreamPart } from '../../ui/interactive/stream-printer.ts'
 import type { ChatProvider } from '../types.ts'
@@ -65,7 +56,6 @@ async function chat(messages: Message[], tools: ToolDefinition[], onStreamPart?:
     return await rawChat(messages, { tools, onStreamPart, signal })
   }
 
-  // Fallback: prompt-engineered tools, with the reply constrained to a JSON schema.
   const messagesWithInstruction = prependToolsInstruction(messages, buildToolsInstruction(tools))
   const replySchema = buildReplyFormat(tools)
 

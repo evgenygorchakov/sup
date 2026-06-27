@@ -1,5 +1,3 @@
-// Provider registry: resolves the active ChatProvider from Config.PROVIDER.
-
 import type { ChatProvider } from './types.ts'
 import { Config } from '../config.ts'
 import { llamacpp } from './llamacpp/index.ts'

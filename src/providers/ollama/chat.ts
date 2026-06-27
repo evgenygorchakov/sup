@@ -71,7 +71,7 @@ function toOllamaMessages(messages: Message[]): Record<string, unknown>[] {
     if (!message.images?.length) {
       return message
     }
-    return { ...message, images: message.images.map(image => image.data) }
+    return { ...message, images: message.images.map(image => image.base64) }
   })
 }
 

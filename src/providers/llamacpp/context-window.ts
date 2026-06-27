@@ -17,8 +17,6 @@ export function getContextWindowTokenLimit(): number {
 }
 
 function readServerContextLength(props: LlamaCppPropsResponse): number | null {
-  // Prefer the per-slot context the server actually serves; fall back to the
-  // top-level n_ctx some builds expose.
   const candidates = [props.default_generation_settings?.n_ctx, props.n_ctx]
   for (const value of candidates) {
     if (typeof value === 'number' && value > 0) {
@@ -28,10 +26,6 @@ function readServerContextLength(props: LlamaCppPropsResponse): number | null {
   return null
 }
 
-// llama.cpp ignores Config.MODEL and serves the model loaded at startup, so the
-// real name lives in /props: prefer model_alias, then the gguf filename from
-// model_path (a Windows path may use backslashes), and only then fall back to
-// the configured MODEL.
 function readServerModelName(props: LlamaCppPropsResponse): string {
   if (typeof props.model_alias === 'string' && props.model_alias.length > 0) {
     return props.model_alias
@@ -51,9 +45,6 @@ function reportFallback(reason: string): void {
 
 export async function initializeContextWindow(): Promise<void> {
   const userRequestedLimit = Config.CONTEXT_WINDOW_TOKEN_LIMIT
-
-  // Start from the configured limit so a failed detection never leaves a limit
-  // inherited from a previous state.
   resolvedContextWindowTokenLimit = userRequestedLimit
 
   let response: Response

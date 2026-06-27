@@ -29,9 +29,6 @@ function reportFallback(reason: string): void {
 
 export async function initializeContextWindow(): Promise<void> {
   const userRequestedLimit = Config.CONTEXT_WINDOW_TOKEN_LIMIT
-
-  // Start from the configured limit so a failed detection below never leaves
-  // a limit inherited from a previously selected model.
   resolvedContextWindowTokenLimit = userRequestedLimit
 
   let response: Response

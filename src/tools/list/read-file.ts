@@ -70,18 +70,11 @@ export const readFile: Tool = {
       return `File has ${lines.length} lines; offset ${offset} is past end.`
     }
 
-    // Budget the output by character count, but one whole line at a time. Slicing
-    // the joined text by characters (the old approach) cut mid-file while the
-    // header still claimed "end of file" — two contradictory signals that left
-    // the model unable to continue. Counting per line keeps lastShown honest, so
-    // the header and offset-based pagination stay correct.
     const numbered: string[] = []
     let charCount = 0
     let index = start
     for (; index < lines.length && numbered.length < limit; index++) {
       let entry = `${String(index + 1).padStart(6, ' ')}\t${lines[index]}`
-      // A single line longer than the whole budget would still blow the context,
-      // so truncate that one line rather than refusing to show it.
       if (numbered.length === 0 && entry.length > OUTPUT_CHAR_LIMIT) {
         entry = `${entry.slice(0, OUTPUT_CHAR_LIMIT)} …[line truncated]`
       }

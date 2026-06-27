@@ -1,8 +1,3 @@
-// The TODO ledger: a structured, stateful step list re-injected every turn so
-// small models keep their place instead of drifting. Steps are seeded from a
-// plan's "Steps" section or a gated skill, and advanced via the ledger_update
-// tool.
-
 import type { Message } from '../types.ts'
 import type { LedgerStep, StepStatus } from './session.ts'
 import { getLedger } from './session.ts'

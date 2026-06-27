@@ -2,8 +2,6 @@ import type { Interface as ReadlineInterface } from 'node:readline/promises'
 import { Buffer } from 'node:buffer'
 import { Transform } from 'node:stream'
 
-// U+E000 (private use): stands in for newlines inside a paste so readline
-// sees a single line; readUserInput converts it back to '\n'.
 export const PASTE_PLACEHOLDER = '\uE000'
 
 export const ENABLE_BRACKETED_PASTE = '\x1B[?2004h'
@@ -15,16 +13,12 @@ const CARRIAGE_RETURN = 0x0D
 const CTRL_V = 0x16
 const PASTE_START = Buffer.from('\x1B[200~')
 const PASTE_END = Buffer.from('\x1B[201~')
-// Shift+Tab arrives as CSI Z (back-tab).
 const SHIFT_TAB = Buffer.from('\x1B[Z')
 const PLACEHOLDER_BYTES = Buffer.from(PASTE_PLACEHOLDER)
 
 const SPACE = 0x20
 const TAB = 0x09
 
-// Whether the bytes at `index` are `seq`, a prefix of it still waiting for more
-// input, or neither. A partial match only matters mid-stream: once `final`, an
-// incomplete sequence can never complete, so it counts as `none`.
 function matchSequence(buffer: Buffer, index: number, seq: Buffer, final: boolean): 'full' | 'partial' | 'none' {
   const available = buffer.length - index
   if (available >= seq.length) {
@@ -56,9 +50,6 @@ export class BracketedPasteTransform extends Transform {
     done()
   }
 
-  // Discard any half-parsed bytes (notably a lone Esc held back while waiting to
-  // see if a paste sequence follows). Used after an Esc interrupt so the byte
-  // doesn't leak into the next prompt.
   resetPending(): void {
     this.pending = Buffer.alloc(0)
     this.inPaste = false
@@ -72,8 +63,6 @@ export class BracketedPasteTransform extends Transform {
 
     while (index < buffer.length) {
       if (buffer[index] === ESC) {
-        // Shift+Tab outside a paste: swallow the bytes and surface an event so
-        // readline never sees the sequence (and never runs tab-completion).
         if (!this.inPaste) {
           const shiftTab = matchSequence(buffer, index, SHIFT_TAB, final)
           if (shiftTab === 'partial') {
@@ -94,9 +83,6 @@ export class BracketedPasteTransform extends Transform {
         if (markerMatch === 'full') {
           const enteringPaste = !this.inPaste
           this.inPaste = enteringPaste
-          // An empty paste (no real characters) is how some terminals — notably
-          // Windows Terminal on WSL — surface Ctrl+V of an image, which has no
-          // text form. Treat it as an image-paste request too.
           if (enteringPaste) {
             this.pasteHadContent = false
           }
@@ -109,8 +95,6 @@ export class BracketedPasteTransform extends Transform {
       }
 
       const byte = buffer[index]
-      // Ctrl+V outside a paste means "paste an image from the clipboard": swallow
-      // the byte (so readline never inserts ^V) and let a listener handle it.
       if (!this.inPaste && byte === CTRL_V) {
         this.emit('ctrl-v')
         index++

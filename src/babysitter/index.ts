@@ -1,7 +1,3 @@
-// Public surface of the babysitter module. The agent and entrypoint import only
-// from here. Every hook is a no-op when USE_BABYSITTER is off, so callers can
-// invoke them unconditionally (same idiom as collapseOldToolResults).
-
 import type { Interface as ReadlineInterface } from 'node:readline/promises'
 import type { Message, ToolCall } from '../types.ts'
 import type { GateDecision } from './verification.ts'
@@ -23,8 +19,6 @@ import { runCompletionGate as gateImpl } from './verification.ts'
 export { markStep } from './ledger.ts'
 export { activatePlan, activateSkill, isGatedSkill } from './task-source.ts'
 
-// Start of a user turn: open the run, journal the user message, and invalidate
-// any previously passed gate so new instructions get re-verified.
 export function startTurn(messages: Message[]): void {
   if (!Config.USE_BABYSITTER) {
     return
@@ -32,8 +26,6 @@ export function startTurn(messages: Message[]): void {
   ensureRun()
   const last = messages[messages.length - 1]
   if (last?.role === 'user') {
-    // Drop image bytes before journaling: base64 would bloat the JSONL and isn't
-    // needed to resume a run. (undefined keys are omitted by JSON.stringify.)
     appendEvent('user', { message: last.images ? { ...last, images: undefined } : last })
   }
   resetGate()
@@ -66,7 +58,6 @@ export function recordToolResult(call: ToolCall, result: string): void {
   })
 }
 
-// Snapshot the ledger after a turn's tool calls so resume keeps step state.
 export function recordLedgerState(): void {
   if (!Config.USE_BABYSITTER || !Config.BABYSITTER_LEDGER) {
     return
@@ -77,8 +68,6 @@ export function recordLedgerState(): void {
   }
 }
 
-// Reminder injected before each model call: the ledger if one is active,
-// otherwise the plain plan reminder (so plan mode keeps working).
 export function buildHarnessReminder(): Message | null {
   if (Config.USE_BABYSITTER && Config.BABYSITTER_LEDGER) {
     const ledgerReminder = buildLedgerReminder()
@@ -107,8 +96,6 @@ export interface ResumeOutcome {
   restored?: number
 }
 
-// Restore a previous run into `messages` and re-activate its ledger/gate.
-// `runId` undefined means "the latest run".
 export function resumeIntoMessages(runId: string | undefined, messages: Message[]): ResumeOutcome {
   if (!Config.USE_BABYSITTER || !Config.BABYSITTER_JOURNAL) {
     return { ok: false }
@@ -120,18 +107,7 @@ export function resumeIntoMessages(runId: string | undefined, messages: Message[
 
   const events = loadRunEvents(target)
   const restored = reconstructMessages(events)
-
-  // Drop a trailing assistant-with-tool-calls left by an interrupted turn: its
-  // tool results were never recorded, so continuing from it would be malformed.
-  while (restored.length > 0) {
-    const last = restored[restored.length - 1]!
-    if (last.role === 'assistant' && last.tool_calls && last.tool_calls.length > 0) {
-      restored.pop()
-    }
-    else {
-      break
-    }
-  }
+  dropTrailingUnansweredToolCalls(restored)
 
   for (const message of restored) {
     messages.push(message)
@@ -143,4 +119,16 @@ export function resumeIntoMessages(runId: string | undefined, messages: Message[
   }
 
   return { ok: true, runId: target, restored: restored.length }
+}
+
+function dropTrailingUnansweredToolCalls(messages: Message[]): void {
+  while (messages.length > 0) {
+    const last = messages[messages.length - 1]!
+    if (last.role === 'assistant' && last.tool_calls && last.tool_calls.length > 0) {
+      messages.pop()
+    }
+    else {
+      break
+    }
+  }
 }

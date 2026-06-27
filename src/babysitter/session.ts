@@ -1,7 +1,3 @@
-// In-memory state for a babysitter-controlled task: the active step ledger, the
-// verification source, and the completion-gate counters. Module-level singleton,
-// mirroring the setter style of src/plan/active-plan.ts and src/plan/mode-state.ts.
-
 export type StepStatus = 'pending' | 'in_progress' | 'done'
 
 export interface LedgerStep {
@@ -32,8 +28,6 @@ function resetGateState(): void {
   task.shellRanSinceGate = false
 }
 
-// --- reads ---
-
 export function getLedger(): LedgerStep[] | null {
   return task.ledger
 }
@@ -54,10 +48,6 @@ export function hasShellRunSinceGate(): boolean {
   return task.shellRanSinceGate
 }
 
-// --- writes ---
-
-// Activate a new task: install its ledger + verification source and reset the
-// gate so verification runs fresh for this task.
 export function activateTask(ledger: LedgerStep[] | null, verificationSource: string | null): void {
   task.ledger = ledger && ledger.length > 0 ? ledger : null
   task.verificationSource = verificationSource?.trim() || null
@@ -70,8 +60,6 @@ export function clearTask(): void {
   resetGateState()
 }
 
-// A new user turn invalidates a previously passed gate: new instructions must be
-// verified again before the next finish.
 export function resetGate(): void {
   resetGateState()
 }
@@ -88,8 +76,6 @@ export function recordGateAttempt(): void {
   task.gateAttempts += 1
 }
 
-// After asking the model to verify manually, demand a fresh shell run before we
-// will accept the next finish.
 export function requireFreshShellRun(): void {
   task.shellRanSinceGate = false
 }
