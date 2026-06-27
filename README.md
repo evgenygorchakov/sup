@@ -5,7 +5,7 @@ A minimal CLI agent for local models, via [Ollama](https://ollama.com) or [llama
 ## Setup
 
 1. Run a backend: [Ollama](https://ollama.com) (`ollama pull <model>`) or [llama.cpp](https://github.com/ggml-org/llama.cpp) (`llama-server --jinja`).
-2. Copy `.env.example` to `.env`, set `PROVIDER` and the matching `HOST`/`MODEL`.
+2. Copy `.env.example` to `.env`, set `PROVIDER` and the matching host (`OLLAMA_HOST` or `LLAMACPP_HOST`)/`MODEL`.
 3. `npm link`, then run `sup` in any directory.
 
 ## Usage

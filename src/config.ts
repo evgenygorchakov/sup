@@ -8,7 +8,8 @@ const THINKING_MODELS = new Set(['qwen3.5:35b', 'qwen3.6', 'qwen3.5:9b'])
 
 export interface ConfigShape {
   PROVIDER: string
-  HOST: string
+  OLLAMA_HOST: string
+  LLAMACPP_HOST: string
   MODEL: string
   LANGUAGE: string
   USE_PLAN_MODE: boolean
@@ -46,7 +47,10 @@ export interface ConfigShape {
 
 export const Config: ConfigShape = {
   PROVIDER: getEnvString('PROVIDER', 'ollama'),
-  HOST: getEnvString('HOST', 'http://host.docker.internal:11434'),
+  // Each provider keeps its own host so switching PROVIDER never sends requests
+  // to the other backend's port (Ollama 11434 vs. llama-server 8080).
+  OLLAMA_HOST: getEnvString('OLLAMA_HOST', 'http://host.docker.internal:11434'),
+  LLAMACPP_HOST: getEnvString('LLAMACPP_HOST', 'http://localhost:8080'),
   MODEL: getEnvString('MODEL', 'qwen3.6'),
   LANGUAGE: getEnvString('LANGUAGE', 'russian'),
   USE_PLAN_MODE: getEnvBoolean('USE_PLAN_MODE', false),

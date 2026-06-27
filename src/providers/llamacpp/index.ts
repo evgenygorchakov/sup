@@ -109,4 +109,4 @@ async function chat(messages: Message[], tools: ToolDefinition[], onStreamPart?:
   return firstReply
 }
 
-export const llamacpp: ChatProvider = { chat, initializeContextWindow, getContextWindowTokenLimit, listInstalledModels }
+export const llamacpp: ChatProvider = { host: Config.LLAMACPP_HOST, chat, initializeContextWindow, getContextWindowTokenLimit, listInstalledModels }

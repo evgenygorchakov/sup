@@ -36,7 +36,7 @@ export async function initializeContextWindow(): Promise<void> {
 
   let response: Response
   try {
-    response = await fetch(`${Config.HOST}/api/show`, {
+    response = await fetch(`${Config.OLLAMA_HOST}/api/show`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name: Config.MODEL }),

@@ -18,7 +18,7 @@ async function loadInstalledModels(): Promise<string[] | null> {
   const result = await getProvider().listInstalledModels()
 
   if (!result.ok) {
-    console.warn(red(`Could not reach ${Config.PROVIDER} at ${Config.HOST}: ${result.error}.`))
+    console.warn(red(`Could not reach ${Config.PROVIDER} at ${getProvider().host}: ${result.error}.`))
     return null
   }
 

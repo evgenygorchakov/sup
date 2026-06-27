@@ -101,4 +101,4 @@ async function chat(messages: Message[], tools: ToolDefinition[], onStreamPart?:
   return firstReply
 }
 
-export const ollama: ChatProvider = { chat, initializeContextWindow, getContextWindowTokenLimit, listInstalledModels }
+export const ollama: ChatProvider = { host: Config.OLLAMA_HOST, chat, initializeContextWindow, getContextWindowTokenLimit, listInstalledModels }

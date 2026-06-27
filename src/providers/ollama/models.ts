@@ -9,7 +9,7 @@ interface OllamaTagsResponse {
 
 export async function listInstalledModels(): Promise<ModelListResult> {
   try {
-    const response = await fetch(`${Config.HOST}/api/tags`, {
+    const response = await fetch(`${Config.OLLAMA_HOST}/api/tags`, {
       signal: AbortSignal.timeout(TAGS_REQUEST_TIMEOUT_MS),
     })
 

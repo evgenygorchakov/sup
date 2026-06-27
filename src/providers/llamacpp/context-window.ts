@@ -6,6 +6,8 @@ const PROPS_REQUEST_TIMEOUT_MS = 10_000
 interface LlamaCppPropsResponse {
   n_ctx?: unknown
   default_generation_settings?: { n_ctx?: unknown }
+  model_alias?: unknown
+  model_path?: unknown
 }
 
 let resolvedContextWindowTokenLimit: number = Config.CONTEXT_WINDOW_TOKEN_LIMIT
@@ -26,6 +28,23 @@ function readServerContextLength(props: LlamaCppPropsResponse): number | null {
   return null
 }
 
+// llama.cpp ignores Config.MODEL and serves the model loaded at startup, so the
+// real name lives in /props: prefer model_alias, then the gguf filename from
+// model_path (a Windows path may use backslashes), and only then fall back to
+// the configured MODEL.
+function readServerModelName(props: LlamaCppPropsResponse): string {
+  if (typeof props.model_alias === 'string' && props.model_alias.length > 0) {
+    return props.model_alias
+  }
+  if (typeof props.model_path === 'string' && props.model_path.length > 0) {
+    const basename = props.model_path.split(/[/\\]/).pop()
+    if (basename) {
+      return basename
+    }
+  }
+  return Config.MODEL
+}
+
 function reportFallback(reason: string): void {
   console.warn(yellow(`Could not detect context length from llama.cpp server: ${reason}. Using configured limit ${Config.CONTEXT_WINDOW_TOKEN_LIMIT}.`))
 }
@@ -39,7 +58,7 @@ export async function initializeContextWindow(): Promise<void> {
 
   let response: Response
   try {
-    response = await fetch(`${Config.HOST}/props`, {
+    response = await fetch(`${Config.LLAMACPP_HOST}/props`, {
       signal: AbortSignal.timeout(PROPS_REQUEST_TIMEOUT_MS),
     })
   }
@@ -67,5 +86,5 @@ export async function initializeContextWindow(): Promise<void> {
   const detail = effectiveLimit === serverMax
     ? `${effectiveLimit} tokens`
     : `${effectiveLimit} of ${serverMax} tokens`
-  console.warn(gray(`Connected to llama.cpp (model ${Config.MODEL}, context: ${detail})`))
+  console.warn(gray(`Connected to llama.cpp (model ${readServerModelName(payload)}, context: ${detail})`))
 }

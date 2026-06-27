@@ -13,7 +13,7 @@ import { startIdleTimeout } from '../idle-timeout.ts'
 import { readResponseLines } from '../stream-lines.ts'
 import { getContextWindowTokenLimit } from './context-window.ts'
 
-const OLLAMA_HOST = Config.HOST
+const OLLAMA_HOST = Config.OLLAMA_HOST
 const REQUEST_IDLE_TIMEOUT_MS = Config.REQUEST_TIMEOUT_MS
 const REQUEST_FIRST_TOKEN_TIMEOUT_MS = Config.REQUEST_FIRST_TOKEN_TIMEOUT_MS
 

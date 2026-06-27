@@ -14,7 +14,7 @@ import { recordContextUsage } from '../context-usage.ts'
 import { startIdleTimeout } from '../idle-timeout.ts'
 import { readResponseLines } from '../stream-lines.ts'
 
-const LLAMACPP_HOST = Config.HOST
+const LLAMACPP_HOST = Config.LLAMACPP_HOST
 const REQUEST_IDLE_TIMEOUT_MS = Config.REQUEST_TIMEOUT_MS
 const REQUEST_FIRST_TOKEN_TIMEOUT_MS = Config.REQUEST_FIRST_TOKEN_TIMEOUT_MS
 

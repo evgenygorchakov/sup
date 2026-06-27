@@ -9,7 +9,7 @@ interface OpenAiModelsResponse {
 
 export async function listInstalledModels(): Promise<ModelListResult> {
   try {
-    const response = await fetch(`${Config.HOST}/v1/models`, {
+    const response = await fetch(`${Config.LLAMACPP_HOST}/v1/models`, {
       signal: AbortSignal.timeout(MODELS_REQUEST_TIMEOUT_MS),
     })
 
