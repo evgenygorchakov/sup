@@ -10,6 +10,7 @@ import { createInterface } from 'node:readline/promises'
 import { run } from './src/agent.ts'
 import { resumeIntoMessages } from './src/babysitter/index.ts'
 import { commands, runSlashCommand } from './src/commands/registry.ts'
+import { Config } from './src/config.ts'
 import { buildUserMessage } from './src/images/build-message.ts'
 import { isPlanModeActive } from './src/plan/mode-state.ts'
 import { RequestCancelledError } from './src/providers/cancel.ts'
@@ -20,6 +21,7 @@ import { SYSTEM_PROMPT } from './src/system-prompt.ts'
 import { createSlashCompleter, installCommandHints } from './src/ui/interactive/command-hints.ts'
 import { installImagePasteHandler } from './src/ui/interactive/image-paste.ts'
 import { DISABLE_BRACKETED_PASTE, ENABLE_BRACKETED_PASTE, getInputStream, readUserInput } from './src/ui/interactive/multiline-input.ts'
+import { installPlanModeToggle } from './src/ui/interactive/plan-mode-toggle.ts'
 import { bold, brightGreen, gray, red, yellow } from './src/utils/colors.ts'
 
 const PROMPT_MARKER = bold(brightGreen('> '))
@@ -38,6 +40,10 @@ function contextStatusLine(): string {
   const limit = getProvider().getContextWindowTokenLimit()
   const percent = Math.round((total / limit) * 100)
   return gray(`[ctx: ${total} / ${limit} (${percent}%)]\n`)
+}
+
+function buildPrompt(): string {
+  return `\n${contextStatusLine()}${planModeIndicator()}${PROMPT_MARKER}`
 }
 
 async function loadProjectInstructions(): Promise<string | null> {
@@ -89,6 +95,9 @@ async function main() {
     : null
   const imagePaste = interactive
     ? installImagePasteHandler(inputStream, readline)
+    : null
+  const planModeToggle = interactive
+    ? installPlanModeToggle(inputStream, readline, buildPrompt)
     : null
 
   let cleanedUp = false
@@ -164,7 +173,8 @@ async function main() {
     await handleUserTurn(provider, messages, readline, commandLinePrompt)
   }
 
-  console.warn(gray('\nType /help for commands, /exit to quit.'))
+  const planModeHint = interactive && !Config.USE_READ_ONLY_MODE ? ' Shift+Tab toggles plan mode.' : ''
+  console.warn(gray(`\nType /help for commands, /exit to quit.${planModeHint}`))
 
   try {
     while (true) {
@@ -172,8 +182,9 @@ async function main() {
 
       commandHints?.setActive(true)
       imagePaste?.setActive(true)
+      planModeToggle?.setActive(true)
       try {
-        userInput = (await readUserInput(readline, `\n${contextStatusLine()}${planModeIndicator()}${PROMPT_MARKER}`)).trim()
+        userInput = (await readUserInput(readline, buildPrompt())).trim()
       }
       catch {
         break
@@ -181,6 +192,7 @@ async function main() {
       finally {
         commandHints?.setActive(false)
         imagePaste?.setActive(false)
+        planModeToggle?.setActive(false)
       }
 
       if (!userInput) {

@@ -13,6 +13,7 @@ I've only tested it with models in the 27–35B range — nothing larger.
 ## Usage
 
 - Type `/` to see commands (`Tab` completes): switch model, toggle plan mode / thinking / verbose output, list saved plans, clear history.
+- `Shift+Tab` toggles plan mode on/off in place (the `[plan]` prompt indicator updates immediately).
 - Tuned for small local models: low default temperature, tool arguments validated against the schema with precise repair errors, the approved plan re-injected near the end of the context every turn, old tool outputs collapsed to keep the context short. Models without native tool calling fall back to prompt-engineered tools (`USE_NATIVE_TOOLS=false`).
 - Every setting is an `.env` variable with a sane default — see `.env.example`.
 - `AGENTS.md` in the working directory is appended to the system prompt.

@@ -15,10 +15,26 @@ const CARRIAGE_RETURN = 0x0D
 const CTRL_V = 0x16
 const PASTE_START = Buffer.from('\x1B[200~')
 const PASTE_END = Buffer.from('\x1B[201~')
+// Shift+Tab arrives as CSI Z (back-tab).
+const SHIFT_TAB = Buffer.from('\x1B[Z')
 const PLACEHOLDER_BYTES = Buffer.from(PASTE_PLACEHOLDER)
 
 const SPACE = 0x20
 const TAB = 0x09
+
+// Whether the bytes at `index` are `seq`, a prefix of it still waiting for more
+// input, or neither. A partial match only matters mid-stream: once `final`, an
+// incomplete sequence can never complete, so it counts as `none`.
+function matchSequence(buffer: Buffer, index: number, seq: Buffer, final: boolean): 'full' | 'partial' | 'none' {
+  const available = buffer.length - index
+  if (available >= seq.length) {
+    return buffer.subarray(index, index + seq.length).equals(seq) ? 'full' : 'none'
+  }
+  if (!final && seq.subarray(0, available).equals(buffer.subarray(index))) {
+    return 'partial'
+  }
+  return 'none'
+}
 
 export class BracketedPasteTransform extends Transform {
   private pending = Buffer.alloc(0)
@@ -55,15 +71,27 @@ export class BracketedPasteTransform extends Transform {
     let index = 0
 
     while (index < buffer.length) {
-      const marker = this.inPaste ? PASTE_END : PASTE_START
-
       if (buffer[index] === ESC) {
-        if (index + marker.length > buffer.length) {
-          if (!final && marker.subarray(0, buffer.length - index).equals(buffer.subarray(index))) {
+        // Shift+Tab outside a paste: swallow the bytes and surface an event so
+        // readline never sees the sequence (and never runs tab-completion).
+        if (!this.inPaste) {
+          const shiftTab = matchSequence(buffer, index, SHIFT_TAB, final)
+          if (shiftTab === 'partial') {
             break
           }
+          if (shiftTab === 'full') {
+            this.emit('shift-tab')
+            index += SHIFT_TAB.length
+            continue
+          }
         }
-        else if (buffer.subarray(index, index + marker.length).equals(marker)) {
+
+        const marker = this.inPaste ? PASTE_END : PASTE_START
+        const markerMatch = matchSequence(buffer, index, marker, final)
+        if (markerMatch === 'partial') {
+          break
+        }
+        if (markerMatch === 'full') {
           const enteringPaste = !this.inPaste
           this.inPaste = enteringPaste
           // An empty paste (no real characters) is how some terminals — notably
