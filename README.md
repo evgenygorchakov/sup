@@ -1,6 +1,8 @@
 # sup
 
-A minimal CLI agent for local models, via [Ollama](https://ollama.com) or [llama.cpp](https://github.com/ggml-org/llama.cpp). Autonomous by default: it runs tool calls to completion without prompting. Optional plan mode (`USE_PLAN_MODE`) proposes a plan for approval before any changes.
+A minimal CLI agent for local models, via [Ollama](https://ollama.com) or [llama.cpp](https://github.com/ggml-org/llama.cpp). Inspired by Claude Code and [a5c-ai/babysitter](https://github.com/a5c-ai/babysitter).
+
+I've only tested it with models in the 27–35B range — nothing larger.
 
 ## Setup
 
@@ -14,19 +16,35 @@ A minimal CLI agent for local models, via [Ollama](https://ollama.com) or [llama
 - Tuned for small local models: low default temperature, tool arguments validated against the schema with precise repair errors, the approved plan re-injected near the end of the context every turn, old tool outputs collapsed to keep the context short. Models without native tool calling fall back to prompt-engineered tools (`USE_NATIVE_TOOLS=false`).
 - Every setting is an `.env` variable with a sane default — see `.env.example`.
 - `AGENTS.md` in the working directory is appended to the system prompt.
-- Skills (like Claude Code skills): drop `.sup/skills/<name>/SKILL.md` with `name` + `description` frontmatter; the body is loaded on demand via the `skill` tool.
+- Skills (like Claude Code skills): drop `.sup/skills/<name>/SKILL.md` with a `description` in the frontmatter (the skill name is the folder name); the body is loaded on demand via the `skill` tool.
+- Paste an image from the clipboard
 
 ## Babysitter mode
 
-Optional deterministic control inspired by [a5c-ai/babysitter](https://github.com/a5c-ai/babysitter), off by default (`USE_BABYSITTER=true` to enable). All of it lives in `src/babysitter/`; with the flag off the agent behaves exactly as before.
+Представьте, что модель — это юный стажер, который знает свою работу, но часто забывает, на каком этапе он остановился, перескакивает через пункты и говорит «всё готово», даже не проверив. Babysitter — это строгий наставник, который стоит у него за плечом и не дает халтурить. Важно понимать: этот наставник — не сама модель, а внешний механизм (харнесс), который помогает ей следовать правилам.
 
-- **Verification gate** — when a plan or gated skill is active, the agent cannot end a turn until the commands in its `Verification` section pass. Failures are fed back and the loop continues, bounded by `BABYSITTER_GATE_MAX_ATTEMPTS`.
-- **Journal + resume** — every step is appended to `.sup/runs/<id>/journal.jsonl`. `sup --resume` (or `sup --resume=<id>`) restores the conversation and the step ledger.
-- **TODO ledger** — a plan's numbered `Steps` become a tracked checklist re-injected each turn; the model marks progress with the `ledger_update` tool.
-- **Gated skills** — a `SKILL.md` with a `## Steps` section drives the model step-by-step, and its `## Verification` section feeds the gate.
+По умолчанию этот механизм отключен. Чтобы его активировать, нужно включить USE_BABYSITTER=true. После этого Babysitter начинает выполнять четыре важные задачи.
+
+### Четыре задачи Babysitter
+
+1. Держит список дел перед глазами. Когда начинается новая задача (например, одобрен план или загружен скилл с шагами), Babysitter берет пронумерованный список шагов и перед каждым ответом модели показывает ей этот чек-лист: «Вот твои задачи. Шаг 1 выполнен? Нет? Тогда занимайся шагом 3, не перескакивай». Модель отмечает выполненные шаги в проedger_update. Это помогает ей не терять нить.
+2. Не верит на слово, что «всё готово». Когда модель пытается завершить задачу, Babysitter проверяет, были ли выполнены все необходимые команды проверки.
+* Если команды есть, Babysitter запускает их самостоятельно. Если все проходит успешно, модель может завершить работу. Если нет, Babysitter возвращает ошибку и требует исправить недочеты.
+* Если команд нет, Babysitter просит модель выполнить проверку. Он не примет «готово», пока проверка не будет завершена. Чтобы избежать бесконечного цикла, Babysitter ограничивает количество попыток (по умолчанию — 3). После этого он прекращает проверку и позволяет завершить задачу.
+3. Ведет дневник. Babysitter записывает в файл-журнал все действия модели: запросы пользователя, результаты, запуск проверок. Если запись не удалась, это не мешает продолжению работы.
+4. Умеет продолжить с того места, где остановился. Благодаря дневнику Babysitter можно прервать задачу и затем возобновить ее с помощью команды sup --resume. Он поднимет журнал, восстановит диалог и список данных, а затем продолжит работу с последнего шага.
+
+#### Как это выглядит
+
+Один заход задачи состоит из четырех этапов:
+
+1. Старт. Пользователь дает задание или одобряет план. Babysitter записывает задание в дневник и формирует список шагов.
+2. Цикл работы. Перед каждым ответом Babysitter показывает актуальный чек-лист. Модель выполняет шаг, вызывает инструменты (правка файлов, шелл и т.п.) и отмечает выполненные шаги. Каждое действие записывается в дневник.
+3. Попытка завершиться. Когда модель перестает вызывать инструменты, Babysitter запускает гейт-проверку.
+4. Развилка. Если проверка не прошла, цикл продолжается. Если прошла, Babysitter фиксирует все шаги как выполненные, ставит в дневник «finish», очищает состояние и отдает финальный ответ.
 
 ## Security
 
 - All file tools are confined to the working directory; sensitive files (`.env`, keys, credentials) are refused for both reading and writing.
-- Mutating and network tools run without confirmation. Shell commands are the exception: only those matching the read-only allowlist in `src/config.ts` run unattended; anything else asks `[y / n / feedback]`. In plan mode, allowlisted read-only shell commands are available during exploration.
+- Mutating and network tools run without confirmation. Shell commands are the exception: only those matching the read-only allowlist in `src/config.ts` run unattended; anything else asks `[y / n / type feedback]`. In plan mode, allowlisted read-only shell commands are available during exploration.
 - The shell tool is on by default (`USE_SHELL_TOOL=false` to disable).
