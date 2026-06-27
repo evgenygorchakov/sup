@@ -1,5 +1,6 @@
 import type { CommandEnv, CommandResult, SlashCommand } from './types.ts'
 import { red } from '../utils/colors.ts'
+import { autoModeCommand } from './list/auto-mode.ts'
 import { babysitterCommand } from './list/babysitter.ts'
 import { clearCommand } from './list/clear.ts'
 import { exitCommand } from './list/exit.ts'
@@ -19,6 +20,7 @@ export const commands: SlashCommand[] = [
   modelCommand,
   runPlanCommand,
   planModeCommand,
+  autoModeCommand,
   thinkingCommand,
   showThinkingCommand,
   verboseCommand,

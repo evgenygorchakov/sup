@@ -12,7 +12,7 @@ import { resumeIntoMessages } from './src/babysitter/index.ts'
 import { commands, runSlashCommand } from './src/commands/registry.ts'
 import { Config } from './src/config.ts'
 import { buildUserMessage } from './src/images/build-message.ts'
-import { isPlanModeActive } from './src/plan/mode-state.ts'
+import { getMode } from './src/plan/mode-state.ts'
 import { RequestCancelledError } from './src/providers/cancel.ts'
 import { getLastContextUsage } from './src/providers/context-usage.ts'
 import { getProvider } from './src/providers/index.ts'
@@ -20,14 +20,21 @@ import { buildSkillsPromptSection, skills } from './src/skills/registry.ts'
 import { SYSTEM_PROMPT } from './src/system-prompt.ts'
 import { createSlashCompleter, installCommandHints } from './src/ui/interactive/command-hints.ts'
 import { installImagePasteHandler } from './src/ui/interactive/image-paste.ts'
+import { installModeToggle } from './src/ui/interactive/mode-toggle.ts'
 import { DISABLE_BRACKETED_PASTE, ENABLE_BRACKETED_PASTE, getInputStream, readUserInput } from './src/ui/interactive/multiline-input.ts'
-import { installPlanModeToggle } from './src/ui/interactive/plan-mode-toggle.ts'
-import { bold, brightGreen, gray, red, yellow } from './src/utils/colors.ts'
+import { bold, brightGreen, cyan, gray, red, yellow } from './src/utils/colors.ts'
 
 const PROMPT_MARKER = bold(brightGreen('> '))
 
-function planModeIndicator(): string {
-  return isPlanModeActive() ? yellow('[plan] ') : ''
+function modeIndicator(): string {
+  const mode = getMode()
+  if (mode === 'plan') {
+    return yellow('[plan] ')
+  }
+  if (mode === 'auto') {
+    return cyan('[auto] ')
+  }
+  return ''
 }
 
 function contextStatusLine(): string {
@@ -43,7 +50,7 @@ function contextStatusLine(): string {
 }
 
 function buildPrompt(): string {
-  return `\n${contextStatusLine()}${planModeIndicator()}${PROMPT_MARKER}`
+  return `\n${contextStatusLine()}${modeIndicator()}${PROMPT_MARKER}`
 }
 
 async function loadProjectInstructions(): Promise<string | null> {
@@ -95,8 +102,8 @@ async function main() {
   const imagePaste = interactive
     ? installImagePasteHandler(inputStream, readline)
     : null
-  const planModeToggle = interactive
-    ? installPlanModeToggle(inputStream, readline, buildPrompt)
+  const modeToggle = interactive
+    ? installModeToggle(inputStream, readline, buildPrompt)
     : null
 
   let cleanedUp = false
@@ -172,7 +179,7 @@ async function main() {
     await handleUserTurn(provider, messages, readline, commandLinePrompt)
   }
 
-  const planModeHint = interactive && !Config.USE_READ_ONLY_MODE ? ' Shift+Tab toggles plan mode.' : ''
+  const planModeHint = interactive && !Config.USE_READ_ONLY_MODE ? ' Shift+Tab cycles modes: normal → auto → plan.' : ''
   console.warn(gray(`\nType /help for commands, /exit to quit.${planModeHint}`))
 
   try {
@@ -181,7 +188,7 @@ async function main() {
 
       commandHints?.setActive(true)
       imagePaste?.setActive(true)
-      planModeToggle?.setActive(true)
+      modeToggle?.setActive(true)
       try {
         userInput = (await readUserInput(readline, buildPrompt())).trim()
       }
@@ -191,7 +198,7 @@ async function main() {
       finally {
         commandHints?.setActive(false)
         imagePaste?.setActive(false)
-        planModeToggle?.setActive(false)
+        modeToggle?.setActive(false)
       }
 
       if (!userInput) {

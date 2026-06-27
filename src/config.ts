@@ -7,10 +7,12 @@ loadEnvFile(resolve(dirname(fileURLToPath(import.meta.url)), '..', '.env'))
 export interface ConfigShape {
   PROVIDER: string
   OLLAMA_HOST: string
+  OLLAMA_USE_THINKING: boolean
   LLAMACPP_HOST: string
   MODEL: string
   LANGUAGE: string
   USE_PLAN_MODE: boolean
+  USE_AUTO_MODE: boolean
   USE_READ_ONLY_MODE: boolean
   USE_SHELL_TOOL: boolean
   USE_NATIVE_TOOLS: boolean
@@ -18,7 +20,6 @@ export interface ConfigShape {
   REQUEST_TIMEOUT_MS: number
   REQUEST_FIRST_TOKEN_TIMEOUT_MS: number
   TEMPERATURE: number
-  OLLAMA_USE_THINKING: boolean
   SHOW_THINKING: boolean
   USE_STREAMING: boolean
   VERBOSE_TOOL_OUTPUT: boolean
@@ -47,6 +48,7 @@ export const Config: ConfigShape = {
   MODEL: getEnvString('MODEL', 'qwen3.6'),
   LANGUAGE: getEnvString('LANGUAGE', 'russian'),
   USE_PLAN_MODE: getEnvBoolean('USE_PLAN_MODE', false),
+  USE_AUTO_MODE: getEnvBoolean('USE_AUTO_MODE', false),
   USE_READ_ONLY_MODE: getEnvBoolean('USE_READ_ONLY_MODE', false),
   USE_SHELL_TOOL: getEnvBoolean('USE_SHELL_TOOL', true),
   USE_NATIVE_TOOLS: getEnvBoolean('USE_NATIVE_TOOLS', true),

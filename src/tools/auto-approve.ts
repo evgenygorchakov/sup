@@ -1,6 +1,7 @@
 import type { ToolCall } from '../types.ts'
 
 import { Config } from '../config.ts'
+import { isAutoModeActive } from '../plan/mode-state.ts'
 import { toolsByName } from './registry.ts'
 
 const SHELL_METACHARACTERS_PATTERN = /[;|&<>`$\n]/
@@ -32,8 +33,15 @@ export function canAutoApproveCall(call: ToolCall): boolean {
 }
 
 export function shouldAutoApprove(call: ToolCall): boolean {
+  const tool = toolsByName[call.function.name]
+  if (!tool) {
+    return false
+  }
   if (call.function.name === 'run_shell') {
     return canAutoApproveCall(call)
   }
-  return true
+  if (!tool.mutates) {
+    return true
+  }
+  return isAutoModeActive()
 }

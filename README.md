@@ -12,8 +12,12 @@ I've only tested it with models in the 27–35B range — nothing larger.
 
 ## Usage
 
-- Type `/` to see commands (`Tab` completes): switch model, toggle plan mode / thinking / verbose output, list saved plans, clear history.
-- `Shift+Tab` toggles plan mode on/off in place (the `[plan]` prompt indicator updates immediately).
+- Type `/` to see commands (`Tab` completes): switch model, toggle plan / auto / thinking / verbose output, list saved plans, clear history.
+- Three modes, like Claude Code; `Shift+Tab` cycles them in place (the prompt indicator updates immediately):
+  - **normal** — asks `[y / n / type feedback]` before mutating edits (`write_file`/`edit_file`) and before non-allowlisted shell commands.
+  - **auto** (`[auto]`) — auto-approves edits without asking; shell still goes through the read-only allowlist (anything else still asks).
+  - **plan** (`[plan]`) — read-only investigation, then a Markdown plan you approve before any edits run.
+  - Pick the starting mode with `USE_PLAN_MODE` / `USE_AUTO_MODE`, or switch at runtime with `Shift+Tab`, `/plan-mode`, `/auto-mode`.
 - Tuned for small local models: low default temperature, tool arguments validated against the schema with precise repair errors, the approved plan re-injected near the end of the context every turn, old tool outputs collapsed to keep the context short. Models without native tool calling fall back to prompt-engineered tools (`USE_NATIVE_TOOLS=false`).
 - Every setting is an `.env` variable with a sane default — see `.env.example`.
 - `AGENTS.md` in the working directory is appended to the system prompt.
@@ -47,5 +51,5 @@ I've only tested it with models in the 27–35B range — nothing larger.
 ## Security
 
 - All file tools are confined to the working directory; sensitive files (`.env`, keys, credentials) are refused for both reading and writing.
-- Mutating and network tools run without confirmation. Shell commands are the exception: only those matching the read-only allowlist in `src/config.ts` run unattended; anything else asks `[y / n / type feedback]`. In plan mode, allowlisted read-only shell commands are available during exploration.
+- Confirmation depends on the mode (see Usage above): in **normal** mode, edits (`write_file`/`edit_file`) and non-allowlisted shell commands ask `[y / n / type feedback]`; in **auto** mode, edits run unattended but shell still respects the allowlist. Network tools (`fetch_url`/`web_search`) run without confirmation. Shell commands matching the read-only allowlist in `src/config.ts` always run unattended; in plan mode those allowlisted commands are what's available during exploration.
 - The shell tool is on by default (`USE_SHELL_TOOL=false` to disable).

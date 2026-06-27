@@ -1,11 +1,42 @@
 import { Config } from '../config.ts'
 
-let active = Config.USE_PLAN_MODE && !Config.USE_READ_ONLY_MODE
+export type AgentMode = 'normal' | 'auto' | 'plan'
 
-export function isPlanModeActive(): boolean {
-  return active
+const CYCLE: readonly AgentMode[] = ['normal', 'auto', 'plan']
+
+function initialMode(): AgentMode {
+  if (Config.USE_READ_ONLY_MODE) {
+    return 'normal'
+  }
+  if (Config.USE_PLAN_MODE) {
+    return 'plan'
+  }
+  if (Config.USE_AUTO_MODE) {
+    return 'auto'
+  }
+  return 'normal'
 }
 
-export function setPlanModeActive(value: boolean): void {
-  active = value
+let mode: AgentMode = initialMode()
+
+export function getMode(): AgentMode {
+  return mode
+}
+
+export function setMode(value: AgentMode): void {
+  mode = value
+}
+
+export function cycleMode(): AgentMode {
+  const index = CYCLE.indexOf(mode)
+  mode = CYCLE[(index + 1) % CYCLE.length]!
+  return mode
+}
+
+export function isPlanModeActive(): boolean {
+  return mode === 'plan'
+}
+
+export function isAutoModeActive(): boolean {
+  return mode === 'auto'
 }

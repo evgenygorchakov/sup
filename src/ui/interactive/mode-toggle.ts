@@ -1,14 +1,14 @@
 import type { EventEmitter } from 'node:events'
 import type { Interface as ReadlineInterface } from 'node:readline/promises'
 import { Config } from '../../config.ts'
-import { isPlanModeActive, setPlanModeActive } from '../../plan/mode-state.ts'
+import { cycleMode } from '../../plan/mode-state.ts'
 
 interface RefreshableReadline {
   setPrompt: (prompt: string) => void
   _refreshLine: () => void
 }
 
-export function installPlanModeToggle(
+export function installModeToggle(
   inputStream: EventEmitter,
   readline: ReadlineInterface,
   buildPrompt: () => string,
@@ -20,7 +20,7 @@ export function installPlanModeToggle(
       return
     }
 
-    setPlanModeActive(!isPlanModeActive())
+    cycleMode()
     const refreshable = readline as unknown as RefreshableReadline
     refreshable.setPrompt(buildPrompt())
     refreshable._refreshLine()

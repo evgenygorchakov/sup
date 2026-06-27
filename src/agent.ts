@@ -8,7 +8,7 @@ import { buildHarnessReminder, finishTask, recordAssistant, recordLedgerState, r
 import { Config } from './config.ts'
 import { collapseOldToolResults } from './context/collapse.ts'
 import { clearActivePlan } from './plan/active-plan.ts'
-import { isPlanModeActive, setPlanModeActive } from './plan/mode-state.ts'
+import { isPlanModeActive, setMode } from './plan/mode-state.ts'
 import { shouldAutoApprove } from './tools/auto-approve.ts'
 import { runTool, toolDefinitions, toolsByName } from './tools/registry.ts'
 import { CONFIRM_KIND, confirmToolCalls } from './ui/interactive/confirm.ts'
@@ -70,7 +70,7 @@ export async function run(provider: ChatProvider, messages: Message[], readline:
       return
     }
 
-    setPlanModeActive(false)
+    setMode('normal')
   }
 
   const stepBudget = Config.AUTONOMOUS_STEP_BUDGET

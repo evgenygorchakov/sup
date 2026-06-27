@@ -2,7 +2,7 @@ import type { SelectChoice } from '../../ui/interactive/select.ts'
 import type { CommandContext, CommandResult, SlashCommand } from '../types.ts'
 import { stdin } from 'node:process'
 import { Config } from '../../config.ts'
-import { isPlanModeActive, setPlanModeActive } from '../../plan/mode-state.ts'
+import { isPlanModeActive, setMode } from '../../plan/mode-state.ts'
 import { selectFromList } from '../../ui/interactive/select.ts'
 import { gray, red } from '../../utils/colors.ts'
 
@@ -21,7 +21,7 @@ function setPlanMode(enabled: boolean): void {
     return
   }
 
-  setPlanModeActive(enabled)
+  setMode(enabled ? 'plan' : 'normal')
   console.warn(gray(`Plan mode is now ${enabled ? 'on' : 'off'}.`))
 }
 
