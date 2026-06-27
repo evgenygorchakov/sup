@@ -3,11 +3,6 @@ import type { Interface as ReadlineInterface } from 'node:readline/promises'
 import { Config } from '../../config.ts'
 import { cycleMode } from '../../plan/mode-state.ts'
 
-interface RefreshableReadline {
-  setPrompt: (prompt: string) => void
-  _refreshLine: () => void
-}
-
 export function installModeToggle(
   inputStream: EventEmitter,
   readline: ReadlineInterface,
@@ -21,9 +16,8 @@ export function installModeToggle(
     }
 
     cycleMode()
-    const refreshable = readline as unknown as RefreshableReadline
-    refreshable.setPrompt(buildPrompt())
-    refreshable._refreshLine()
+    readline.setPrompt(buildPrompt())
+    readline.prompt(true)
   })
 
   return {
