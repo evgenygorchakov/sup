@@ -1,17 +1,12 @@
-// Chat against Ollama's native /api/chat endpoint.
-//
-// Ollama's wire format already matches our internal Message shape, so there is
-// no translation here — just assembling the request and folding the streamed
-// newline-delimited JSON back into a single Message.
-
 import type { Message, Role, ToolCall, ToolDefinition } from '../../types.ts'
 import type { OnStreamPart } from '../../ui/interactive/stream-printer.ts'
-import { Config, getThinkingModeFor } from '../../config.ts'
+import { Config } from '../../config.ts'
 import { RequestCancelledError } from '../cancel.ts'
 import { recordContextUsage } from '../context-usage.ts'
 import { startIdleTimeout } from '../idle-timeout.ts'
 import { readResponseLines } from '../stream-lines.ts'
 import { getContextWindowTokenLimit } from './context-window.ts'
+import { getThinkingModeFor } from './thinking.ts'
 
 const OLLAMA_HOST = Config.OLLAMA_HOST
 const REQUEST_IDLE_TIMEOUT_MS = Config.REQUEST_TIMEOUT_MS
@@ -71,8 +66,6 @@ export async function chat(messages: Message[], options: ChatOptions = {}): Prom
   }
 }
 
-// Ollama's wire format matches our Message shape except for images, which it
-// expects as a flat array of base64 strings on the message (no data-URI prefix).
 function toOllamaMessages(messages: Message[]): Record<string, unknown>[] {
   return messages.map((message) => {
     if (!message.images?.length) {
@@ -110,8 +103,6 @@ async function readCompleteResponse(response: Response): Promise<Message> {
 
   return message as Message
 }
-
-// --- Streaming: newline-delimited JSON -> internal Message ---
 
 interface StreamedLine {
   message?: {

@@ -9,7 +9,7 @@ export const editFile: Tool = {
     type: 'function',
     function: {
       name: 'edit_file',
-      description: 'Edits a UTF-8 text file by replacing a single unique substring. The find string must appear exactly once in the file. Confined to the current working directory. USE WHEN: changing a small region of an existing file. INCLUDE 2-4 lines of surrounding context inside `find` so it matches exactly once; if the tool reports multiple matches, expand `find` with more context and retry. DO NOT USE FOR: creating new files (use write_file), replacing the whole file (use write_file with overwrite: true), or running sed/awk through run_shell. EXAMPLE: {"path": "src/config.ts", "find": "USE_THINKING: true", "replaceWith": "USE_THINKING: false"}.',
+      description: 'Edits a UTF-8 text file by replacing a single unique substring. The find string must appear exactly once in the file. Confined to the current working directory. USE WHEN: changing a small region of an existing file. INCLUDE 2-4 lines of surrounding context inside `find` so it matches exactly once; if the tool reports multiple matches, expand `find` with more context and retry. DO NOT USE FOR: creating new files (use write_file), replacing the whole file (use write_file with overwrite: true), or running sed/awk through run_shell. EXAMPLE: {"path": "src/config.ts", "find": "OLLAMA_USE_THINKING: true", "replaceWith": "OLLAMA_USE_THINKING: false"}.',
       parameters: {
         type: 'object',
         properties: {

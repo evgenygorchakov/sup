@@ -28,5 +28,5 @@ Optional deterministic control inspired by [a5c-ai/babysitter](https://github.co
 ## Security
 
 - All file tools are confined to the working directory; sensitive files (`.env`, keys, credentials) are refused for both reading and writing.
-- Mutating and network tools ask `[y / n / feedback]` — unless autonomous mode is on. Shell commands are the exception: only those matching the read-only allowlist in `src/config.ts` run without confirmation; anything else asks even in autonomous mode. In plan mode, allowlisted read-only shell commands are available during exploration.
+- Mutating and network tools run without confirmation. Shell commands are the exception: only those matching the read-only allowlist in `src/config.ts` run unattended; anything else asks `[y / n / feedback]`. In plan mode, allowlisted read-only shell commands are available during exploration.
 - The shell tool is on by default (`USE_SHELL_TOOL=false` to disable).

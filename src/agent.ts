@@ -19,8 +19,6 @@ import { startSpinner } from './ui/interactive/spinner.ts'
 import { createStreamPrinter } from './ui/interactive/stream-printer.ts'
 import { red } from './utils/colors.ts'
 
-const MAX_TOOL_ITERATIONS = 10
-
 function stableStringifyArguments(value: Record<string, unknown>): string {
   return JSON.stringify(value, Object.keys(value).sort())
 }
@@ -75,7 +73,7 @@ export async function run(provider: ChatProvider, messages: Message[], readline:
     setPlanModeActive(false)
   }
 
-  const stepBudget = Config.USE_AUTONOMOUS_MODE ? Config.AUTONOMOUS_STEP_BUDGET : MAX_TOOL_ITERATIONS
+  const stepBudget = Config.AUTONOMOUS_STEP_BUDGET
   const recentBatchSignatures: string[] = []
   let iterations = 0
 
@@ -84,8 +82,6 @@ export async function run(provider: ChatProvider, messages: Message[], readline:
 
     const { onStreamPart, didPrintAnything, didPrintContent } = createStreamPrinter(text => text)
 
-    // Show a throbber for the silent gap before the first token, and clear it
-    // the moment any output (thinking or content) starts.
     const spinner = startSpinner('Thinking…')
     const handleStreamPart: OnStreamPart = (part) => {
       spinner.stop()
@@ -135,17 +131,15 @@ export async function run(provider: ChatProvider, messages: Message[], readline:
       return
     }
 
-    if (Config.USE_AUTONOMOUS_MODE) {
-      recentBatchSignatures.push(buildBatchSignature(reply.tool_calls))
+    recentBatchSignatures.push(buildBatchSignature(reply.tool_calls))
 
-      if (lastBatchesAreIdentical(recentBatchSignatures, Config.AUTONOMOUS_REPEAT_THRESHOLD)) {
-        console.error(red(`Detected ${Config.AUTONOMOUS_REPEAT_THRESHOLD} identical tool batches in a row. Stopping autonomous loop.`))
-        messages.push({
-          role: 'user',
-          content: `Stopped: same tool calls repeated ${Config.AUTONOMOUS_REPEAT_THRESHOLD} times in a row. Reconsider the approach and wait for the user.`,
-        })
-        return
-      }
+    if (lastBatchesAreIdentical(recentBatchSignatures, Config.AUTONOMOUS_REPEAT_THRESHOLD)) {
+      console.error(red(`Detected ${Config.AUTONOMOUS_REPEAT_THRESHOLD} identical tool batches in a row. Stopping autonomous loop.`))
+      messages.push({
+        role: 'user',
+        content: `Stopped: same tool calls repeated ${Config.AUTONOMOUS_REPEAT_THRESHOLD} times in a row. Reconsider the approach and wait for the user.`,
+      })
+      return
     }
 
     const canAutoApproveBatch = reply.tool_calls.every(shouldAutoApprove)
