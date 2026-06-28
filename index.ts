@@ -68,7 +68,12 @@ const CANCELLED_NOTICE = yellow('\n⏹  Cancelled. Type your message again.')
 
 async function handleUserTurn(provider: ChatProvider, messages: Message[], readline: ReadlineInterface, userInput: string): Promise<void> {
   const mark = messages.length
-  messages.push(await buildUserMessage(userInput))
+  const message = await buildUserMessage(userInput)
+  messages.push(message)
+  const imageCount = message.images?.length ?? 0
+  if (imageCount > 0) {
+    console.warn(gray(`📎 Attached ${imageCount} ${imageCount === 1 ? 'image' : 'images'}`))
+  }
   try {
     await run(provider, messages, readline)
   }

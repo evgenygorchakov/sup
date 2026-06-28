@@ -5,8 +5,27 @@ import { homedir } from 'node:os'
 import { isAbsolute, resolve } from 'node:path'
 import process from 'node:process'
 
-const IMAGE_PATH_PATTERN = /"[^"]+\.(?:png|jpe?g|gif|webp|bmp)"|'[^']+\.(?:png|jpe?g|gif|webp|bmp)'|\S+\.(?:png|jpe?g|gif|webp|bmp)\b/gi
+const IMAGE_EXTENSION_PATTERN = /\.(?:png|jpe?g|gif|webp|bmp)$/i
+const INLINE_IMAGE_PATH_PATTERN = /"[^"]+\.(?:png|jpe?g|gif|webp|bmp)"|'[^']+\.(?:png|jpe?g|gif|webp|bmp)'|\S+\.(?:png|jpe?g|gif|webp|bmp)\b/gi
 const WINDOWS_DRIVE_PATTERN = /^([A-Z]):[\\/]/i
+const WSL_UNC_PATTERN = /^\\\\wsl(?:\.localhost|\$)\\[^\\]+\\/i
+
+function decodePercentEncoding(value: string): string {
+  try {
+    return decodeURIComponent(value)
+  }
+  catch {
+    return value
+  }
+}
+
+function stripFileUri(raw: string): string {
+  if (!/^file:\/\//i.test(raw)) {
+    return raw
+  }
+  const withoutScheme = decodePercentEncoding(raw.replace(/^file:\/\/(?:localhost)?/i, ''))
+  return /^\/[A-Z]:[\\/]/i.test(withoutScheme) ? withoutScheme.slice(1) : withoutScheme
+}
 
 function expandHome(path: string): string {
   if (path === '~') {
@@ -19,17 +38,25 @@ function expandHome(path: string): string {
 }
 
 export function translateWslPath(path: string): string {
-  const match = WINDOWS_DRIVE_PATTERN.exec(path)
-  if (!match) {
+  const unc = WSL_UNC_PATTERN.exec(path)
+  if (unc) {
+    return `/${path.slice(unc[0].length).replace(/\\/g, '/')}`
+  }
+  const drive = WINDOWS_DRIVE_PATTERN.exec(path)
+  if (!drive) {
     return path
   }
-  const drive = match[1]!.toLowerCase()
-  const rest = path.slice(match[0].length).replace(/\\/g, '/')
-  return `/mnt/${drive}/${rest}`
+  const letter = drive[1]!.toLowerCase()
+  const rest = path.slice(drive[0].length).replace(/\\/g, '/')
+  return `/mnt/${letter}/${rest}`
+}
+
+function unescapeShellPath(path: string): string {
+  return path.replace(/\\([ ()'"&!$`])/g, '$1')
 }
 
 function normalizePath(raw: string): string {
-  const path = expandHome(translateWslPath(raw.trim()))
+  const path = unescapeShellPath(expandHome(translateWslPath(stripFileUri(raw.trim()))))
   return isAbsolute(path) ? path : resolve(process.cwd(), path)
 }
 
@@ -86,13 +113,34 @@ function unquote(token: string): string {
   return token
 }
 
+function looksLikeImagePath(token: string): boolean {
+  return IMAGE_EXTENSION_PATTERN.test(stripFileUri(unquote(token.trim())))
+}
+
 export interface ExtractResult {
   text: string
   attachments: ImageAttachment[]
 }
 
-export async function extractImagePaths(input: string): Promise<ExtractResult> {
-  const matches = input.match(IMAGE_PATH_PATTERN)
+async function extractFromImageLines(input: string): Promise<ExtractResult | null> {
+  const lines = input.split('\n').map(line => line.trim()).filter(Boolean)
+  if (lines.length === 0 || !lines.every(looksLikeImagePath)) {
+    return null
+  }
+
+  const attachments: ImageAttachment[] = []
+  for (const line of lines) {
+    const attachment = await loadImageFile(unquote(line))
+    if (attachment) {
+      attachments.push(attachment)
+    }
+  }
+
+  return attachments.length === lines.length ? { text: '', attachments } : null
+}
+
+async function extractInlinePaths(input: string): Promise<ExtractResult> {
+  const matches = input.match(INLINE_IMAGE_PATH_PATTERN)
   if (!matches) {
     return { text: input, attachments: [] }
   }
@@ -109,4 +157,9 @@ export async function extractImagePaths(input: string): Promise<ExtractResult> {
   }
 
   return { text: text.replace(/\s{2,}/g, ' ').trim(), attachments }
+}
+
+export async function extractImagePaths(input: string): Promise<ExtractResult> {
+  const fromLines = await extractFromImageLines(input)
+  return fromLines ?? extractInlinePaths(input)
 }
