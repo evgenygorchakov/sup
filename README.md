@@ -20,6 +20,7 @@ I've only tested it with models in the 27–35B range — nothing larger.
   - Pick the starting mode with `USE_PLAN_MODE` / `USE_AUTO_MODE`, or switch at runtime with `Shift+Tab`, `/plan-mode`, `/auto-mode`.
 - Tuned for small local models: low default temperature, tool arguments validated against the schema with precise repair errors, the approved plan re-injected near the end of the context every turn, old tool outputs collapsed to keep the context short. Models without native tool calling fall back to prompt-engineered tools (`USE_NATIVE_TOOLS=false`).
 - Every setting is an `.env` variable with a sane default — see `.env.example`.
+- Defaults to Ollama; switch to llama.cpp for a single run with `sup --llama` (or `sup --provider <name>`) without touching `.env`. The active provider and model are printed at startup.
 - `AGENTS.md` in the working directory is appended to the system prompt.
 - Skills (like Claude Code skills): drop `.sup/skills/<name>/SKILL.md` with a `description` in the frontmatter (the skill name is the folder name); the body is loaded on demand via the `skill` tool.
 - Paste an image from the clipboard

@@ -5,12 +5,14 @@ import { ollama } from './ollama/index.ts'
 
 const providersByName: Record<string, ChatProvider> = { ollama, llamacpp }
 
-export function getProvider(): ChatProvider {
-  const providerName = Config.PROVIDER
+export const providerNames = Object.keys(providersByName)
+
+export function getProvider(name?: string): ChatProvider {
+  const providerName = name ?? Config.PROVIDER
   const provider = providersByName[providerName]
 
   if (!provider) {
-    throw new Error(`Unknown provider: ${providerName}`)
+    throw new Error(`Unknown provider: ${providerName}. Available: ${providerNames.join(', ')}`)
   }
 
   return provider

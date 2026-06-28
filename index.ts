@@ -9,6 +9,7 @@ import process, { stdin, stdout } from 'node:process'
 import { createInterface } from 'node:readline/promises'
 import { run } from './src/agent.ts'
 import { resumeIntoMessages } from './src/babysitter/index.ts'
+import { parseArgs } from './src/cli/args.ts'
 import { commands, runSlashCommand } from './src/commands/registry.ts'
 import { Config } from './src/config.ts'
 import { buildUserMessage } from './src/images/build-message.ts'
@@ -88,7 +89,9 @@ async function handleUserTurn(provider: ChatProvider, messages: Message[], readl
 }
 
 async function main() {
-  const provider = getProvider()
+  const args = parseArgs(process.argv.slice(2))
+  const providerName = args.provider ?? Config.PROVIDER
+  const provider = getProvider(providerName)
   await provider.initializeContextWindow()
 
   const interactive = Boolean(stdin.isTTY)
@@ -146,6 +149,7 @@ async function main() {
 
   const messages: Message[] = [{ role: 'system', content: systemContent }]
 
+  console.warn(gray(`Provider: ${providerName} · Model: ${Config.MODEL}`))
   if (skills.length > 0) {
     console.warn(gray(`Loaded ${skills.length} ${skills.length === 1 ? 'skill' : 'skills'}`))
   }
@@ -153,33 +157,20 @@ async function main() {
     console.warn(gray('Loaded AGENTS.md'))
   }
 
-  let resumeRequested = false
-  let resumeRunId: string | undefined
-  const promptArgs: string[] = []
-  for (const arg of process.argv.slice(2)) {
-    if (arg === '--resume') {
-      resumeRequested = true
-    }
-    else if (arg.startsWith('--resume=')) {
-      resumeRequested = true
-      resumeRunId = arg.slice('--resume='.length) || undefined
-    }
-    else {
-      promptArgs.push(arg)
-    }
-  }
-
-  if (resumeRequested) {
-    const outcome = resumeIntoMessages(resumeRunId, messages)
+  if (args.resumeRequested) {
+    const outcome = resumeIntoMessages(args.resumeRunId, messages)
     if (outcome.ok) {
       console.warn(gray(`Resumed run ${outcome.runId} (${outcome.restored} messages restored)`))
     }
+    else if (outcome.reason === 'disabled') {
+      console.warn(yellow('--resume requires USE_BABYSITTER=true and BABYSITTER_JOURNAL=true in your .env.'))
+    }
     else {
-      console.warn(yellow('Nothing to resume (enable USE_BABYSITTER and BABYSITTER_JOURNAL, or run a task first).'))
+      console.warn(yellow('Nothing to resume: no saved runs in this directory. Run a task here first.'))
     }
   }
 
-  const commandLinePrompt = promptArgs.join(' ').trim()
+  const commandLinePrompt = args.promptArgs.join(' ').trim()
   if (commandLinePrompt) {
     await handleUserTurn(provider, messages, readline, commandLinePrompt)
   }

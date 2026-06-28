@@ -10,6 +10,7 @@ import {
   lastTaskSnapshot,
   listRuns,
   loadRunEvents,
+  persistImages,
   reconstructMessages,
 } from './journal.ts'
 import { buildLedgerReminder } from './ledger.ts'
@@ -26,7 +27,8 @@ export function startTurn(messages: Message[]): void {
   ensureRun()
   const last = messages[messages.length - 1]
   if (last?.role === 'user') {
-    appendEvent('user', { message: last.images ? { ...last, images: undefined } : last })
+    const imageRefs = last.images?.length ? persistImages(last.images) : null
+    appendEvent('user', { message: { ...last, images: undefined }, images: imageRefs ?? undefined })
   }
   resetGate()
 }
@@ -94,19 +96,20 @@ export interface ResumeOutcome {
   ok: boolean
   runId?: string
   restored?: number
+  reason?: 'disabled' | 'not_found'
 }
 
 export function resumeIntoMessages(runId: string | undefined, messages: Message[]): ResumeOutcome {
   if (!Config.USE_BABYSITTER || !Config.BABYSITTER_JOURNAL) {
-    return { ok: false }
+    return { ok: false, reason: 'disabled' }
   }
   const target = runId ?? listRuns().at(-1)
   if (!target || !adoptRun(target)) {
-    return { ok: false }
+    return { ok: false, reason: 'not_found' }
   }
 
   const events = loadRunEvents(target)
-  const restored = reconstructMessages(events)
+  const restored = reconstructMessages(events, target)
   dropTrailingUnansweredToolCalls(restored)
 
   for (const message of restored) {

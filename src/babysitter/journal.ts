@@ -1,12 +1,14 @@
-import type { Message } from '../types.ts'
+import type { ImageAttachment, Message } from '../types.ts'
 import type { LedgerStep } from './session.ts'
-import { appendFileSync, mkdirSync, readdirSync, readFileSync, statSync } from 'node:fs'
+import { Buffer } from 'node:buffer'
+import { appendFileSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import process from 'node:process'
 import { Config } from '../config.ts'
 
 const RUNS_SUBDIR = ['.sup', 'runs']
 const JOURNAL_FILE = 'journal.jsonl'
+const IMAGES_SUBDIR = 'images'
 
 export type JournalEventType
   = | 'run_start'
@@ -138,11 +140,73 @@ export function loadRunEvents(runId: string): JournalEvent[] {
   return events
 }
 
-export function reconstructMessages(events: JournalEvent[]): Message[] {
+export interface ImageRef {
+  file: string
+  mimeType: string
+}
+
+let imageSequence = 0
+
+function mimeToExtension(mimeType: string): string {
+  switch (mimeType) {
+    case 'image/jpeg': return 'jpg'
+    case 'image/gif': return 'gif'
+    case 'image/webp': return 'webp'
+    case 'image/bmp': return 'bmp'
+    default: return 'png'
+  }
+}
+
+export function persistImages(images: ImageAttachment[]): ImageRef[] | null {
+  if (!journalEnabled() || !currentRunDir || images.length === 0) {
+    return null
+  }
+
+  const dir = join(currentRunDir, IMAGES_SUBDIR)
+  try {
+    mkdirSync(dir, { recursive: true })
+  }
+  catch {
+    return null
+  }
+
+  const refs: ImageRef[] = []
+  for (const image of images) {
+    const file = `${Date.now()}-${imageSequence++}.${mimeToExtension(image.mimeType)}`
+    try {
+      writeFileSync(join(dir, file), Buffer.from(image.base64, 'base64'))
+      refs.push({ file, mimeType: image.mimeType })
+    }
+    catch {}
+  }
+  return refs.length > 0 ? refs : null
+}
+
+function loadImages(runId: string, refs: ImageRef[]): ImageAttachment[] {
+  const dir = join(runsRoot(), runId, IMAGES_SUBDIR)
+  const images: ImageAttachment[] = []
+  for (const ref of refs) {
+    try {
+      const bytes = readFileSync(join(dir, ref.file))
+      images.push({ base64: bytes.toString('base64'), mimeType: ref.mimeType })
+    }
+    catch {}
+  }
+  return images
+}
+
+export function reconstructMessages(events: JournalEvent[], runId: string): Message[] {
   const messages: Message[] = []
   for (const event of events) {
     if ((event.type === 'user' || event.type === 'assistant' || event.type === 'tool_result') && event.message) {
-      messages.push(event.message as Message)
+      const message = event.message as Message
+      if (event.type === 'user' && Array.isArray(event.images) && event.images.length > 0) {
+        const images = loadImages(runId, event.images as ImageRef[])
+        if (images.length > 0) {
+          message.images = images
+        }
+      }
+      messages.push(message)
     }
   }
   return messages
