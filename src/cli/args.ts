@@ -2,6 +2,7 @@ export interface CliArgs {
   provider?: string
   resumeRequested: boolean
   resumeRunId?: string
+  skipPermissions: boolean
   promptArgs: string[]
 }
 
@@ -9,6 +10,7 @@ export function parseArgs(argv: string[]): CliArgs {
   let provider: string | undefined
   let resumeRequested = false
   let resumeRunId: string | undefined
+  let skipPermissions = false
   const promptArgs: string[] = []
 
   for (let index = 0; index < argv.length; index++) {
@@ -29,10 +31,13 @@ export function parseArgs(argv: string[]): CliArgs {
       resumeRequested = true
       resumeRunId = arg.slice('--resume='.length) || undefined
     }
+    else if (arg === '--dangerously-skip-permissions') {
+      skipPermissions = true
+    }
     else {
       promptArgs.push(arg)
     }
   }
 
-  return { provider, resumeRequested, resumeRunId, promptArgs }
+  return { provider, resumeRequested, resumeRunId, skipPermissions, promptArgs }
 }

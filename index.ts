@@ -19,6 +19,7 @@ import { getLastContextUsage } from './src/providers/context-usage.ts'
 import { getProvider } from './src/providers/index.ts'
 import { buildSkillsPromptSection, skills } from './src/skills/registry.ts'
 import { SYSTEM_PROMPT } from './src/system-prompt.ts'
+import { isSkipPermissionsActive, setSkipPermissions } from './src/tools/skip-permissions.ts'
 import { createSlashCompleter, installCommandHints } from './src/ui/interactive/command-hints.ts'
 import { installImagePasteHandler } from './src/ui/interactive/image-paste.ts'
 import { installModeToggle } from './src/ui/interactive/mode-toggle.ts'
@@ -28,14 +29,15 @@ import { bold, brightGreen, cyan, gray, red, yellow } from './src/utils/colors.t
 const PROMPT_MARKER = bold(brightGreen('> '))
 
 function modeIndicator(): string {
+  const prefix = isSkipPermissionsActive() ? red('[skip-perms] ') : ''
   const mode = getMode()
   if (mode === 'plan') {
-    return yellow('[plan] ')
+    return `${prefix}${yellow('[plan] ')}`
   }
   if (mode === 'auto') {
-    return cyan('[auto] ')
+    return `${prefix}${cyan('[auto] ')}`
   }
-  return ''
+  return prefix
 }
 
 function contextStatusLine(): string {
@@ -90,6 +92,7 @@ async function handleUserTurn(provider: ChatProvider, messages: Message[], readl
 
 async function main() {
   const args = parseArgs(process.argv.slice(2))
+  setSkipPermissions(args.skipPermissions)
   const providerName = args.provider ?? Config.PROVIDER
   const provider = getProvider(providerName)
   await provider.initializeContextWindow()
@@ -150,6 +153,9 @@ async function main() {
   const messages: Message[] = [{ role: 'system', content: systemContent }]
 
   console.warn(gray(`Provider: ${providerName} · Model: ${Config.MODEL}`))
+  if (isSkipPermissionsActive()) {
+    console.warn(red('⚠  --dangerously-skip-permissions: all tool calls auto-approved without asking.'))
+  }
   if (skills.length > 0) {
     console.warn(gray(`Loaded ${skills.length} ${skills.length === 1 ? 'skill' : 'skills'}`))
   }

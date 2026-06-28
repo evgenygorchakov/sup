@@ -18,6 +18,7 @@ I've only tested it with models in the 27–35B range — nothing larger.
   - **auto** (`[auto]`) — auto-approves edits without asking; shell still goes through the read-only allowlist (anything else still asks).
   - **plan** (`[plan]`) — read-only investigation, then a Markdown plan you approve before any edits run.
   - Pick the starting mode with `USE_PLAN_MODE` / `USE_AUTO_MODE`, or switch at runtime with `Shift+Tab`, `/plan-mode`, `/auto-mode`.
+  - **`--dangerously-skip-permissions`** — like Claude Code, bypasses every approval prompt for the whole session: edits and shell commands run without asking, regardless of mode or the shell allowlist. The prompt shows a red `[skip-perms]` indicator. Only use it when you trust the model and the working directory.
 - Tuned for small local models: low default temperature, tool arguments validated against the schema with precise repair errors, the approved plan re-injected near the end of the context every turn, old tool outputs collapsed to keep the context short. Models without native tool calling fall back to prompt-engineered tools (`USE_NATIVE_TOOLS=false`).
 - Every setting is an `.env` variable with a sane default — see `.env.example`.
 - Defaults to Ollama; switch to llama.cpp for a single run with `sup --llama` (or `sup --provider <name>`) without touching `.env`. The active provider and model are printed at startup.

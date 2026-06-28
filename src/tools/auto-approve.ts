@@ -3,6 +3,7 @@ import type { ToolCall } from '../types.ts'
 import { Config } from '../config.ts'
 import { isAutoModeActive } from '../plan/mode-state.ts'
 import { toolsByName } from './registry.ts'
+import { isSkipPermissionsActive } from './skip-permissions.ts'
 
 const SHELL_METACHARACTERS_PATTERN = /[;|&<>`$\n]/
 
@@ -33,6 +34,9 @@ export function canAutoApproveCall(call: ToolCall): boolean {
 }
 
 export function shouldAutoApprove(call: ToolCall): boolean {
+  if (isSkipPermissionsActive()) {
+    return true
+  }
   const tool = toolsByName[call.function.name]
   if (!tool) {
     return false
