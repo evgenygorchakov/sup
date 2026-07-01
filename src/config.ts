@@ -1,4 +1,5 @@
 import { dirname, resolve } from 'node:path'
+import process from 'node:process'
 import { fileURLToPath } from 'node:url'
 import { getEnvBoolean, getEnvNumber, getEnvString, loadEnvFile } from './utils/env.ts'
 
@@ -49,7 +50,7 @@ export const Config: ConfigShape = {
   LANGUAGE: getEnvString('LANGUAGE', 'russian'),
   USE_PLAN_MODE: getEnvBoolean('USE_PLAN_MODE', false),
   USE_AUTO_MODE: getEnvBoolean('USE_AUTO_MODE', false),
-  USE_READ_ONLY_MODE: getEnvBoolean('USE_READ_ONLY_MODE', false),
+  USE_READ_ONLY_MODE: process.argv.includes('--read-only') || getEnvBoolean('USE_READ_ONLY_MODE', false),
   USE_SHELL_TOOL: getEnvBoolean('USE_SHELL_TOOL', true),
   USE_NATIVE_TOOLS: getEnvBoolean('USE_NATIVE_TOOLS', true),
   CONTEXT_WINDOW_TOKEN_LIMIT: getEnvNumber('CONTEXT_WINDOW_TOKEN_LIMIT', 80_000),

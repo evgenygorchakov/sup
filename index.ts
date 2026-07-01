@@ -30,6 +30,9 @@ const PROMPT_MARKER = bold(brightGreen('> '))
 
 function modeIndicator(): string {
   const prefix = isSkipPermissionsActive() ? red('[skip-perms] ') : ''
+  if (Config.USE_READ_ONLY_MODE) {
+    return `${prefix}${gray('[read-only] ')}`
+  }
   const mode = getMode()
   if (mode === 'plan') {
     return `${prefix}${yellow('[plan] ')}`
@@ -153,6 +156,9 @@ async function main() {
   const messages: Message[] = [{ role: 'system', content: systemContent }]
 
   console.warn(gray(`Provider: ${providerName} · Model: ${Config.MODEL}`))
+  if (Config.USE_READ_ONLY_MODE) {
+    console.warn(gray('Read-only session: write, edit, and shell tools are disabled.'))
+  }
   if (isSkipPermissionsActive()) {
     console.warn(red('⚠  --dangerously-skip-permissions: all tool calls auto-approved without asking.'))
   }

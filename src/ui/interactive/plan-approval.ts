@@ -1,8 +1,9 @@
 import type { Interface as ReadlineInterface } from 'node:readline/promises'
 import type { ChatProvider } from '../../providers/types.ts'
 import type { Message, ToolDefinition } from '../../types.ts'
-import process from 'node:process'
+import type { OnStreamPart } from './stream-printer.ts'
 
+import process from 'node:process'
 import { activatePlan } from '../../babysitter/index.ts'
 import { Config } from '../../config.ts'
 import { setActivePlan } from '../../plan/active-plan.ts'
@@ -10,7 +11,9 @@ import { savePlan } from '../../plan/store.ts'
 import { canAutoApproveCall } from '../../tools/auto-approve.ts'
 import { autoApprovedToolDefinitions, runTool, toolsByName } from '../../tools/registry.ts'
 import { bold, brightBlue, brightGreen, gray, yellow } from '../../utils/colors.ts'
+import { withRequestInterrupt } from './interrupt.ts'
 import { renderToolHeader } from './render-tool-call.ts'
+import { startSpinner } from './spinner.ts'
 import { createStreamPrinter } from './stream-printer.ts'
 
 const MAX_PLAN_EXPLORATION_STEPS = 8
@@ -39,7 +42,21 @@ const PLAN_REQUEST_MESSAGE = [
 
 async function streamPlanReply(provider: ChatProvider, messages: Message[], tools: ToolDefinition[]): Promise<Message> {
   const { onStreamPart, didPrintAnything } = createStreamPrinter(yellow)
-  const reply = await provider.chat(messages, tools, onStreamPart)
+
+  const spinner = startSpinner('Planning…')
+  const handleStreamPart: OnStreamPart = (part) => {
+    spinner.stop()
+    onStreamPart(part)
+  }
+
+  let reply: Message
+  try {
+    reply = await withRequestInterrupt(signal =>
+      provider.chat(messages, tools, handleStreamPart, signal))
+  }
+  finally {
+    spinner.stop()
+  }
 
   if (didPrintAnything()) {
     process.stderr.write('\n')
@@ -91,7 +108,9 @@ async function buildPlan(provider: ChatProvider, messages: Message[]): Promise<M
   return streamPlanReply(provider, planMessages, [])
 }
 
-export async function askForPlanApproval(provider: ChatProvider, messages: Message[], readline: ReadlineInterface): Promise<'proceed' | 'quit'> {
+export type PlanApprovalDecision = 'proceed' | 'proceed-auto' | 'quit'
+
+export async function askForPlanApproval(provider: ChatProvider, messages: Message[], readline: ReadlineInterface): Promise<PlanApprovalDecision> {
   const userRequest = String(messages[messages.length - 1]?.content ?? '')
 
   while (true) {
@@ -101,11 +120,11 @@ export async function askForPlanApproval(provider: ChatProvider, messages: Messa
 
     let userAnswer = ''
     while (!userAnswer) {
-      userAnswer = (await readline.question(brightGreen('\n[y / n / type feedback] '))).trim()
+      userAnswer = (await readline.question(brightGreen('\n[y / a = y + auto-approve edits / n / type feedback] '))).trim()
     }
     const loweredAnswer = userAnswer.toLowerCase()
 
-    if (loweredAnswer === 'y') {
+    if (loweredAnswer === 'y' || loweredAnswer === 'a') {
       messages.push(plan)
       messages.push({
         role: 'user',
@@ -120,7 +139,7 @@ export async function askForPlanApproval(provider: ChatProvider, messages: Messa
         console.warn(gray(`Saved plan to ${savedPath}`))
       }
 
-      return 'proceed'
+      return loweredAnswer === 'a' ? 'proceed-auto' : 'proceed'
     }
 
     if (loweredAnswer === 'n') {

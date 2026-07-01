@@ -21,7 +21,12 @@ function setPlanMode(enabled: boolean): void {
     return
   }
 
-  setMode(enabled ? 'plan' : 'normal')
+  if (enabled) {
+    setMode('plan')
+  }
+  else if (isPlanModeActive()) {
+    setMode('normal')
+  }
   console.warn(gray(`Plan mode is now ${enabled ? 'on' : 'off'}.`))
 }
 

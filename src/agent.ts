@@ -17,7 +17,7 @@ import { askForPlanApproval } from './ui/interactive/plan-approval.ts'
 import { renderToolHeader } from './ui/interactive/render-tool-call.ts'
 import { startSpinner } from './ui/interactive/spinner.ts'
 import { createStreamPrinter } from './ui/interactive/stream-printer.ts'
-import { red } from './utils/colors.ts'
+import { red, yellow } from './utils/colors.ts'
 
 function stableStringifyArguments(value: Record<string, unknown>): string {
   return JSON.stringify(value, Object.keys(value).sort())
@@ -63,14 +63,21 @@ export async function run(provider: ChatProvider, messages: Message[], readline:
   startTurn(messages)
 
   if (!options.skipPlanApproval && isPlanModeActive() && messages[messages.length - 1]?.role === 'user') {
-    const decision = await askForPlanApproval(provider, messages, readline)
-
-    if (decision === 'quit') {
-      console.error(red('Cancelled by user.'))
-      return
+    if (!process.stdin.isTTY) {
+      console.warn(yellow('Plan mode needs an interactive terminal to approve plans. Running this turn without one.'))
     }
+    else {
+      const requestIndex = messages.length - 1
+      const decision = await askForPlanApproval(provider, messages, readline)
 
-    setMode('normal')
+      if (decision === 'quit') {
+        messages.length = requestIndex
+        console.warn(yellow('Plan rejected and removed from history. Type your message again.'))
+        return
+      }
+
+      setMode(decision === 'proceed-auto' ? 'auto' : 'normal')
+    }
   }
 
   const stepBudget = Config.AUTONOMOUS_STEP_BUDGET
