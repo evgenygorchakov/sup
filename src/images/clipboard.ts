@@ -3,7 +3,7 @@ import { Buffer } from 'node:buffer'
 import { spawn } from 'node:child_process'
 import { readFileSync } from 'node:fs'
 import process from 'node:process'
-import { loadImageFile } from './load.ts'
+import { loadImageFile, looksLikeImagePath } from './load.ts'
 
 const POWERSHELL_IMAGE_SCRIPT = [
   'Add-Type -AssemblyName System.Windows.Forms,System.Drawing;',
@@ -16,12 +16,15 @@ const POWERSHELL_IMAGE_SCRIPT = [
 ].join(' ')
 
 const POWERSHELL_FILES_SCRIPT = [
+  '[Console]::OutputEncoding = [System.Text.Encoding]::UTF8;',
   'Add-Type -AssemblyName System.Windows.Forms;',
   '$files = [System.Windows.Forms.Clipboard]::GetFileDropList();',
   'if ($files) { $files | ForEach-Object { $_ } }',
 ].join(' ')
 
 const MACOS_FILE_SCRIPT = 'POSIX path of (the clipboard as «class furl»)'
+
+const CAPTURE_TIMEOUT_MS = 10_000
 
 let cachedIsWsl: boolean | null = null
 
@@ -46,7 +49,7 @@ function capture(command: string, args: string[]): Promise<Buffer | null> {
   return new Promise((resolvePromise) => {
     let child
     try {
-      child = spawn(command, args, { stdio: ['ignore', 'pipe', 'ignore'] })
+      child = spawn(command, args, { stdio: ['ignore', 'pipe', 'ignore'], timeout: CAPTURE_TIMEOUT_MS })
     }
     catch {
       resolvePromise(null)
@@ -129,7 +132,7 @@ async function readClipboardFileImage(): Promise<ImageAttachment | null> {
     return null
   }
 
-  for (const line of raw.split(/\r?\n/).map(entry => entry.trim()).filter(Boolean)) {
+  for (const line of raw.split(/\r?\n/).map(entry => entry.trim()).filter(entry => looksLikeImagePath(entry))) {
     const attachment = await loadImageFile(line)
     if (attachment) {
       return attachment

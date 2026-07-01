@@ -13,6 +13,7 @@ import { parseArgs } from './src/cli/args.ts'
 import { commands, runSlashCommand } from './src/commands/registry.ts'
 import { Config } from './src/config.ts'
 import { buildUserMessage } from './src/images/build-message.ts'
+import { restorePendingImages } from './src/images/pending.ts'
 import { getMode } from './src/plan/mode-state.ts'
 import { RequestCancelledError } from './src/providers/cancel.ts'
 import { getLastContextUsage } from './src/providers/context-usage.ts'
@@ -86,6 +87,9 @@ async function handleUserTurn(provider: ChatProvider, messages: Message[], readl
   catch (error) {
     if (error instanceof RequestCancelledError) {
       messages.length = mark
+      if (message.images) {
+        restorePendingImages(message.images)
+      }
       console.warn(CANCELLED_NOTICE)
       return
     }

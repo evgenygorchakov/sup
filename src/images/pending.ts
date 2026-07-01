@@ -10,3 +10,7 @@ export function addPendingImage(image: ImageAttachment): number {
 export function takePendingImages(): ImageAttachment[] {
   return pending.splice(0, pending.length)
 }
+
+export function restorePendingImages(images: ImageAttachment[]): void {
+  pending.unshift(...images)
+}

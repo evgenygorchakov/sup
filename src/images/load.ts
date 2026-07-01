@@ -88,19 +88,18 @@ function detectMimeType(bytes: Buffer, path: string): string {
 export async function loadImageFile(rawPath: string): Promise<ImageAttachment | null> {
   const path = normalizePath(rawPath)
 
-  let info
+  let bytes
   try {
-    info = await stat(path)
+    const info = await stat(path)
+    if (!info.isFile()) {
+      return null
+    }
+    bytes = await readFile(path)
   }
   catch {
     return null
   }
 
-  if (!info.isFile()) {
-    return null
-  }
-
-  const bytes = await readFile(path)
   return { base64: bytes.toString('base64'), mimeType: detectMimeType(bytes, path) }
 }
 
@@ -113,7 +112,7 @@ function unquote(token: string): string {
   return token
 }
 
-function looksLikeImagePath(token: string): boolean {
+export function looksLikeImagePath(token: string): boolean {
   return IMAGE_EXTENSION_PATTERN.test(stripFileUri(unquote(token.trim())))
 }
 
@@ -139,6 +138,25 @@ async function extractFromImageLines(input: string): Promise<ExtractResult | nul
   return attachments.length === lines.length ? { text: '', attachments } : null
 }
 
+function removeTokenWithSurroundingSpaces(text: string, token: string): string {
+  const index = text.indexOf(token)
+  if (index === -1) {
+    return text
+  }
+
+  let start = index
+  while (start > 0 && (text[start - 1] === ' ' || text[start - 1] === '\t')) {
+    start--
+  }
+  let end = index + token.length
+  while (end < text.length && (text[end] === ' ' || text[end] === '\t')) {
+    end++
+  }
+
+  const midLine = start > 0 && end < text.length && text[start - 1] !== '\n' && text[end] !== '\n'
+  return text.slice(0, start) + (midLine ? ' ' : '') + text.slice(end)
+}
+
 async function extractInlinePaths(input: string): Promise<ExtractResult> {
   const matches = input.match(INLINE_IMAGE_PATH_PATTERN)
   if (!matches) {
@@ -152,11 +170,11 @@ async function extractInlinePaths(input: string): Promise<ExtractResult> {
     const attachment = await loadImageFile(unquote(token))
     if (attachment) {
       attachments.push(attachment)
-      text = text.replace(token, '')
+      text = removeTokenWithSurroundingSpaces(text, token)
     }
   }
 
-  return { text: text.replace(/\s{2,}/g, ' ').trim(), attachments }
+  return { text: text.trim(), attachments }
 }
 
 export async function extractImagePaths(input: string): Promise<ExtractResult> {
