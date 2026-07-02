@@ -1,6 +1,7 @@
 import { mkdir, readdir, readFile, stat, writeFile } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
 import process from 'node:process'
+import { yellow } from '../utils/colors.ts'
 
 const PLANS_SUBDIR = ['.sup', 'plans']
 
@@ -108,7 +109,7 @@ export async function savePlan(planMarkdown: string, userRequest: string): Promi
       '',
       `_Created: ${formatTimestamp(new Date())}_`,
       '',
-      `**Request:** ${userRequest.trim() || '—'}`,
+      `**Request:** ${userRequest.replace(/\s+/g, ' ').trim() || '—'}`,
       '',
       '---',
       '',
@@ -120,7 +121,8 @@ export async function savePlan(planMarkdown: string, userRequest: string): Promi
 
     return `${PLANS_SUBDIR.join('/')}/${name}.md`
   }
-  catch {
+  catch (error) {
+    console.warn(yellow(`Could not save the plan to ${PLANS_SUBDIR.join('/')}: ${error instanceof Error ? error.message : String(error)}`))
     return null
   }
 }
