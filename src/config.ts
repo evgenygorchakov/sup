@@ -39,6 +39,7 @@ export interface ConfigShape {
   BABYSITTER_LEDGER: boolean
   BABYSITTER_GATED_SKILLS: boolean
   BABYSITTER_GATE_MAX_ATTEMPTS: number
+  BABYSITTER_GATE_TIMEOUT_MS: number
 }
 
 export const Config: ConfigShape = {
@@ -80,4 +81,5 @@ export const Config: ConfigShape = {
   BABYSITTER_LEDGER: getEnvBoolean('BABYSITTER_LEDGER', true),
   BABYSITTER_GATED_SKILLS: getEnvBoolean('BABYSITTER_GATED_SKILLS', true),
   BABYSITTER_GATE_MAX_ATTEMPTS: getEnvNumber('BABYSITTER_GATE_MAX_ATTEMPTS', 3),
+  BABYSITTER_GATE_TIMEOUT_MS: getEnvNumber('BABYSITTER_GATE_TIMEOUT_MS', 120_000),
 }

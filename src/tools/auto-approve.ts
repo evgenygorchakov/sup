@@ -1,23 +1,9 @@
 import type { ToolCall } from '../types.ts'
 
-import { Config } from '../config.ts'
 import { isAutoModeActive } from '../plan/mode-state.ts'
 import { toolsByName } from './registry.ts'
+import { isShellCommandAutoApprovable } from './shell-auto-approve.ts'
 import { isSkipPermissionsActive } from './skip-permissions.ts'
-
-const SHELL_METACHARACTERS_PATTERN = /[;|&<>`$\n]/
-
-function containsShellMetacharacters(command: string): boolean {
-  return SHELL_METACHARACTERS_PATTERN.test(command)
-}
-
-function isShellCommandAutoApprovable(command: string): boolean {
-  const trimmed = command.trim()
-  if (containsShellMetacharacters(trimmed)) {
-    return false
-  }
-  return Config.AUTO_APPROVE_SHELL_PATTERNS.some(pattern => pattern.test(trimmed))
-}
 
 export function canAutoApproveCall(call: ToolCall): boolean {
   const tool = toolsByName[call.function.name]

@@ -88,6 +88,68 @@ function killGroup(child: ChildProcess, signal: NodeJS.Signals): void {
   }
 }
 
+export function executeShellCommand(command: string, timeoutMs: number): Promise<string> {
+  return new Promise<string>((resolve) => {
+    const stdout = createAccumulator(STREAM_CHAR_LIMIT)
+    const stderr = createAccumulator(STREAM_CHAR_LIMIT)
+
+    let child: ChildProcess
+    try {
+      child = spawn('bash', ['-c', command], {
+        cwd: process.cwd(),
+        env: { ...process.env, NO_COLOR: '1', FORCE_COLOR: '0', TERM: 'dumb', CI: '1' },
+        detached: true,
+        stdio: ['pipe', 'pipe', 'pipe'],
+      })
+    }
+    catch (error) {
+      resolve(formatResult({ kind: 'error', message: (error as Error).message }, '', ''))
+      return
+    }
+
+    child.stdout?.setEncoding('utf8')
+    child.stderr?.setEncoding('utf8')
+    child.stdin?.end()
+
+    child.stdout?.on('data', (text: string) => stdout.push(text))
+    child.stderr?.on('data', (text: string) => stderr.push(text))
+
+    let timedOut = false
+    let killTimer: NodeJS.Timeout | null = null
+
+    const timeoutHandle = setTimeout(() => {
+      timedOut = true
+      killGroup(child, 'SIGTERM')
+      killTimer = setTimeout(killGroup, SIGKILL_GRACE_MS, child, 'SIGKILL')
+    }, timeoutMs)
+
+    let settled = false
+    const settle = (status: Status): void => {
+      if (settled) {
+        return
+      }
+      settled = true
+      clearTimeout(timeoutHandle)
+      if (killTimer !== null) {
+        clearTimeout(killTimer)
+      }
+      resolve(formatResult(status, stdout.finalize(), stderr.finalize()))
+    }
+
+    child.on('close', (code, signal) => {
+      if (signal !== null) {
+        settle({ kind: 'signal', signal, timedOut })
+        return
+      }
+      settle({ kind: 'exit', code: code ?? -1 })
+    })
+
+    child.on('error', (error) => {
+      settle({ kind: 'error', message: error.message })
+    })
+  })
+}
+
 export const runShell: Tool = {
   definition: {
     type: 'function',
@@ -113,65 +175,7 @@ export const runShell: Tool = {
       return 'ERROR: run_shell expects { command: string } (non-empty, no NUL bytes)'
     }
 
-    return new Promise<string>((resolve) => {
-      const stdout = createAccumulator(STREAM_CHAR_LIMIT)
-      const stderr = createAccumulator(STREAM_CHAR_LIMIT)
-
-      let child: ChildProcess
-      try {
-        child = spawn('bash', ['-c', command], {
-          cwd: process.cwd(),
-          env: { ...process.env, NO_COLOR: '1', FORCE_COLOR: '0', TERM: 'dumb', CI: '1' },
-          detached: true,
-          stdio: ['pipe', 'pipe', 'pipe'],
-        })
-      }
-      catch (error) {
-        resolve(formatResult({ kind: 'error', message: (error as Error).message }, '', ''))
-        return
-      }
-
-      child.stdout?.setEncoding('utf8')
-      child.stderr?.setEncoding('utf8')
-      child.stdin?.end()
-
-      child.stdout?.on('data', (text: string) => stdout.push(text))
-      child.stderr?.on('data', (text: string) => stderr.push(text))
-
-      let timedOut = false
-      let killTimer: NodeJS.Timeout | null = null
-
-      const timeoutHandle = setTimeout(() => {
-        timedOut = true
-        killGroup(child, 'SIGTERM')
-        killTimer = setTimeout(killGroup, SIGKILL_GRACE_MS, child, 'SIGKILL')
-      }, COMMAND_TIMEOUT_MS)
-
-      let settled = false
-      const settle = (status: Status): void => {
-        if (settled) {
-          return
-        }
-        settled = true
-        clearTimeout(timeoutHandle)
-        if (killTimer !== null) {
-          clearTimeout(killTimer)
-        }
-        resolve(formatResult(status, stdout.finalize(), stderr.finalize()))
-      }
-
-      child.on('close', (code, signal) => {
-        if (signal !== null) {
-          settle({ kind: 'signal', signal, timedOut })
-          return
-        }
-        settle({ kind: 'exit', code: code ?? -1 })
-      })
-
-      child.on('error', (error) => {
-        settle({ kind: 'error', message: error.message })
-      })
-    })
+    return executeShellCommand(command, COMMAND_TIMEOUT_MS)
   },
   primaryArgs: ['command'],
   accentColor: yellow,

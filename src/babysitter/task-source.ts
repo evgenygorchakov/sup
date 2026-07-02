@@ -35,7 +35,7 @@ function gatedSkillsEnabled(): boolean {
   return Config.USE_BABYSITTER && Config.BABYSITTER_GATED_SKILLS
 }
 
-export function isGatedSkill(skill: Skill): boolean {
+function isGatedSkill(skill: Skill): boolean {
   if (!gatedSkillsEnabled()) {
     return false
   }
@@ -50,14 +50,16 @@ export function activateSkill(skill: Skill): string | null {
   if (steps.length === 0) {
     return null
   }
+  const ledger = ledgerToolRegistered ? buildLedgerFromSteps(steps) : null
   const verificationSource = findSection(skill.body, VERIFICATION_HEADINGS)
-  installTask(`skill:${skill.name}`, ledgerToolRegistered ? buildLedgerFromSteps(steps) : null, verificationSource)
+  if (!ledger && !verificationSource) {
+    return null
+  }
+  installTask(`skill:${skill.name}`, ledger, verificationSource)
 
-  return [
-    '',
-    ledgerToolRegistered ? `[harness] This skill is gated: its ${steps.length} step(s) are now tracked as a ledger. Work through them in order and mark each with ledger_update.` : '',
+  const notes = [
+    ledger ? `[harness] This skill is gated: its ${steps.length} step(s) are now tracked as a ledger. Work through them in order and mark each with ledger_update.` : '',
     verificationSource ? '[harness] Before you finish, the harness will run this skill\'s Verification checks; you cannot finish until they pass.' : '',
-  ]
-    .filter(Boolean)
-    .join('\n')
+  ].filter(Boolean)
+  return ['', ...notes].join('\n')
 }

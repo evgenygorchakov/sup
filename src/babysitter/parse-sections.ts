@@ -45,11 +45,19 @@ export function findSection(markdown: string, names: readonly string[]): string 
   const lines = markdown.split('\n')
   const buffer: string[] = []
   let captureLevel: number | null = null
+  let inFence = false
 
   for (const line of lines) {
-    const heading = headingInfo(line)
+    if (line.trim().startsWith('```')) {
+      inFence = !inFence
+      if (captureLevel !== null) {
+        buffer.push(line)
+      }
+      continue
+    }
+    const heading = inFence ? null : headingInfo(line)
     if (captureLevel === null) {
-      if (heading && targets.some(target => heading.key === target || heading.key.startsWith(target))) {
+      if (heading && targets.some(target => heading.key.startsWith(target))) {
         captureLevel = heading.level
       }
       continue
@@ -66,8 +74,17 @@ export function findSection(markdown: string, names: readonly string[]): string 
 
 export function extractSteps(stepsSection: string): string[] {
   const steps: string[] = []
+  let inFence = false
   for (const raw of stepsSection.split('\n')) {
-    const match = LIST_ITEM.exec(raw.trim())
+    const line = raw.trim()
+    if (line.startsWith('```')) {
+      inFence = !inFence
+      continue
+    }
+    if (inFence) {
+      continue
+    }
+    const match = LIST_ITEM.exec(line)
     if (match) {
       const text = match[1]!.trim()
       if (text) {

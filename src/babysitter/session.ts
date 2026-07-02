@@ -12,6 +12,7 @@ interface TaskState {
   gateAttempts: number
   gatePassed: boolean
   shellRanSinceGate: boolean
+  gateChecksApproved: boolean
 }
 
 const task: TaskState = {
@@ -20,12 +21,14 @@ const task: TaskState = {
   gateAttempts: 0,
   gatePassed: false,
   shellRanSinceGate: false,
+  gateChecksApproved: false,
 }
 
 function resetGateState(): void {
   task.gateAttempts = 0
   task.gatePassed = false
   task.shellRanSinceGate = false
+  task.gateChecksApproved = false
 }
 
 export function getLedger(): LedgerStep[] | null {
@@ -70,6 +73,14 @@ export function noteShellRun(): void {
 
 export function markGatePassed(): void {
   task.gatePassed = true
+}
+
+export function areGateChecksApproved(): boolean {
+  return task.gateChecksApproved
+}
+
+export function markGateChecksApproved(): void {
+  task.gateChecksApproved = true
 }
 
 export function recordGateAttempt(): void {
