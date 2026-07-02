@@ -20,7 +20,7 @@ export function parseArgs(argv: string[]): CliArgs {
     if (FLAGS_APPLIED_BY_CONFIG_AT_IMPORT.has(arg)) {
       continue
     }
-    if (arg === '--llama' || arg === '--llamacpp') {
+    if (arg === '--llama') {
       provider = 'llamacpp'
     }
     else if (arg === '--provider') {
