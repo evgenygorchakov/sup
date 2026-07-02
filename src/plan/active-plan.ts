@@ -1,4 +1,5 @@
 import type { Message } from '../types.ts'
+import { findSection, VERIFICATION_HEADINGS } from '../babysitter/parse-sections.ts'
 
 let plan: string | null = null
 
@@ -15,12 +16,16 @@ export function buildPlanReminder(): Message | null {
     return null
   }
 
+  const hasVerificationSection = findSection(plan, VERIFICATION_HEADINGS) !== null
+
   return {
     role: 'user',
     content: [
       'Reminder from the harness, not from the user. The approved plan is repeated below.',
       'Compare it with the work already done above, then continue with the first step that is not completed yet. Do not redo completed steps.',
-      'Only the steps in the plan are in scope. After the last step, run the checks from the "Verification" section.',
+      hasVerificationSection
+        ? 'Only the steps in the plan are in scope. After the last step, run the checks from the "Verification" section.'
+        : 'Only the steps in the plan are in scope.',
       '',
       plan,
     ].join('\n'),

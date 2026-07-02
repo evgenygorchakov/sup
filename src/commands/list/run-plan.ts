@@ -1,7 +1,7 @@
 import type { CommandContext, CommandResult, SlashCommand } from '../types.ts'
 import { activatePlan } from '../../babysitter/index.ts'
 import { setActivePlan } from '../../plan/active-plan.ts'
-import { formatTimestamp, listPlans, readPlanContent } from '../../plan/store.ts'
+import { formatTimestamp, listPlans, planBody, readPlanContent } from '../../plan/store.ts'
 import { bold, brightGreen, gray, red } from '../../utils/colors.ts'
 
 async function run(context: CommandContext): Promise<CommandResult> {
@@ -42,11 +42,12 @@ async function run(context: CommandContext): Promise<CommandResult> {
     return { kind: 'continue' }
   }
 
-  setActivePlan(content)
-  activatePlan(content)
+  const body = planBody(content)
+  setActivePlan(body)
+  activatePlan(body)
   context.messages.push({
     role: 'user',
-    content: `Execute the following plan now, step by step, using tools as needed:\n\n${content}`,
+    content: `Execute the following plan now, step by step, using tools as needed:\n\n${body}`,
   })
   console.warn(gray(`Running plan "${chosen.name}"…`))
 

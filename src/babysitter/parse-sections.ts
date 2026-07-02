@@ -1,3 +1,6 @@
+export const STEPS_HEADINGS = ['steps', 'шаги'] as const
+export const VERIFICATION_HEADINGS = ['verification', 'проверка', 'верификация'] as const
+
 const MARKDOWN_HEADING = /^(#{1,6})[ \t]+(\S.*)$/
 const BOLD_MARKERS = ['**', '__'] as const
 const BOLD_HEADING_LEVEL = 7

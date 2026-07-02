@@ -24,9 +24,10 @@ function initialMode(): AgentMode {
   return 'normal'
 }
 
-let mode: AgentMode = initialMode()
+let mode: AgentMode | null = null
 
 export function getMode(): AgentMode {
+  mode ??= initialMode()
   return mode
 }
 
@@ -35,15 +36,15 @@ export function setMode(value: AgentMode): void {
 }
 
 export function cycleMode(): AgentMode {
-  const index = CYCLE.indexOf(mode)
+  const index = CYCLE.indexOf(getMode())
   mode = CYCLE[(index + 1) % CYCLE.length]!
   return mode
 }
 
 export function isPlanModeActive(): boolean {
-  return mode === 'plan'
+  return getMode() === 'plan'
 }
 
 export function isAutoModeActive(): boolean {
-  return mode === 'auto'
+  return getMode() === 'auto'
 }

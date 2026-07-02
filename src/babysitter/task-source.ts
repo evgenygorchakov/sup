@@ -4,11 +4,8 @@ import { Config } from '../config.ts'
 import { appendEvent, ensureRun } from '../journal/index.ts'
 import { ledgerToolRegistered } from './ledger-tool.ts'
 import { buildLedgerFromSteps } from './ledger.ts'
-import { extractSteps, findSection } from './parse-sections.ts'
+import { extractSteps, findSection, STEPS_HEADINGS, VERIFICATION_HEADINGS } from './parse-sections.ts'
 import { activateTask, getLedger, getVerificationSource } from './session.ts'
-
-export const STEPS_HEADINGS = ['steps', 'шаги'] as const
-export const VERIFICATION_HEADINGS = ['verification', 'проверка', 'верификация'] as const
 
 function installTask(source: string, ledger: LedgerStep[] | null, verificationSource: string | null): void {
   ensureRun()

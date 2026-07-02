@@ -63,25 +63,30 @@ function pick<T>(items: readonly T[]): T {
   return items[Math.floor(Math.random() * items.length)]!
 }
 
-async function fileExists(absolute: string): Promise<boolean> {
+async function writeExclusively(dir: string, name: string, content: string): Promise<boolean> {
   try {
-    await stat(absolute)
+    await writeFile(join(dir, `${name}.md`), content, { encoding: 'utf8', flag: 'wx' })
     return true
   }
-  catch {
-    return false
+  catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'EEXIST') {
+      return false
+    }
+    throw error
   }
 }
 
-async function generateUniquePlanName(dir: string): Promise<string> {
+async function writePlanUniquely(dir: string, buildContent: (name: string) => string): Promise<string> {
   for (let attempt = 0; attempt < 50; attempt += 1) {
     const name = `${pick(ADJECTIVES)}-${pick(NOUNS)}`
-    if (!(await fileExists(join(dir, `${name}.md`)))) {
+    if (await writeExclusively(dir, name, buildContent(name))) {
       return name
     }
   }
 
-  return `${pick(ADJECTIVES)}-${pick(NOUNS)}-${Date.now().toString(36)}`
+  const fallback = `${pick(ADJECTIVES)}-${pick(NOUNS)}-${Date.now().toString(36)}`
+  await writeFile(join(dir, `${fallback}.md`), buildContent(fallback), { encoding: 'utf8', flag: 'wx' })
+  return fallback
 }
 
 export function formatTimestamp(date: Date): string {
@@ -101,11 +106,8 @@ export async function savePlan(planMarkdown: string, userRequest: string): Promi
     const dir = resolve(process.cwd(), ...PLANS_SUBDIR)
     await mkdir(dir, { recursive: true })
 
-    const name = await generateUniquePlanName(dir)
-    const absolute = join(dir, `${name}.md`)
-
-    const content = [
-      `# ${name}`,
+    const name = await writePlanUniquely(dir, planName => [
+      `# ${planName}`,
       '',
       `_Created: ${formatTimestamp(new Date())}_`,
       '',
@@ -115,9 +117,7 @@ export async function savePlan(planMarkdown: string, userRequest: string): Promi
       '',
       plan,
       '',
-    ].join('\n')
-
-    await writeFile(absolute, content, 'utf8')
+    ].join('\n'))
 
     return `${PLANS_SUBDIR.join('/')}/${name}.md`
   }
@@ -147,30 +147,30 @@ export async function listPlans(): Promise<PlanSummary[]> {
     return []
   }
 
-  const summaries: PlanSummary[] = []
-
-  for (const entry of entries) {
-    if (!entry.endsWith('.md')) {
-      continue
-    }
-
+  const summaries = await Promise.all(entries.filter(entry => entry.endsWith('.md')).map(async (entry) => {
     const file = join(dir, entry)
     const info = await stat(file).catch(() => null)
     if (!info?.isFile()) {
-      continue
+      return null
     }
 
     const content = await readFile(file, 'utf8').catch(() => '')
     const request = REQUEST_LINE_PATTERN.exec(content)?.[1]?.trim() ?? ''
 
-    summaries.push({ name: entry.replace(/\.md$/, ''), file, modified: info.mtime, request })
-  }
-
-  summaries.sort((a, b) => b.modified.getTime() - a.modified.getTime())
+    return { name: entry.replace(/\.md$/, ''), file, modified: info.mtime, request }
+  }))
 
   return summaries
+    .filter(summary => summary !== null)
+    .sort((a, b) => b.modified.getTime() - a.modified.getTime())
 }
 
 export async function readPlanContent(file: string): Promise<string | null> {
   return await readFile(file, 'utf8').catch(() => null)
+}
+
+const METADATA_HEADER_PATTERN = /^# \S[^\n]*\n\n_Created: [^\n]+_\n\n\*\*Request:\*\* [^\n]+\n\n---\n\n/
+
+export function planBody(content: string): string {
+  return content.replace(METADATA_HEADER_PATTERN, '')
 }
