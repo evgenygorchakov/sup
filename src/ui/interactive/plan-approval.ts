@@ -6,12 +6,14 @@ import type { OnStreamPart } from './stream-printer.ts'
 import process from 'node:process'
 import { activatePlan } from '../../babysitter/index.ts'
 import { Config } from '../../config.ts'
+import { recordAssistant, recordUserMessage } from '../../journal/index.ts'
 import { setActivePlan } from '../../plan/active-plan.ts'
 import { savePlan } from '../../plan/store.ts'
 import { canAutoApproveCall } from '../../tools/auto-approve.ts'
 import { autoApprovedToolDefinitions, runTool, toolsByName } from '../../tools/registry.ts'
 import { bold, brightBlue, brightGreen, gray, yellow } from '../../utils/colors.ts'
 import { withRequestInterrupt } from './interrupt.ts'
+import { readUserInput } from './multiline-input.ts'
 import { renderToolHeader } from './render-tool-call.ts'
 import { startSpinner } from './spinner.ts'
 import { createStreamPrinter } from './stream-printer.ts'
@@ -76,7 +78,11 @@ async function buildPlan(provider: ChatProvider, messages: Message[]): Promise<M
     planMessages.push(reply)
 
     if (!reply.tool_calls?.length) {
-      return reply
+      if (reply.content.trim()) {
+        return reply
+      }
+      planMessages.push({ role: 'user', content: 'Your last reply was empty. Output the Markdown plan now with the required sections.' })
+      continue
     }
 
     for (const call of reply.tool_calls) {
@@ -112,24 +118,40 @@ export type PlanApprovalDecision = 'proceed' | 'proceed-auto' | 'quit'
 
 export async function askForPlanApproval(provider: ChatProvider, messages: Message[], readline: ReadlineInterface): Promise<PlanApprovalDecision> {
   const userRequest = String(messages[messages.length - 1]?.content ?? '')
+  const historyStart = messages.length
 
   while (true) {
     console.warn(bold(brightBlue('\nProposed plan:')))
 
     const plan = await buildPlan(provider, messages)
+    const planText = plan.content.trim()
+
+    if (!planText) {
+      console.warn(yellow('The model did not produce a plan.'))
+      return 'quit'
+    }
 
     let userAnswer = ''
     while (!userAnswer) {
-      userAnswer = (await readline.question(brightGreen('\n[y / a = y + auto-approve edits / n / type feedback] '))).trim()
+      userAnswer = (await readUserInput(readline, brightGreen('\n[y / a = y + auto-approve edits / n / type feedback] '))).trim()
     }
     const loweredAnswer = userAnswer.toLowerCase()
 
     if (loweredAnswer === 'y' || loweredAnswer === 'a') {
-      messages.push(plan)
+      messages.push({ role: 'assistant', content: plan.content })
       messages.push({
         role: 'user',
         content: 'The plan above is approved. All tools are available now, including write_file and edit_file. Execute the steps in order, starting with step 1. After the last step, run the checks from the "Verification" section.',
       })
+
+      for (const message of messages.slice(historyStart)) {
+        if (message.role === 'assistant') {
+          recordAssistant(message)
+        }
+        else {
+          recordUserMessage(message)
+        }
+      }
 
       setActivePlan(plan.content)
       activatePlan(plan.content)
@@ -146,7 +168,7 @@ export async function askForPlanApproval(provider: ChatProvider, messages: Messa
       return 'quit'
     }
 
-    messages.push(plan)
+    messages.push({ role: 'assistant', content: plan.content })
     messages.push({ role: 'user', content: userAnswer })
   }
 }

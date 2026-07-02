@@ -7,6 +7,7 @@ import { isAutoModeActive } from '../plan/mode-state.ts'
 import { executeShellCommand } from '../tools/list/run-shell.ts'
 import { isShellCommandAutoApprovable } from '../tools/shell-auto-approve.ts'
 import { isSkipPermissionsActive } from '../tools/skip-permissions.ts'
+import { readUserInput } from '../ui/interactive/multiline-input.ts'
 import { brightGreen, gray, red, yellow } from '../utils/colors.ts'
 import { extractCommands } from './parse-sections.ts'
 import {
@@ -82,7 +83,7 @@ async function askChecksApproval(commands: string[], readline: ReadlineInterface
     console.warn(`  $ ${command}`)
   }
   while (true) {
-    const answer = (await readline.question(brightGreen('\n[y / n / type feedback] '))).trim()
+    const answer = (await readUserInput(readline, brightGreen('\n[y / n / type feedback] '))).trim()
     const lowered = answer.toLowerCase()
     if (lowered === 'y') {
       return 'approved'

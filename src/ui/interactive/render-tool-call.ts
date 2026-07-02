@@ -6,15 +6,16 @@ const MAX_HEADER_VALUE_LENGTH = 80
 const MAX_RESULT_LINES = 15
 
 function shortenScalar(value: unknown): string {
-  if (typeof value === 'string') {
-    if (value.length <= MAX_HEADER_VALUE_LENGTH) {
-      return JSON.stringify(value)
-    }
-
+  if (typeof value === 'string' && value.length > MAX_HEADER_VALUE_LENGTH) {
     return JSON.stringify(`${value.slice(0, MAX_HEADER_VALUE_LENGTH)}…`)
   }
 
-  return JSON.stringify(value)
+  const rendered = JSON.stringify(value)
+  if (rendered.length > MAX_HEADER_VALUE_LENGTH) {
+    return `${rendered.slice(0, MAX_HEADER_VALUE_LENGTH)}…`
+  }
+
+  return rendered
 }
 
 function renderArgs(tool: Tool | undefined, args: Record<string, unknown>): string {

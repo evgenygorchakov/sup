@@ -114,11 +114,11 @@ async function main() {
     stdout.write(ENABLE_BRACKETED_PASTE)
   }
 
-  const commandHints = interactive
-    ? installCommandHints(inputStream, readline as unknown as { line?: string, cursor?: number }, commands)
-    : null
   const imagePaste = interactive
     ? installImagePasteHandler(inputStream, readline)
+    : null
+  const commandHints = interactive
+    ? installCommandHints(inputStream, readline as unknown as { line?: string, cursor?: number }, commands)
     : null
   const modeToggle = interactive
     ? installModeToggle(inputStream, readline, buildPrompt)

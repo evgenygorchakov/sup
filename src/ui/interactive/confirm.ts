@@ -3,6 +3,7 @@ import type { ToolCall } from '../../types.ts'
 
 import { toolsByName } from '../../tools/registry.ts'
 import { bold, brightBlue, brightGreen, yellow } from '../../utils/colors.ts'
+import { readUserInput } from './multiline-input.ts'
 import { renderToolHeader } from './render-tool-call.ts'
 
 export const CONFIRM_KIND = {
@@ -30,7 +31,7 @@ export async function confirmToolCalls(calls: ToolCall[], fallbackIntent: string
   }
 
   while (true) {
-    const userAnswer = (await readline.question(brightGreen('\n[y / n / type feedback] '))).trim()
+    const userAnswer = (await readUserInput(readline, brightGreen('\n[y / n / type feedback] '))).trim()
     const loweredAnswer = userAnswer.toLowerCase()
 
     if (loweredAnswer === 'y') {

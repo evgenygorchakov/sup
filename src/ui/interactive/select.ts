@@ -10,7 +10,9 @@ const ERASE_BELOW_CURSOR = '\x1B[0J'
 const MOVE_UP_KEYS = ['\x1B[A', '\x1BOA', 'k']
 const MOVE_DOWN_KEYS = ['\x1B[B', '\x1BOB', 'j']
 const CONFIRM_KEYS = ['\r', '\n']
-const CANCEL_KEYS = ['\x1B', '\x03', 'q', 'Q']
+const CANCEL_KEYS = ['\x03', 'q', 'Q']
+const ESCAPE_KEY = '\x1B'
+const LONE_ESCAPE_CANCEL_MS = 50
 
 export interface SelectChoice {
   label: string
@@ -44,12 +46,22 @@ export function selectFromList(title: string, choices: SelectChoice[], initialIn
     const inputStream = getInputStream()
     const menuHeight = choices.length + 2
     let selectedIndex = Math.min(Math.max(initialIndex, 0), choices.length - 1)
+    let pendingEscape = ''
+    let escapeTimer: NodeJS.Timeout | null = null
+
+    function clearEscapeTimer(): void {
+      if (escapeTimer) {
+        clearTimeout(escapeTimer)
+        escapeTimer = null
+      }
+    }
 
     function eraseMenu(): void {
       stdout.write(moveCursorUp(menuHeight) + ERASE_BELOW_CURSOR)
     }
 
     function closeMenu(chosenIndex: number | null): void {
+      clearEscapeTimer()
       stdin.removeListener('data', handleKeypress)
       eraseMenu()
       stdout.write(SHOW_CURSOR)
@@ -58,7 +70,15 @@ export function selectFromList(title: string, choices: SelectChoice[], initialIn
     }
 
     function handleKeypress(chunk: Buffer): void {
-      const key = chunk.toString('utf8')
+      const key = pendingEscape + chunk.toString('utf8')
+      pendingEscape = ''
+      clearEscapeTimer()
+
+      if (key === ESCAPE_KEY) {
+        pendingEscape = key
+        escapeTimer = setTimeout(closeMenu, LONE_ESCAPE_CANCEL_MS, null)
+        return
+      }
 
       if (CONFIRM_KEYS.includes(key)) {
         closeMenu(selectedIndex)

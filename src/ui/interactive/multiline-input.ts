@@ -19,6 +19,8 @@ const PLACEHOLDER_BYTES = Buffer.from(PASTE_PLACEHOLDER)
 const SPACE = 0x20
 const TAB = 0x09
 
+const PARTIAL_ESCAPE_FLUSH_MS = 50
+
 function matchSequence(buffer: Buffer, index: number, seq: Buffer, final: boolean): 'full' | 'partial' | 'none' {
   const available = buffer.length - index
   if (available >= seq.length) {
@@ -34,26 +36,73 @@ export class BracketedPasteTransform extends Transform {
   private pending = Buffer.alloc(0)
   private inPaste = false
   private pasteHadContent = false
+  private pasteHoldback: Buffer[] = []
+  private partialEscapeTimer: NodeJS.Timeout | null = null
 
   override _transform(chunk: Buffer, _encoding: BufferEncoding, done: () => void): void {
     this.pending = Buffer.concat([this.pending, chunk])
     this.consume(false)
+    this.schedulePartialEscapeFlush()
     done()
   }
 
   override _flush(done: () => void): void {
-    this.consume(true)
-    if (this.pending.length > 0) {
-      this.push(this.pending)
-      this.pending = Buffer.alloc(0)
-    }
+    this.flushPending()
     done()
   }
 
   resetPending(): void {
+    this.clearPartialEscapeFlush()
     this.pending = Buffer.alloc(0)
     this.inPaste = false
     this.pasteHadContent = false
+    this.pasteHoldback = []
+  }
+
+  private schedulePartialEscapeFlush(): void {
+    this.clearPartialEscapeFlush()
+    if (this.inPaste || this.pending.length === 0 || this.pending[0] !== ESC) {
+      return
+    }
+    this.partialEscapeTimer = setTimeout(() => {
+      this.partialEscapeTimer = null
+      if (!this.destroyed) {
+        this.flushPending()
+      }
+    }, PARTIAL_ESCAPE_FLUSH_MS)
+    this.partialEscapeTimer.unref()
+  }
+
+  private clearPartialEscapeFlush(): void {
+    if (this.partialEscapeTimer) {
+      clearTimeout(this.partialEscapeTimer)
+      this.partialEscapeTimer = null
+    }
+  }
+
+  private flushPending(): void {
+    this.clearPartialEscapeFlush()
+    this.consume(true)
+    const leftover = Buffer.concat([...this.pasteHoldback, this.pending])
+    this.pasteHoldback = []
+    this.pending = Buffer.alloc(0)
+    if (leftover.length > 0) {
+      this.push(leftover)
+    }
+  }
+
+  private collectPasteOutput(output: Buffer[], bytes: Buffer, countsAsContent: boolean): void {
+    if (this.pasteHadContent) {
+      output.push(bytes)
+      return
+    }
+    if (countsAsContent) {
+      this.pasteHadContent = true
+      output.push(...this.pasteHoldback, bytes)
+      this.pasteHoldback = []
+      return
+    }
+    this.pasteHoldback.push(bytes)
   }
 
   private consume(final: boolean): void {
@@ -85,8 +134,10 @@ export class BracketedPasteTransform extends Transform {
           this.inPaste = enteringPaste
           if (enteringPaste) {
             this.pasteHadContent = false
+            this.pasteHoldback = []
           }
           else if (!this.pasteHadContent) {
+            this.pasteHoldback = []
             this.emit('ctrl-v')
           }
           index += marker.length
@@ -109,12 +160,12 @@ export class BracketedPasteTransform extends Transform {
             index++
           }
         }
-        output.push(PLACEHOLDER_BYTES)
+        this.collectPasteOutput(output, PLACEHOLDER_BYTES, false)
+      }
+      else if (this.inPaste) {
+        this.collectPasteOutput(output, buffer.subarray(index, index + 1), byte !== SPACE && byte !== TAB)
       }
       else {
-        if (this.inPaste && byte !== SPACE && byte !== TAB) {
-          this.pasteHadContent = true
-        }
         output.push(buffer.subarray(index, index + 1))
       }
       index++

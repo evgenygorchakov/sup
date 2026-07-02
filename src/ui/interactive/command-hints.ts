@@ -1,16 +1,9 @@
 import type { EventEmitter } from 'node:events'
 import type { SlashCommand } from '../../commands/types.ts'
+import type { PromptLineBuffer } from './below-cursor.ts'
 import { stdout } from 'node:process'
 import { gray } from '../../utils/colors.ts'
-
-const SAVE_CURSOR = '\x1B7'
-const RESTORE_CURSOR = '\x1B8'
-const ERASE_BELOW_CURSOR = '\x1B[0J'
-
-interface LineBuffer {
-  line?: string
-  cursor?: number
-}
+import { ERASE_BELOW_CURSOR, paintBelowCursor } from './below-cursor.ts'
 
 function isCommandPrefix(line: string): boolean {
   return line.startsWith('/') && !line.includes(' ')
@@ -58,18 +51,14 @@ export function createSlashCompleter(commands: readonly SlashCommand[]): (line: 
 
 export function installCommandHints(
   inputStream: EventEmitter,
-  readline: LineBuffer,
+  readline: PromptLineBuffer,
   commands: readonly SlashCommand[],
 ): { setActive: (value: boolean) => void } {
   let active = false
   let panelVisible = false
 
   function paint(content: string): void {
-    const line = readline.line ?? ''
-    const cursor = readline.cursor ?? line.length
-    const columnsToLineEnd = Math.max(line.length - cursor, 0)
-    const moveToLineEnd = columnsToLineEnd > 0 ? `\x1B[${columnsToLineEnd}C` : ''
-    stdout.write(SAVE_CURSOR + moveToLineEnd + ERASE_BELOW_CURSOR + content + RESTORE_CURSOR)
+    paintBelowCursor(readline, content)
   }
 
   function render(): void {
