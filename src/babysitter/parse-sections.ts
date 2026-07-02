@@ -34,8 +34,8 @@ function headingKey(line: string): string | null {
   return null
 }
 
-export function findSection(markdown: string, name: string): string | null {
-  const target = name.toLowerCase()
+export function findSection(markdown: string, names: readonly string[]): string | null {
+  const targets = names.map(name => name.toLowerCase())
   const lines = markdown.split('\n')
   const buffer: string[] = []
   let capturing = false
@@ -46,7 +46,7 @@ export function findSection(markdown: string, name: string): string | null {
       if (capturing) {
         break
       }
-      if (key === target || key.startsWith(target)) {
+      if (targets.some(target => key === target || key.startsWith(target))) {
         capturing = true
       }
       continue

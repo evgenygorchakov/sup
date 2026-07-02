@@ -100,8 +100,8 @@ async function handleUserTurn(provider: ChatProvider, messages: Message[], readl
 async function main() {
   const args = parseArgs(process.argv.slice(2))
   setSkipPermissions(args.skipPermissions)
-  const providerName = args.provider ?? Config.PROVIDER
-  const provider = getProvider(providerName)
+  Config.PROVIDER = args.provider ?? Config.PROVIDER
+  const provider = getProvider()
   await provider.initializeContextWindow()
 
   const interactive = Boolean(stdin.isTTY)
@@ -159,7 +159,7 @@ async function main() {
 
   const messages: Message[] = [{ role: 'system', content: systemContent }]
 
-  console.warn(gray(`Provider: ${providerName} · Model: ${Config.MODEL}`))
+  console.warn(gray(`Provider: ${Config.PROVIDER}${Config.PROVIDER === 'llamacpp' ? '' : ` · Model: ${Config.MODEL}`}`))
   if (Config.USE_READ_ONLY_MODE) {
     console.warn(gray('Read-only session: write, edit, and shell tools are disabled.'))
   }

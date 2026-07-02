@@ -1,5 +1,6 @@
 import type { Tool, ToolCall, ToolDefinition } from '../types.ts'
 
+import { ledgerToolRegistered } from '../babysitter/ledger-tool.ts'
 import { Config } from '../config.ts'
 import { skills } from '../skills/registry.ts'
 import { renderToolResult } from '../ui/interactive/render-tool-call.ts'
@@ -26,7 +27,7 @@ const allTools: Tool[] = [
   webSearch,
   fetchUrl,
   ...(skills.length > 0 ? [skill] : []),
-  ...(Config.USE_BABYSITTER && Config.BABYSITTER_LEDGER ? [ledgerUpdate] : []),
+  ...(ledgerToolRegistered ? [ledgerUpdate] : []),
 ]
 
 const availableTools: Tool[] = Config.USE_READ_ONLY_MODE

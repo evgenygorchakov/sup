@@ -66,7 +66,7 @@ export async function chat(messages: Message[], options: ChatOptions = {}): Prom
   }
 }
 
-function toOllamaMessages(messages: Message[]): Record<string, unknown>[] {
+function toOllamaMessages(messages: Message[]): object[] {
   return messages.map((message) => {
     if (!message.images?.length) {
       return message
@@ -166,7 +166,7 @@ function mergeLineIntoMessage(line: StreamedLine, reply: Message, onStreamPart: 
   }
 
   if (Array.isArray(partial.tool_calls) && partial.tool_calls.length > 0) {
-    reply.tool_calls = partial.tool_calls as ToolCall[]
+    reply.tool_calls = [...(reply.tool_calls ?? []), ...partial.tool_calls as ToolCall[]]
   }
 }
 

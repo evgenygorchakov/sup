@@ -20,7 +20,12 @@ import { createStreamPrinter } from './ui/interactive/stream-printer.ts'
 import { red, yellow } from './utils/colors.ts'
 
 function stableStringifyArguments(value: Record<string, unknown>): string {
-  return JSON.stringify(value, Object.keys(value).sort())
+  return JSON.stringify(value, (_key, entry: unknown) => {
+    if (entry && typeof entry === 'object' && !Array.isArray(entry)) {
+      return Object.fromEntries(Object.entries(entry).sort(([first], [second]) => first.localeCompare(second)))
+    }
+    return entry
+  })
 }
 
 function buildBatchSignature(calls: ToolCall[]): string {
@@ -29,13 +34,13 @@ function buildBatchSignature(calls: ToolCall[]): string {
     .join('|')
 }
 
-function pushRejectedToolResults(messages: Message[], calls: ToolCall[]): void {
+const REJECTED_TOOL_RESULT = 'Rejected by user. Do not run this command.'
+const STOPPED_TOOL_RESULT = 'Not executed: the harness stopped this turn.'
+
+function pushUnexecutedToolResults(messages: Message[], calls: ToolCall[], content: string): void {
   for (const call of calls) {
-    messages.push({
-      role: 'tool',
-      content: 'Rejected by user. Do not run this command.',
-      tool_call_id: call.id,
-    })
+    messages.push({ role: 'tool', content, tool_call_id: call.id })
+    recordToolResult(call, content)
   }
 }
 
@@ -134,6 +139,7 @@ export async function run(provider: ChatProvider, messages: Message[], readline:
     iterations += 1
     if (iterations > stepBudget) {
       console.error(red(`Reached max tool iterations (${stepBudget}). Stopping this turn.`))
+      pushUnexecutedToolResults(messages, reply.tool_calls, STOPPED_TOOL_RESULT)
       messages.push({ role: 'user', content: `Stopped: exceeded ${stepBudget} tool calls in a single turn. Summarize progress and wait for the user.` })
       return
     }
@@ -142,6 +148,7 @@ export async function run(provider: ChatProvider, messages: Message[], readline:
 
     if (lastBatchesAreIdentical(recentBatchSignatures, Config.AUTONOMOUS_REPEAT_THRESHOLD)) {
       console.error(red(`Detected ${Config.AUTONOMOUS_REPEAT_THRESHOLD} identical tool batches in a row. Stopping autonomous loop.`))
+      pushUnexecutedToolResults(messages, reply.tool_calls, STOPPED_TOOL_RESULT)
       messages.push({
         role: 'user',
         content: `Stopped: same tool calls repeated ${Config.AUTONOMOUS_REPEAT_THRESHOLD} times in a row. Reconsider the approach and wait for the user.`,
@@ -157,16 +164,16 @@ export async function run(provider: ChatProvider, messages: Message[], readline:
       }
     }
     else {
-      const decision = await confirmToolCalls(reply.tool_calls, reply.content, readline)
+      const decision = await confirmToolCalls(reply.tool_calls, didPrintContent() ? '' : reply.content, readline)
 
       if (decision.kind === CONFIRM_KIND.quit) {
-        pushRejectedToolResults(messages, reply.tool_calls)
+        pushUnexecutedToolResults(messages, reply.tool_calls, REJECTED_TOOL_RESULT)
         console.error(red('Cancelled by user.'))
         return
       }
 
       if (decision.kind === CONFIRM_KIND.replan) {
-        pushRejectedToolResults(messages, reply.tool_calls)
+        pushUnexecutedToolResults(messages, reply.tool_calls, REJECTED_TOOL_RESULT)
         messages.push({ role: 'user', content: decision.feedback })
         continue
       }

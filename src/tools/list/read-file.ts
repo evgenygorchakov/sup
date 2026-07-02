@@ -1,10 +1,11 @@
 import type { Tool } from '../../types.ts'
-import { readFile as readFromDisk } from 'node:fs/promises'
+import { readFile as readFromDisk, stat } from 'node:fs/promises'
 import { basename } from 'node:path'
 import { green } from '../../utils/colors.ts'
 import { isSensitiveFileName, OUTPUT_CHAR_LIMIT, resolveInsideWorkingDirectory } from './shared.ts'
 
 const DEFAULT_LIMIT = 2000
+const MAX_FILE_BYTES = 10 * 1024 * 1024
 
 export const readFile: Tool = {
   definition: {
@@ -57,6 +58,10 @@ export const readFile: Tool = {
     let content: string
 
     try {
+      const info = await stat(resolved.absolute)
+      if (info.size > MAX_FILE_BYTES) {
+        return `ERROR: file "${path}" is ${info.size} bytes (limit ${MAX_FILE_BYTES}); use grep to search inside it`
+      }
       content = await readFromDisk(resolved.absolute, 'utf8')
     }
     catch (error) {

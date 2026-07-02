@@ -29,7 +29,7 @@ const planToolNames = new Set(planToolDefinitions.map(definition => definition.f
 const planToolNamesList = [...planToolNames].join(', ')
 
 const PLAN_REQUEST_MESSAGE = [
-  `Before doing anything, produce an action plan as Markdown. Write the plan, including section headings, in ${Config.LANGUAGE}.`,
+  `Before doing anything, produce an action plan as Markdown. Write the plan in ${Config.LANGUAGE}, but keep the section headings exactly as quoted below, in English.`,
   `First investigate with ${planToolNamesList} so the plan is grounded in the real code — do not plan blind. You have at most ${MAX_PLAN_EXPLORATION_STEPS} rounds of tool calls for investigation — start with the most relevant files. These are the only tools available right now; do not write or edit yet.${planShellEnabled ? ' run_shell is limited to read-only commands (e.g. git status/diff/log, ls) while planning.' : ''}`,
   'When you have enough context, output the plan with these sections:',
   '- "Context" — what is being asked and why, plus the key facts you found while investigating.',

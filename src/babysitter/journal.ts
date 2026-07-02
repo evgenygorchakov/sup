@@ -19,6 +19,7 @@ export type JournalEventType
     | 'gate'
     | 'ledger'
     | 'finish'
+    | 'clear'
 
 export interface JournalEvent {
   ts: string
@@ -198,6 +199,10 @@ function loadImages(runId: string, refs: ImageRef[]): ImageAttachment[] {
 export function reconstructMessages(events: JournalEvent[], runId: string): Message[] {
   const messages: Message[] = []
   for (const event of events) {
+    if (event.type === 'clear') {
+      messages.length = 0
+      continue
+    }
     if ((event.type === 'user' || event.type === 'assistant' || event.type === 'tool_result') && event.message) {
       const message = event.message as Message
       if (event.type === 'user' && Array.isArray(event.images) && event.images.length > 0) {
@@ -220,6 +225,9 @@ export interface TaskSnapshot {
 export function lastTaskSnapshot(events: JournalEvent[]): TaskSnapshot | null {
   for (let index = events.length - 1; index >= 0; index -= 1) {
     const event = events[index]!
+    if (event.type === 'finish' || event.type === 'clear') {
+      return null
+    }
     if (event.type === 'ledger') {
       return {
         ledger: Array.isArray(event.ledger) ? (event.ledger as LedgerStep[]) : null,

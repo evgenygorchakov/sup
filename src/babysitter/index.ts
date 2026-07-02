@@ -13,6 +13,7 @@ import {
   persistImages,
   reconstructMessages,
 } from './journal.ts'
+import { ledgerToolRegistered } from './ledger-tool.ts'
 import { buildLedgerReminder } from './ledger.ts'
 import { activateTask, clearTask, getLedger, getVerificationSource, noteShellRun, resetGate } from './session.ts'
 import { runCompletionGate as gateImpl } from './verification.ts'
@@ -92,6 +93,11 @@ export function finishTask(): void {
   clearTask()
 }
 
+export function clearConversation(): void {
+  clearTask()
+  appendEvent('clear')
+}
+
 export interface ResumeOutcome {
   ok: boolean
   runId?: string
@@ -118,7 +124,7 @@ export function resumeIntoMessages(runId: string | undefined, messages: Message[
 
   const snapshot = lastTaskSnapshot(events)
   if (snapshot) {
-    activateTask(snapshot.ledger, snapshot.verificationSource)
+    activateTask(ledgerToolRegistered ? snapshot.ledger : null, snapshot.verificationSource)
   }
 
   return { ok: true, runId: target, restored: restored.length }

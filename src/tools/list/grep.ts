@@ -4,7 +4,7 @@ import { readFile as readFromDisk, stat } from 'node:fs/promises'
 import { basename, relative } from 'node:path'
 import process from 'node:process'
 import { green } from '../../utils/colors.ts'
-import { resolveInsideWorkingDirectory, truncateText, walkFiles } from './shared.ts'
+import { isSensitiveFileName, resolveInsideWorkingDirectory, truncateText, walkFiles } from './shared.ts'
 
 const SEARCH_TIMEOUT_MS = 30_000
 const MAX_FILE_BYTES = 5 * 1024 * 1024
@@ -210,6 +210,11 @@ export const grep: Tool = {
     const resolved = await resolveInsideWorkingDirectory(pathInput)
     if (!resolved.ok) {
       return `ERROR: ${resolved.error}`
+    }
+
+    const targetStats = await stat(resolved.absolute).catch(() => null)
+    if (targetStats?.isFile() && isSensitiveFileName(basename(resolved.absolute))) {
+      return `ERROR: refused to search sensitive file "${pathInput}"`
     }
 
     const result = ripgrepAvailable

@@ -70,7 +70,8 @@ export const Config: ConfigShape = {
   TOOL_RESULT_COLLAPSE_MIN_CHARS: getEnvNumber('TOOL_RESULT_COLLAPSE_MIN_CHARS', 1500),
   AUTO_APPROVE_SHELL_PATTERNS: [
     /^(ls|pwd|wc|file|stat|which|echo|date|uname|whoami|id|tree)(\s|$)/,
-    /^git (status|diff|log|show|branch|remote|rev-parse|blame|ls-files)(\s|$)/,
+    /^git (status|diff|log|show|rev-parse|blame|ls-files)(\s|$)(?!.*--output)/,
+    /^git (branch|remote)( (-v|-vv|-a|--all|--list))?$/,
     /^(node|tsc|eslint|npm|pnpm|yarn|deno|bun) --version$/,
   ],
   USE_BABYSITTER: getEnvBoolean('USE_BABYSITTER', false),

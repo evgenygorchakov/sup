@@ -6,6 +6,8 @@ I've only tested it with models in the 27–35B range — nothing larger.
 
 ## Setup
 
+Requires Node.js 24+ (the CLI runs its TypeScript sources directly, no build step).
+
 1. Run a backend: [Ollama](https://ollama.com) (`ollama pull <model>`) or [llama.cpp](https://github.com/ggml-org/llama.cpp) (`llama-server --jinja`).
 2. Copy `.env.example` to `.env`, set `PROVIDER` and the matching host (`OLLAMA_HOST` or `LLAMACPP_HOST`)/`MODEL`.
 3. `npm link`, then run `sup` in any directory.
@@ -29,27 +31,27 @@ I've only tested it with models in the 27–35B range — nothing larger.
 
 ## Babysitter mode
 
-Представьте, что модель — это юный стажер, который знает свою работу, но часто забывает, на каком этапе он остановился, перескакивает через пункты и говорит «всё готово», даже не проверив. Babysitter — это строгий наставник, который стоит у него за плечом и не дает халтурить. Важно понимать: этот наставник — не сама модель, а внешний механизм (харнесс), который помогает ей следовать правилам.
+Think of the model as a junior intern who knows the job but keeps forgetting where it stopped, skips list items, and says "all done" without checking. Babysitter is the strict mentor standing behind its shoulder. Importantly, the mentor is not the model itself — it is the harness, deterministic code that keeps the model honest.
 
-По умолчанию этот механизм отключен. Чтобы его активировать, нужно включить USE_BABYSITTER=true. После этого Babysitter начинает выполнять четыре важные задачи.
+Off by default; enable with `USE_BABYSITTER=true`. It then does four things:
 
-### Четыре задачи Babysitter
+### The four jobs of Babysitter
 
-1. Держит список дел перед глазами. Когда начинается новая задача (например, одобрен план или загружен скилл с шагами), Babysitter берет пронумерованный список шагов и перед каждым ответом модели показывает ей этот чек-лист: «Вот твои задачи. Шаг 1 выполнен? Нет? Тогда занимайся шагом 3, не перескакивай». Модель отмечает выполненные шаги в проedger_update. Это помогает ей не терять нить.
-2. Не верит на слово, что «всё готово». Когда модель пытается завершить задачу, Babysitter проверяет, были ли выполнены все необходимые команды проверки.
-* Если команды есть, Babysitter запускает их самостоятельно. Если все проходит успешно, модель может завершить работу. Если нет, Babysitter возвращает ошибку и требует исправить недочеты.
-* Если команд нет, Babysitter просит модель выполнить проверку. Он не примет «готово», пока проверка не будет завершена. Чтобы избежать бесконечного цикла, Babysitter ограничивает количество попыток (по умолчанию — 3). После этого он прекращает проверку и позволяет завершить задачу.
-3. Ведет дневник. Babysitter записывает в файл-журнал все действия модели: запросы пользователя, результаты, запуск проверок. Если запись не удалась, это не мешает продолжению работы.
-4. Умеет продолжить с того места, где остановился. Благодаря дневнику Babysitter можно прервать задачу и затем возобновить ее с помощью команды sup --resume. Он поднимет журнал, восстановит диалог и список данных, а затем продолжит работу с последнего шага.
+1. **Keeps the checklist in front of the model.** When a new task starts (a plan is approved or a skill with steps is loaded), Babysitter takes the numbered steps and shows the checklist before every model reply: "Here are your tasks. Step 1 done? No? Then work on step 3, don't skip ahead." The model marks finished steps via the `ledger_update` tool, so it doesn't lose the thread.
+2. **Doesn't take "all done" at face value.** When the model tries to finish, Babysitter checks whether the verification commands have actually run.
+   * If the task has commands, Babysitter runs them itself. All green — the model may finish; otherwise Babysitter returns the failures and demands fixes.
+   * If there are no commands, Babysitter asks the model to verify and won't accept "done" until a check has run. To avoid an endless loop it limits the attempts (3 by default), then gives up and allows the finish.
+3. **Keeps a journal.** Babysitter appends every action to a journal file: user requests, results, gate runs. A failed write never interrupts the work.
+4. **Can pick up where it left off.** Thanks to the journal a task can be interrupted and resumed with `sup --resume` (or `sup --resume=<run-id>` for a specific run): it loads the journal, restores the dialog and the step ledger, and continues from the last step.
 
-#### Как это выглядит
+#### What a pass looks like
 
-Один заход задачи состоит из четырех этапов:
+One pass of a task has four stages:
 
-1. Старт. Пользователь дает задание или одобряет план. Babysitter записывает задание в дневник и формирует список шагов.
-2. Цикл работы. Перед каждым ответом Babysitter показывает актуальный чек-лист. Модель выполняет шаг, вызывает инструменты (правка файлов, шелл и т.п.) и отмечает выполненные шаги. Каждое действие записывается в дневник.
-3. Попытка завершиться. Когда модель перестает вызывать инструменты, Babysitter запускает гейт-проверку.
-4. Развилка. Если проверка не прошла, цикл продолжается. Если прошла, Babysitter фиксирует все шаги как выполненные, ставит в дневник «finish», очищает состояние и отдает финальный ответ.
+1. **Start.** The user gives a task or approves a plan. Babysitter journals the request and builds the step list.
+2. **Work loop.** Before each reply Babysitter shows the current checklist. The model does a step, calls tools (file edits, shell, etc.) and marks finished steps. Every action is journaled.
+3. **Finish attempt.** When the model stops calling tools, Babysitter runs the verification gate.
+4. **Fork.** If the gate fails, the loop continues. If it passes, Babysitter marks all steps done, journals "finish", clears the state, and returns the final answer.
 
 ## Security
 

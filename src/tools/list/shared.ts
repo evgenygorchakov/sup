@@ -85,23 +85,30 @@ export async function resolveInsideWorkingDirectory(path: string): Promise<Resol
 
 export async function* walkFiles(start: string): AsyncGenerator<string> {
   const workingDirectory = await getWorkingDirectoryRealPath()
-  yield* walkFilesInside(start, workingDirectory)
+  yield* walkFilesInside(start, workingDirectory, new Set())
 }
 
-async function* walkFilesInside(start: string, workingDirectory: string): AsyncGenerator<string> {
+async function* walkFilesInside(start: string, workingDirectory: string, visited: Set<string>): AsyncGenerator<string> {
   const stats = await stat(start).catch(() => null)
   if (!stats) {
     return
   }
 
   if (stats.isFile()) {
-    yield start
+    if (!isSensitiveFileName(basename(start))) {
+      yield start
+    }
     return
   }
 
   if (!stats.isDirectory()) {
     return
   }
+
+  if (visited.has(start)) {
+    return
+  }
+  visited.add(start)
 
   const entries = await readdir(start, { withFileTypes: true }).catch(() => [])
 
@@ -124,7 +131,7 @@ async function* walkFilesInside(start: string, workingDirectory: string): AsyncG
       }
 
       if (realStats.isDirectory()) {
-        yield* walkFilesInside(real, workingDirectory)
+        yield* walkFilesInside(real, workingDirectory, visited)
       }
 
       else if (realStats.isFile() && !isSensitiveFileName(entry.name)) {
@@ -135,7 +142,7 @@ async function* walkFilesInside(start: string, workingDirectory: string): AsyncG
     }
 
     if (entry.isDirectory()) {
-      yield* walkFilesInside(fullPath, workingDirectory)
+      yield* walkFilesInside(fullPath, workingDirectory, visited)
     }
     else if (entry.isFile() && !isSensitiveFileName(entry.name)) {
       yield fullPath
