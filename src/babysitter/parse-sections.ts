@@ -1,5 +1,6 @@
-const MARKDOWN_HEADING = /^#{1,6}[ \t]+(\S.*)$/
+const MARKDOWN_HEADING = /^(#{1,6})[ \t]+(\S.*)$/
 const BOLD_MARKERS = ['**', '__'] as const
+const BOLD_HEADING_LEVEL = 7
 const LIST_ITEM = /^(?:\d+[.)]|[-*])[ \t]+(\S.*)$/
 const INLINE_CODE_SPANS = /`([^`]+)`/g
 
@@ -11,12 +12,17 @@ function normalizeHeading(text: string): string {
   return text.replace(/[*_:`]/g, '').trim().toLowerCase()
 }
 
-function headingKey(line: string): string | null {
+interface HeadingInfo {
+  key: string
+  level: number
+}
+
+function headingInfo(line: string): HeadingInfo | null {
   const trimmed = line.trim()
 
   const headingMatch = MARKDOWN_HEADING.exec(trimmed)
   if (headingMatch) {
-    return normalizeHeading(headingMatch[1]!)
+    return { key: normalizeHeading(headingMatch[2]!), level: headingMatch[1]!.length }
   }
 
   for (const marker of BOLD_MARKERS) {
@@ -27,7 +33,7 @@ function headingKey(line: string): string | null {
     if (withoutColon.length > marker.length * 2 && withoutColon.endsWith(marker)) {
       const text = withoutColon.slice(marker.length, -marker.length)
       if (text.trim()) {
-        return normalizeHeading(text)
+        return { key: normalizeHeading(text), level: BOLD_HEADING_LEVEL }
       }
     }
   }
@@ -38,22 +44,20 @@ export function findSection(markdown: string, names: readonly string[]): string 
   const targets = names.map(name => name.toLowerCase())
   const lines = markdown.split('\n')
   const buffer: string[] = []
-  let capturing = false
+  let captureLevel: number | null = null
 
   for (const line of lines) {
-    const key = headingKey(line)
-    if (key !== null) {
-      if (capturing) {
-        break
-      }
-      if (targets.some(target => key === target || key.startsWith(target))) {
-        capturing = true
+    const heading = headingInfo(line)
+    if (captureLevel === null) {
+      if (heading && targets.some(target => heading.key === target || heading.key.startsWith(target))) {
+        captureLevel = heading.level
       }
       continue
     }
-    if (capturing) {
-      buffer.push(line)
+    if (heading && heading.level <= captureLevel) {
+      break
     }
+    buffer.push(line)
   }
 
   const body = buffer.join('\n').trim()
@@ -93,17 +97,9 @@ export function extractCommands(verificationSection: string): string[] {
       continue
     }
 
-    if (inFence) {
+    if (inFence || line.startsWith('$')) {
       const cmd = stripShellPrompt(line)
-      if (cmd && (line.startsWith('$') || RUNNER_COMMAND.test(cmd))) {
-        commands.push(cmd)
-      }
-      continue
-    }
-
-    if (line.startsWith('$')) {
-      const cmd = stripShellPrompt(line)
-      if (cmd) {
+      if (cmd && RUNNER_COMMAND.test(cmd)) {
         commands.push(cmd)
       }
       continue

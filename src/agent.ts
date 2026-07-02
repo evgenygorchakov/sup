@@ -4,7 +4,7 @@ import type { Message, ToolCall } from './types.ts'
 import type { OnStreamPart } from './ui/interactive/stream-printer.ts'
 
 import process from 'node:process'
-import { buildHarnessReminder, finishTask, recordAssistant, recordLedgerState, recordToolCall, recordToolResult, runCompletionGate, startTurn } from './babysitter/index.ts'
+import { buildHarnessReminder, finishTask, recordAssistant, recordLedgerState, recordToolCall, recordToolResult, recordUserMessage, runCompletionGate, startTurn } from './babysitter/index.ts'
 import { Config } from './config.ts'
 import { collapseOldToolResults } from './context/collapse.ts'
 import { clearActivePlan } from './plan/active-plan.ts'
@@ -42,6 +42,12 @@ function pushUnexecutedToolResults(messages: Message[], calls: ToolCall[], conte
     messages.push({ role: 'tool', content, tool_call_id: call.id })
     recordToolResult(call, content)
   }
+}
+
+function pushUserNotice(messages: Message[], content: string): void {
+  const message: Message = { role: 'user', content }
+  messages.push(message)
+  recordUserMessage(message)
 }
 
 function lastBatchesAreIdentical(signatures: string[], threshold: number): boolean {
@@ -140,7 +146,7 @@ export async function run(provider: ChatProvider, messages: Message[], readline:
     if (iterations > stepBudget) {
       console.error(red(`Reached max tool iterations (${stepBudget}). Stopping this turn.`))
       pushUnexecutedToolResults(messages, reply.tool_calls, STOPPED_TOOL_RESULT)
-      messages.push({ role: 'user', content: `Stopped: exceeded ${stepBudget} tool calls in a single turn. Summarize progress and wait for the user.` })
+      pushUserNotice(messages, `Stopped: exceeded ${stepBudget} tool calls in a single turn. Summarize progress and wait for the user.`)
       return
     }
 
@@ -149,10 +155,7 @@ export async function run(provider: ChatProvider, messages: Message[], readline:
     if (lastBatchesAreIdentical(recentBatchSignatures, Config.AUTONOMOUS_REPEAT_THRESHOLD)) {
       console.error(red(`Detected ${Config.AUTONOMOUS_REPEAT_THRESHOLD} identical tool batches in a row. Stopping autonomous loop.`))
       pushUnexecutedToolResults(messages, reply.tool_calls, STOPPED_TOOL_RESULT)
-      messages.push({
-        role: 'user',
-        content: `Stopped: same tool calls repeated ${Config.AUTONOMOUS_REPEAT_THRESHOLD} times in a row. Reconsider the approach and wait for the user.`,
-      })
+      pushUserNotice(messages, `Stopped: same tool calls repeated ${Config.AUTONOMOUS_REPEAT_THRESHOLD} times in a row. Reconsider the approach and wait for the user.`)
       return
     }
 
@@ -174,7 +177,7 @@ export async function run(provider: ChatProvider, messages: Message[], readline:
 
       if (decision.kind === CONFIRM_KIND.replan) {
         pushUnexecutedToolResults(messages, reply.tool_calls, REJECTED_TOOL_RESULT)
-        messages.push({ role: 'user', content: decision.feedback })
+        pushUserNotice(messages, decision.feedback)
         continue
       }
     }

@@ -56,6 +56,30 @@ export function appendEvent(type: JournalEventType, payload: Record<string, unkn
   catch {}
 }
 
+function claimRunDir(baseId: string): { id: string, dir: string } | null {
+  try {
+    mkdirSync(runsRoot(), { recursive: true })
+  }
+  catch {
+    return null
+  }
+
+  for (let suffix = 0; suffix < 100; suffix += 1) {
+    const id = suffix === 0 ? baseId : `${baseId}-${suffix + 1}`
+    const dir = join(runsRoot(), id)
+    try {
+      mkdirSync(dir)
+      return { id, dir }
+    }
+    catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'EEXIST') {
+        return null
+      }
+    }
+  }
+  return null
+}
+
 export function ensureRun(): string | null {
   if (!journalEnabled()) {
     return null
@@ -64,19 +88,15 @@ export function ensureRun(): string | null {
     return currentRunId
   }
 
-  const id = makeRunId(new Date())
-  const dir = join(runsRoot(), id)
-  try {
-    mkdirSync(dir, { recursive: true })
-  }
-  catch {
+  const claimed = claimRunDir(makeRunId(new Date()))
+  if (!claimed) {
     return null
   }
 
-  currentRunId = id
-  currentRunDir = dir
+  currentRunId = claimed.id
+  currentRunDir = claimed.dir
   appendEvent('run_start', { cwd: process.cwd(), model: Config.MODEL })
-  return id
+  return currentRunId
 }
 
 export function adoptRun(runId: string): boolean {

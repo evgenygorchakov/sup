@@ -79,12 +79,3 @@ export function recordGateAttempt(): void {
 export function requireFreshShellRun(): void {
   task.shellRanSinceGate = false
 }
-
-export function markAllStepsDone(): void {
-  if (!task.ledger) {
-    return
-  }
-  for (const step of task.ledger) {
-    step.status = 'done'
-  }
-}

@@ -41,6 +41,13 @@ export function recordAssistant(reply: Message): void {
   appendEvent('assistant', { message: reply })
 }
 
+export function recordUserMessage(message: Message): void {
+  if (!Config.USE_BABYSITTER) {
+    return
+  }
+  appendEvent('user', { message })
+}
+
 export function recordToolCall(call: ToolCall): void {
   if (!Config.USE_BABYSITTER) {
     return
