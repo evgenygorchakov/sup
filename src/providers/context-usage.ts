@@ -16,3 +16,9 @@ export function getLastContextUsage(): ContextUsage | null {
 export function resetContextUsage(): void {
   lastContextUsage = null
 }
+
+export function reportContextUsage(promptTokens: unknown, completionTokens: unknown): void {
+  if (typeof promptTokens === 'number' && typeof completionTokens === 'number') {
+    recordContextUsage(promptTokens, completionTokens)
+  }
+}

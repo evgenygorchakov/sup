@@ -1,4 +1,7 @@
-import type { ToolCall, ToolDefinition } from '../types.ts'
+import type { Message, ToolCall, ToolDefinition } from '../types.ts'
+import type { OnStreamPart } from '../ui/interactive/stream-printer.ts'
+import process from 'node:process'
+import { gray } from '../utils/colors.ts'
 
 export interface PromptToolsReply {
   message: string
@@ -69,6 +72,7 @@ function isToolCallEntry(value: unknown): value is ToolCallEntry {
     typeof entry.name === 'string'
     && typeof entry.arguments === 'object'
     && entry.arguments !== null
+    && !Array.isArray(entry.arguments)
   )
 }
 
@@ -169,4 +173,86 @@ export function tryParsePromptToolsReply(modelReply: string): PromptToolsReply |
   }
 
   return null
+}
+
+const REFORMAT_INSTRUCTION = 'Your previous reply was not a valid JSON object matching the required schema. Resend the SAME answer as strict JSON with fields "message" and "tool_calls". No prose, no code fences, no string concatenation — just one JSON object.'
+const FALLBACK_MESSAGE = 'The model returned a malformed reply. Please try again.'
+
+export interface PromptToolsStreamOptions {
+  onStreamPart?: OnStreamPart
+  signal?: AbortSignal
+}
+
+export type FormattedChat = (messages: Message[], options: PromptToolsStreamOptions) => Promise<Message>
+
+function prependToolsInstruction(messages: Message[], instruction: string): Message[] {
+  const firstMessage = messages[0]
+
+  if (firstMessage?.role === 'system') {
+    return [
+      { ...firstMessage, content: `${firstMessage.content}\n\n${instruction}` },
+      ...messages.slice(1),
+    ]
+  }
+
+  return [{ role: 'system', content: instruction }, ...messages]
+}
+
+function filterOnlyThinkingParts(onStreamPart?: OnStreamPart): OnStreamPart | undefined {
+  if (!onStreamPart) {
+    return undefined
+  }
+
+  let announced = false
+
+  return (part) => {
+    if (part.thinking) {
+      onStreamPart(part)
+    }
+
+    if (part.content && !announced) {
+      announced = true
+      process.stderr.write(gray('\nComposing reply…\n'))
+    }
+  }
+}
+
+function applyParsedReply(reply: Message, parsed: PromptToolsReply): Message {
+  reply.content = parsed.message
+  reply.tool_calls = parsed.tool_calls.length ? parsed.tool_calls : undefined
+  return reply
+}
+
+export async function runPromptToolsChat(
+  messages: Message[],
+  tools: ToolDefinition[],
+  formattedChat: FormattedChat,
+  onStreamPart?: OnStreamPart,
+  signal?: AbortSignal,
+): Promise<Message> {
+  const messagesWithInstruction = prependToolsInstruction(messages, buildToolsInstruction(tools))
+
+  const firstReply = await formattedChat(messagesWithInstruction, {
+    onStreamPart: filterOnlyThinkingParts(onStreamPart),
+    signal,
+  })
+  const parsedFirstReply = tryParsePromptToolsReply(firstReply.content)
+  if (parsedFirstReply) {
+    return applyParsedReply(firstReply, parsedFirstReply)
+  }
+
+  process.stderr.write(gray('\nPrevious reply was malformed, retrying…\n'))
+
+  const retryReply = await formattedChat(
+    [...messagesWithInstruction, firstReply, { role: 'user', content: REFORMAT_INSTRUCTION }],
+    { onStreamPart: filterOnlyThinkingParts(onStreamPart), signal },
+  )
+  const parsedRetryReply = tryParsePromptToolsReply(retryReply.content)
+  if (parsedRetryReply) {
+    return applyParsedReply(retryReply, parsedRetryReply)
+  }
+
+  firstReply.content = FALLBACK_MESSAGE
+  firstReply.tool_calls = undefined
+  return firstReply
 }

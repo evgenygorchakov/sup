@@ -35,3 +35,9 @@ export function startIdleTimeout(idleTimeoutMs: number, firstChunkTimeoutMs: num
     abortedBeforeFirstChunk: () => timedOut && !firstChunkSeen,
   }
 }
+
+export function requestTimeoutError(idle: IdleTimeout, label: string, firstTokenTimeoutMs: number, idleTimeoutMs: number): Error {
+  return new Error(idle.abortedBeforeFirstChunk()
+    ? `${label} request timed out: no response within ${Math.round(firstTokenTimeoutMs / 1000)}s (the model may still be loading or the prompt is too large)`
+    : `${label} request timed out: stream stalled, no data for ${Math.round(idleTimeoutMs / 1000)}s`)
+}

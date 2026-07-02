@@ -2,9 +2,9 @@ import type { Message, Role, ToolCall, ToolDefinition } from '../../types.ts'
 import type { OnStreamPart } from '../../ui/interactive/stream-printer.ts'
 import { Config } from '../../config.ts'
 import { RequestCancelledError } from '../cancel.ts'
-import { recordContextUsage } from '../context-usage.ts'
-import { startIdleTimeout } from '../idle-timeout.ts'
-import { readResponseLines } from '../stream-lines.ts'
+import { reportContextUsage } from '../context-usage.ts'
+import { requestTimeoutError, startIdleTimeout } from '../idle-timeout.ts'
+import { parseJsonObject, readResponseLines } from '../stream-lines.ts'
 import { getContextWindowTokenLimit } from './context-window.ts'
 import { getThinkingModeFor } from './thinking.ts'
 
@@ -13,12 +13,6 @@ const REQUEST_IDLE_TIMEOUT_MS = Config.REQUEST_TIMEOUT_MS
 const REQUEST_FIRST_TOKEN_TIMEOUT_MS = Config.REQUEST_FIRST_TOKEN_TIMEOUT_MS
 
 const VALID_ROLES: readonly Role[] = ['system', 'user', 'assistant', 'tool']
-
-function reportContextUsage(promptTokens: unknown, completionTokens: unknown): void {
-  if (typeof promptTokens === 'number' && typeof completionTokens === 'number') {
-    recordContextUsage(promptTokens, completionTokens)
-  }
-}
 
 export interface ChatOptions {
   tools?: ToolDefinition[]
@@ -55,9 +49,7 @@ export async function chat(messages: Message[], options: ChatOptions = {}): Prom
       throw new RequestCancelledError()
     }
     if (idle.abortedByTimeout()) {
-      throw new Error(idle.abortedBeforeFirstChunk()
-        ? `Ollama request timed out: no response within ${Math.round(REQUEST_FIRST_TOKEN_TIMEOUT_MS / 1000)}s (the model may still be loading or the prompt is too large)`
-        : `Ollama request timed out: stream stalled, no data for ${Math.round(REQUEST_IDLE_TIMEOUT_MS / 1000)}s`)
+      throw requestTimeoutError(idle, 'Ollama', REQUEST_FIRST_TOKEN_TIMEOUT_MS, REQUEST_IDLE_TIMEOUT_MS)
     }
     throw error
   }
@@ -92,8 +84,12 @@ function buildRequestBody(messages: Message[], shouldStream: boolean, tools?: To
 }
 
 async function readCompleteResponse(response: Response): Promise<Message> {
-  const envelope = await response.json() as { message?: unknown, prompt_eval_count?: unknown, eval_count?: unknown }
-  const message = envelope?.message
+  const envelope = await response.json() as {
+    message?: { role?: unknown, content?: unknown, tool_calls?: unknown }
+    prompt_eval_count?: unknown
+    eval_count?: unknown
+  }
+  const message = envelope.message
 
   if (!message || typeof message !== 'object') {
     throw new Error('Ollama returned unexpected response shape')
@@ -101,7 +97,18 @@ async function readCompleteResponse(response: Response): Promise<Message> {
 
   reportContextUsage(envelope.prompt_eval_count, envelope.eval_count)
 
-  return message as Message
+  const role = typeof message.role === 'string' && (VALID_ROLES as readonly string[]).includes(message.role)
+    ? message.role as Role
+    : 'assistant'
+  const toolCalls = Array.isArray(message.tool_calls) && message.tool_calls.length > 0
+    ? message.tool_calls as ToolCall[]
+    : undefined
+
+  return {
+    role,
+    content: typeof message.content === 'string' ? message.content : '',
+    tool_calls: toolCalls,
+  }
 }
 
 interface StreamedLine {
@@ -126,7 +133,7 @@ async function readStreamingResponse(response: Response, onStreamPart: OnStreamP
       continue
     }
 
-    const parsedLine = parseJsonLine(line)
+    const parsedLine = parseJsonObject<StreamedLine>(line)
     if (!parsedLine) {
       continue
     }
@@ -167,15 +174,5 @@ function mergeLineIntoMessage(line: StreamedLine, reply: Message, onStreamPart: 
 
   if (Array.isArray(partial.tool_calls) && partial.tool_calls.length > 0) {
     reply.tool_calls = [...(reply.tool_calls ?? []), ...partial.tool_calls as ToolCall[]]
-  }
-}
-
-function parseJsonLine(rawLine: string): StreamedLine | null {
-  try {
-    const parsed: unknown = JSON.parse(rawLine)
-    return typeof parsed === 'object' && parsed !== null ? parsed as StreamedLine : null
-  }
-  catch {
-    return null
   }
 }

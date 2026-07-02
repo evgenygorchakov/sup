@@ -33,3 +33,13 @@ export async function* readResponseLines(response: Response, onActivity: () => v
     reader.cancel().catch(() => {})
   }
 }
+
+export function parseJsonObject<T>(rawText: string): T | null {
+  try {
+    const parsed: unknown = JSON.parse(rawText)
+    return typeof parsed === 'object' && parsed !== null ? parsed as T : null
+  }
+  catch {
+    return null
+  }
+}

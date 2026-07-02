@@ -2,19 +2,13 @@ import type { Message, Role, ToolCall, ToolDefinition } from '../../types.ts'
 import type { OnStreamPart } from '../../ui/interactive/stream-printer.ts'
 import { Config } from '../../config.ts'
 import { RequestCancelledError } from '../cancel.ts'
-import { recordContextUsage } from '../context-usage.ts'
-import { startIdleTimeout } from '../idle-timeout.ts'
-import { readResponseLines } from '../stream-lines.ts'
+import { reportContextUsage } from '../context-usage.ts'
+import { requestTimeoutError, startIdleTimeout } from '../idle-timeout.ts'
+import { parseJsonObject, readResponseLines } from '../stream-lines.ts'
 
 const LLAMACPP_HOST = Config.LLAMACPP_HOST
 const REQUEST_IDLE_TIMEOUT_MS = Config.REQUEST_TIMEOUT_MS
 const REQUEST_FIRST_TOKEN_TIMEOUT_MS = Config.REQUEST_FIRST_TOKEN_TIMEOUT_MS
-
-function reportContextUsage(promptTokens: unknown, completionTokens: unknown): void {
-  if (typeof promptTokens === 'number' && typeof completionTokens === 'number') {
-    recordContextUsage(promptTokens, completionTokens)
-  }
-}
 
 export interface ChatOptions {
   tools?: ToolDefinition[]
@@ -51,9 +45,7 @@ export async function chat(messages: Message[], options: ChatOptions = {}): Prom
       throw new RequestCancelledError()
     }
     if (idle.abortedByTimeout()) {
-      throw new Error(idle.abortedBeforeFirstChunk()
-        ? `llama.cpp request timed out: no response within ${Math.round(REQUEST_FIRST_TOKEN_TIMEOUT_MS / 1000)}s (the model may still be loading or the prompt is too large)`
-        : `llama.cpp request timed out: stream stalled, no data for ${Math.round(REQUEST_IDLE_TIMEOUT_MS / 1000)}s`)
+      throw requestTimeoutError(idle, 'llama.cpp', REQUEST_FIRST_TOKEN_TIMEOUT_MS, REQUEST_IDLE_TIMEOUT_MS)
     }
     throw error
   }
@@ -240,7 +232,7 @@ async function readStreamingResponse(response: Response, onStreamPart: OnStreamP
       break
     }
 
-    const chunk = parseJsonChunk(payload)
+    const chunk = parseJsonObject<StreamChunk>(payload)
     if (chunk) {
       applyChunk(chunk, reply, toolCalls, onStreamPart)
     }
@@ -316,14 +308,4 @@ function finalizeToolCalls(toolCalls: Map<number, ToolCallAccumulator>): ToolCal
     .filter(call => call.function.name.length > 0)
 
   return calls.length ? calls : undefined
-}
-
-function parseJsonChunk(rawPayload: string): StreamChunk | null {
-  try {
-    const parsed: unknown = JSON.parse(rawPayload)
-    return typeof parsed === 'object' && parsed !== null ? parsed as StreamChunk : null
-  }
-  catch {
-    return null
-  }
 }
