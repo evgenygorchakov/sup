@@ -4,9 +4,10 @@ import type { Message, ToolCall } from './types.ts'
 import type { OnStreamPart } from './ui/interactive/stream-printer.ts'
 
 import process from 'node:process'
-import { buildHarnessReminder, finishTask, recordAssistant, recordLedgerState, recordToolCall, recordToolResult, recordUserMessage, runCompletionGate, startTurn } from './babysitter/index.ts'
+import { beginTurn, buildHarnessReminder, finishTask, noteToolCall, recordLedgerState, runCompletionGate } from './babysitter/index.ts'
 import { Config } from './config.ts'
 import { collapseOldToolResults } from './context/collapse.ts'
+import { recordAssistant, recordFinish, recordToolCall, recordToolResult, recordUserMessage, startRun } from './journal/index.ts'
 import { clearActivePlan } from './plan/active-plan.ts'
 import { isPlanModeActive, setMode } from './plan/mode-state.ts'
 import { shouldAutoApprove } from './tools/auto-approve.ts'
@@ -71,7 +72,8 @@ export interface RunOptions {
 }
 
 export async function run(provider: ChatProvider, messages: Message[], readline: ReadlineInterface, options: RunOptions = {}): Promise<void> {
-  startTurn(messages)
+  startRun(messages)
+  beginTurn()
 
   if (!options.skipPlanApproval && isPlanModeActive() && messages[messages.length - 1]?.role === 'user') {
     if (!process.stdin.isTTY) {
@@ -128,6 +130,7 @@ export async function run(provider: ChatProvider, messages: Message[], readline:
         continue
       }
 
+      recordFinish()
       finishTask()
       clearActivePlan()
 
@@ -184,6 +187,7 @@ export async function run(provider: ChatProvider, messages: Message[], readline:
 
     for (const call of reply.tool_calls) {
       recordToolCall(call)
+      noteToolCall(call)
       const toolResult = await runTool(call)
       recordToolResult(call, toolResult)
       messages.push({ role: 'tool', content: toolResult, tool_call_id: call.id })

@@ -1,6 +1,7 @@
 import type { SlashCommand } from '../types.ts'
 import { clearConversation } from '../../babysitter/index.ts'
 import { takePendingImages } from '../../images/pending.ts'
+import { recordClear } from '../../journal/index.ts'
 import { clearActivePlan } from '../../plan/active-plan.ts'
 import { resetContextUsage } from '../../providers/context-usage.ts'
 import { gray } from '../../utils/colors.ts'
@@ -13,6 +14,7 @@ export const clearCommand: SlashCommand = {
     resetContextUsage()
     clearActivePlan()
     clearConversation()
+    recordClear()
     takePendingImages()
     console.warn(gray('Conversation cleared.'))
     return { kind: 'continue' }

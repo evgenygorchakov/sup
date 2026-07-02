@@ -1,18 +1,11 @@
 import type { Interface as ReadlineInterface } from 'node:readline/promises'
+import type { JournalEvent } from '../journal/index.ts'
 import type { Message, ToolCall } from '../types.ts'
+import type { LedgerStep } from './session.ts'
 import type { GateDecision } from './verification.ts'
 import { Config } from '../config.ts'
+import { adoptRun, appendEvent, listRuns, loadRunEvents, reconstructMessages } from '../journal/index.ts'
 import { buildPlanReminder } from '../plan/active-plan.ts'
-import {
-  adoptRun,
-  appendEvent,
-  ensureRun,
-  lastTaskSnapshot,
-  listRuns,
-  loadRunEvents,
-  persistImages,
-  reconstructMessages,
-} from './journal.ts'
 import { ledgerToolRegistered } from './ledger-tool.ts'
 import { buildLedgerReminder } from './ledger.ts'
 import { activateTask, clearTask, getLedger, getVerificationSource, noteShellRun, resetGate } from './session.ts'
@@ -21,51 +14,20 @@ import { runCompletionGate as gateImpl } from './verification.ts'
 export { markStep } from './ledger.ts'
 export { activatePlan, activateSkill, isGatedSkill } from './task-source.ts'
 
-export function startTurn(messages: Message[]): void {
+export function beginTurn(): void {
   if (!Config.USE_BABYSITTER) {
     return
-  }
-  ensureRun()
-  const last = messages[messages.length - 1]
-  if (last?.role === 'user') {
-    const imageRefs = last.images?.length ? persistImages(last.images) : null
-    appendEvent('user', { message: { ...last, images: undefined }, images: imageRefs ?? undefined })
   }
   resetGate()
 }
 
-export function recordAssistant(reply: Message): void {
+export function noteToolCall(call: ToolCall): void {
   if (!Config.USE_BABYSITTER) {
     return
   }
-  appendEvent('assistant', { message: reply })
-}
-
-export function recordUserMessage(message: Message): void {
-  if (!Config.USE_BABYSITTER) {
-    return
-  }
-  appendEvent('user', { message })
-}
-
-export function recordToolCall(call: ToolCall): void {
-  if (!Config.USE_BABYSITTER) {
-    return
-  }
-  appendEvent('tool_call', { name: call.function.name, arguments: call.function.arguments, id: call.id })
   if (call.function.name === 'run_shell') {
     noteShellRun()
   }
-}
-
-export function recordToolResult(call: ToolCall, result: string): void {
-  if (!Config.USE_BABYSITTER) {
-    return
-  }
-  appendEvent('tool_result', {
-    name: call.function.name,
-    message: { role: 'tool', content: result, tool_call_id: call.id },
-  })
 }
 
 export function recordLedgerState(): void {
@@ -96,13 +58,32 @@ export function finishTask(): void {
   if (!Config.USE_BABYSITTER) {
     return
   }
-  appendEvent('finish', {})
   clearTask()
 }
 
 export function clearConversation(): void {
   clearTask()
-  appendEvent('clear')
+}
+
+interface TaskSnapshot {
+  ledger: LedgerStep[] | null
+  verificationSource: string | null
+}
+
+function lastTaskSnapshot(events: JournalEvent[]): TaskSnapshot | null {
+  for (let index = events.length - 1; index >= 0; index -= 1) {
+    const event = events[index]!
+    if (event.type === 'finish' || event.type === 'clear') {
+      return null
+    }
+    if (event.type === 'ledger') {
+      return {
+        ledger: Array.isArray(event.ledger) ? (event.ledger as LedgerStep[]) : null,
+        verificationSource: typeof event.verificationSource === 'string' ? event.verificationSource : null,
+      }
+    }
+  }
+  return null
 }
 
 export interface ResumeOutcome {
@@ -113,7 +94,7 @@ export interface ResumeOutcome {
 }
 
 export function resumeIntoMessages(runId: string | undefined, messages: Message[]): ResumeOutcome {
-  if (!Config.USE_BABYSITTER || !Config.BABYSITTER_JOURNAL) {
+  if (!Config.USE_JOURNAL) {
     return { ok: false, reason: 'disabled' }
   }
   const target = runId ?? listRuns().at(-1)

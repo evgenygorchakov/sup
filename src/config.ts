@@ -15,6 +15,7 @@ export interface ConfigShape {
   USE_PLAN_MODE: boolean
   USE_AUTO_MODE: boolean
   USE_READ_ONLY_MODE: boolean
+  USE_JOURNAL: boolean
   USE_SHELL_TOOL: boolean
   USE_NATIVE_TOOLS: boolean
   CONTEXT_WINDOW_TOKEN_LIMIT: number
@@ -35,7 +36,6 @@ export interface ConfigShape {
   AUTO_APPROVE_SHELL_PATTERNS: readonly RegExp[]
   USE_BABYSITTER: boolean
   BABYSITTER_VERIFICATION_GATE: boolean
-  BABYSITTER_JOURNAL: boolean
   BABYSITTER_LEDGER: boolean
   BABYSITTER_GATED_SKILLS: boolean
   BABYSITTER_GATE_MAX_ATTEMPTS: number
@@ -51,6 +51,7 @@ export const Config: ConfigShape = {
   USE_PLAN_MODE: getEnvBoolean('USE_PLAN_MODE', false),
   USE_AUTO_MODE: getEnvBoolean('USE_AUTO_MODE', false),
   USE_READ_ONLY_MODE: process.argv.includes('--read-only') || getEnvBoolean('USE_READ_ONLY_MODE', false),
+  USE_JOURNAL: getEnvBoolean('USE_JOURNAL', true),
   USE_SHELL_TOOL: getEnvBoolean('USE_SHELL_TOOL', true),
   USE_NATIVE_TOOLS: getEnvBoolean('USE_NATIVE_TOOLS', true),
   CONTEXT_WINDOW_TOKEN_LIMIT: getEnvNumber('CONTEXT_WINDOW_TOKEN_LIMIT', 80_000),
@@ -76,7 +77,6 @@ export const Config: ConfigShape = {
   ],
   USE_BABYSITTER: getEnvBoolean('USE_BABYSITTER', false),
   BABYSITTER_VERIFICATION_GATE: getEnvBoolean('BABYSITTER_VERIFICATION_GATE', true),
-  BABYSITTER_JOURNAL: getEnvBoolean('BABYSITTER_JOURNAL', true),
   BABYSITTER_LEDGER: getEnvBoolean('BABYSITTER_LEDGER', true),
   BABYSITTER_GATED_SKILLS: getEnvBoolean('BABYSITTER_GATED_SKILLS', true),
   BABYSITTER_GATE_MAX_ATTEMPTS: getEnvNumber('BABYSITTER_GATE_MAX_ATTEMPTS', 3),

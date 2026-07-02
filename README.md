@@ -29,29 +29,35 @@ Requires Node.js 24+ (the CLI runs its TypeScript sources directly, no build ste
 - Skills (like Claude Code skills): drop `.sup/skills/<name>/SKILL.md` with a `description` in the frontmatter (the skill name is the folder name); the body is loaded on demand via the `skill` tool.
 - Paste an image from the clipboard
 
+## Run journal
+
+On by default (`USE_JOURNAL=true`; independent of the babysitter). Every run is journaled as an event log at `.sup/runs/<id>/journal.jsonl` — the user requests, the model's replies, and every tool call and result. A failed write never interrupts the work.
+
+This is what powers `sup --resume` (or `sup --resume=<run-id>` for a specific run): it loads the journal from the current directory, restores the dialog, and continues where you left off. If the babysitter was active, the step ledger is restored too.
+
 ## Babysitter mode
 
 Think of the model as a junior intern who knows the job but keeps forgetting where it stopped, skips list items, and says "all done" without checking. Babysitter is the strict mentor standing behind its shoulder. Importantly, the mentor is not the model itself — it is the harness, deterministic code that keeps the model honest.
 
-Off by default; enable with `USE_BABYSITTER=true`. It then does four things:
+Off by default; enable with `USE_BABYSITTER=true`. It then does two things:
 
-### The four jobs of Babysitter
+### The two jobs of Babysitter
 
 1. **Keeps the checklist in front of the model.** When a new task starts (a plan is approved or a skill with steps is loaded), Babysitter takes the numbered steps and shows the checklist before every model reply: "Here are your tasks. Step 1 done? No? Then work on step 3, don't skip ahead." The model marks finished steps via the `ledger_update` tool, so it doesn't lose the thread.
 2. **Doesn't take "all done" at face value.** When the model tries to finish, Babysitter checks whether the verification commands have actually run.
    * If the task has commands, Babysitter runs them itself. All green — the model may finish; otherwise Babysitter returns the failures and demands fixes.
    * If there are no commands, Babysitter asks the model to verify and won't accept "done" until a check has run. To avoid an endless loop it limits the attempts (3 by default), then gives up and allows the finish.
-3. **Keeps a journal.** Babysitter appends every action to a journal file: user requests, results, gate runs. A failed write never interrupts the work.
-4. **Can pick up where it left off.** Thanks to the journal a task can be interrupted and resumed with `sup --resume` (or `sup --resume=<run-id>` for a specific run): it loads the journal, restores the dialog and the step ledger, and continues from the last step.
+
+Its checklist and gate events are written to the [run journal](#run-journal), so an interrupted task can be resumed with the step ledger intact.
 
 #### What a pass looks like
 
 One pass of a task has four stages:
 
-1. **Start.** The user gives a task or approves a plan. Babysitter journals the request and builds the step list.
-2. **Work loop.** Before each reply Babysitter shows the current checklist. The model does a step, calls tools (file edits, shell, etc.) and marks finished steps. Every action is journaled.
+1. **Start.** The user gives a task or approves a plan. Babysitter builds the step list.
+2. **Work loop.** Before each reply Babysitter shows the current checklist. The model does a step, calls tools (file edits, shell, etc.) and marks finished steps.
 3. **Finish attempt.** When the model stops calling tools, Babysitter runs the verification gate.
-4. **Fork.** If the gate fails, the loop continues. If it passes, Babysitter marks all steps done, journals "finish", clears the state, and returns the final answer.
+4. **Fork.** If the gate fails, the loop continues. If it passes, Babysitter marks all steps done, clears the state, and returns the final answer.
 
 ## Security
 

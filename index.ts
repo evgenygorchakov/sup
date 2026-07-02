@@ -179,7 +179,7 @@ async function main() {
       console.warn(gray(`Resumed run ${outcome.runId} (${outcome.restored} messages restored)`))
     }
     else if (outcome.reason === 'disabled') {
-      console.warn(yellow('--resume requires USE_BABYSITTER=true and BABYSITTER_JOURNAL=true in your .env.'))
+      console.warn(yellow('--resume requires USE_JOURNAL=true in your .env.'))
     }
     else {
       console.warn(yellow('Nothing to resume: no saved runs in this directory. Run a task here first.'))

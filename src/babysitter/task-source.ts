@@ -1,7 +1,7 @@
 import type { Skill } from '../skills/types.ts'
 import type { LedgerStep } from './session.ts'
 import { Config } from '../config.ts'
-import { appendEvent, ensureRun } from './journal.ts'
+import { appendEvent, ensureRun } from '../journal/index.ts'
 import { ledgerToolRegistered } from './ledger-tool.ts'
 import { buildLedgerFromSteps } from './ledger.ts'
 import { extractSteps, findSection } from './parse-sections.ts'

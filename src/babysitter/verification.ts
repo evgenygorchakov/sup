@@ -1,9 +1,9 @@
 import type { Interface as ReadlineInterface } from 'node:readline/promises'
 import type { Message } from '../types.ts'
 import { Config } from '../config.ts'
+import { appendEvent, recordUserMessage } from '../journal/index.ts'
 import { runShell } from '../tools/list/run-shell.ts'
 import { gray, red, yellow } from '../utils/colors.ts'
-import { appendEvent } from './journal.ts'
 import { extractCommands } from './parse-sections.ts'
 import {
   getGateAttempts,
@@ -58,7 +58,7 @@ async function runChecks(commands: string[]): Promise<string[]> {
 function pushHarnessMessage(messages: Message[], content: string): void {
   const message: Message = { role: 'user', content }
   messages.push(message)
-  appendEvent('user', { message })
+  recordUserMessage(message)
 }
 
 function requireManualVerification(messages: Message[], verificationSource: string): GateDecision {
