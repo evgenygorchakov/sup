@@ -4,11 +4,12 @@ import { readFile as readFromDisk, stat } from 'node:fs/promises'
 import { basename, relative } from 'node:path'
 import process from 'node:process'
 import { green } from '../../utils/colors.ts'
-import { isSensitiveFileName, resolveInsideWorkingDirectory, truncateText, walkFiles } from './shared.ts'
+import { isSensitiveFileName, OUTPUT_CHAR_LIMIT, resolveInsideWorkingDirectory, truncateText, walkFiles } from './shared.ts'
 
 const SEARCH_TIMEOUT_MS = 30_000
 const MAX_FILE_BYTES = 5 * 1024 * 1024
 const PREVIEW_MATCH_COUNT = 10
+const STDOUT_COLLECT_LIMIT = OUTPUT_CHAR_LIMIT * 2
 
 const RIPGREP_SENSITIVE_EXCLUDES = [
   '!.env',
@@ -19,9 +20,12 @@ const RIPGREP_SENSITIVE_EXCLUDES = [
   '!id_ecdsa*',
   '!id_ed25519*',
   '!.netrc',
-  '!credentials*',
-  '!secret*',
-  '!secrets*',
+  '!credentials',
+  '!credentials.*',
+  '!secret',
+  '!secret.*',
+  '!secrets',
+  '!secrets.*',
   '!.htpasswd',
   '!.ssh/**',
   '!.aws/**',
@@ -54,7 +58,7 @@ async function searchWithRipgrep(
   caseSensitive: boolean,
 ): Promise<string> {
   return await new Promise<string>((resolveResult) => {
-    const ripgrepArguments = ['--line-number', '--color', 'never', '--no-heading']
+    const ripgrepArguments = ['--line-number', '--color', 'never', '--no-heading', '--hidden', '--glob', '!.git/**']
     if (!caseSensitive) {
       ripgrepArguments.push('--ignore-case')
     }
@@ -62,7 +66,7 @@ async function searchWithRipgrep(
       ripgrepArguments.push('--glob', glob)
     }
     for (const exclude of RIPGREP_SENSITIVE_EXCLUDES) {
-      ripgrepArguments.push('--glob', exclude)
+      ripgrepArguments.push('--iglob', exclude)
     }
     ripgrepArguments.push('--regexp', pattern, searchPath)
 
@@ -76,9 +80,17 @@ async function searchWithRipgrep(
 
     let collectedStdout = ''
     let collectedStderr = ''
+    let stdoutOverflow = false
 
     ripgrepProcess.stdout.on('data', (text: string) => {
+      if (stdoutOverflow) {
+        return
+      }
       collectedStdout += text
+      if (collectedStdout.length > STDOUT_COLLECT_LIMIT) {
+        stdoutOverflow = true
+        ripgrepProcess.kill()
+      }
     })
 
     ripgrepProcess.stderr.on('data', (text: string) => {
@@ -86,7 +98,7 @@ async function searchWithRipgrep(
     })
 
     ripgrepProcess.on('close', (exitCode) => {
-      if (exitCode === 0) {
+      if (exitCode === 0 || stdoutOverflow) {
         resolveResult(collectedStdout)
         return
       }
@@ -166,7 +178,7 @@ export const grep: Tool = {
     type: 'function',
     function: {
       name: 'grep',
-      description: 'Searches files for a regex pattern. Returns matching lines as `path:line:text`. Uses ripgrep when available, otherwise a Node fallback. Skips .git, node_modules, dist, build, .next, out, coverage. Confined to the current working directory. USE WHEN: finding where a symbol, string, or pattern appears in code. DO NOT USE FOR: listing files by name (use glob), reading a file (use read_file), or running grep/rg through run_shell. EXAMPLE: {"pattern": "TODO", "glob": "*.ts"} or case-insensitive {"pattern": "fixme", "caseSensitive": false}.',
+      description: 'Searches files for a regex pattern. Returns matching lines as `path:line:text`. Uses ripgrep when available (searches hidden files, respects .gitignore), otherwise a Node fallback. Skips .git, node_modules, dist, build, .next, out, coverage. Confined to the current working directory. USE WHEN: finding where a symbol, string, or pattern appears in code. DO NOT USE FOR: listing files by name (use glob), reading a file (use read_file), or running grep/rg through run_shell. EXAMPLE: {"pattern": "TODO", "glob": "*.ts"} or case-insensitive {"pattern": "fixme", "caseSensitive": false}.',
       parameters: {
         type: 'object',
         properties: {

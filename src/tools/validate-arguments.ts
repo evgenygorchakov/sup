@@ -50,6 +50,14 @@ export function validateArguments(definition: ToolDefinition, args: Record<strin
   const properties = schema.properties ?? {}
   const required = schema.required ?? []
 
+  if (typeof args !== 'object' || args === null || Array.isArray(args)) {
+    return [
+      `ERROR: invalid arguments for ${name}: expected a JSON object, got ${actualType(args)}.`,
+      `Expected parameters: ${describeParameters(properties, required)}.`,
+      'Fix the arguments and call the tool again.',
+    ].join(' ')
+  }
+
   const problems: string[] = []
 
   for (const key of required) {

@@ -83,6 +83,39 @@ function buildRequestBody(messages: Message[], shouldStream: boolean, tools?: To
   }
 }
 
+function normalizeToolCallArguments(raw: unknown): Record<string, unknown> {
+  if (typeof raw === 'string') {
+    const parsed = parseJsonObject<Record<string, unknown>>(raw)
+    return parsed !== null && !Array.isArray(parsed) ? parsed : {}
+  }
+  if (raw !== null && typeof raw === 'object' && !Array.isArray(raw)) {
+    return raw as Record<string, unknown>
+  }
+  return {}
+}
+
+function normalizeToolCalls(raw: unknown): ToolCall[] | undefined {
+  if (!Array.isArray(raw)) {
+    return undefined
+  }
+
+  const calls: ToolCall[] = []
+
+  for (const entry of raw) {
+    const candidate = entry as { id?: unknown, function?: { name?: unknown, arguments?: unknown } } | null
+    const name = candidate?.function?.name
+    if (typeof name !== 'string' || name.length === 0) {
+      continue
+    }
+    calls.push({
+      ...(typeof candidate?.id === 'string' ? { id: candidate.id } : {}),
+      function: { name, arguments: normalizeToolCallArguments(candidate?.function?.arguments) },
+    })
+  }
+
+  return calls.length > 0 ? calls : undefined
+}
+
 async function readCompleteResponse(response: Response): Promise<Message> {
   const envelope = await response.json() as {
     message?: { role?: unknown, content?: unknown, tool_calls?: unknown }
@@ -100,14 +133,10 @@ async function readCompleteResponse(response: Response): Promise<Message> {
   const role = typeof message.role === 'string' && (VALID_ROLES as readonly string[]).includes(message.role)
     ? message.role as Role
     : 'assistant'
-  const toolCalls = Array.isArray(message.tool_calls) && message.tool_calls.length > 0
-    ? message.tool_calls as ToolCall[]
-    : undefined
-
   return {
     role,
     content: typeof message.content === 'string' ? message.content : '',
-    tool_calls: toolCalls,
+    tool_calls: normalizeToolCalls(message.tool_calls),
   }
 }
 
@@ -172,7 +201,8 @@ function mergeLineIntoMessage(line: StreamedLine, reply: Message, onStreamPart: 
     onStreamPart({ thinking: partial.thinking })
   }
 
-  if (Array.isArray(partial.tool_calls) && partial.tool_calls.length > 0) {
-    reply.tool_calls = [...(reply.tool_calls ?? []), ...partial.tool_calls as ToolCall[]]
+  const streamedCalls = normalizeToolCalls(partial.tool_calls)
+  if (streamedCalls) {
+    reply.tool_calls = [...(reply.tool_calls ?? []), ...streamedCalls]
   }
 }

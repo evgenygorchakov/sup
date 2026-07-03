@@ -118,11 +118,13 @@ export const fetchUrl: Tool = {
     const { response, finalUrl } = fetchResult
 
     if (!response.ok) {
+      await response.body?.cancel().catch(() => undefined)
       return `ERROR: HTTP ${response.status} ${response.statusText}`
     }
 
     const contentType = (response.headers.get('content-type') ?? '').split(';')[0]!.trim().toLowerCase()
     if (contentType && !SUPPORTED_CONTENT_TYPES.some(type => contentType.startsWith(type))) {
+      await response.body?.cancel().catch(() => undefined)
       return `ERROR: unsupported content-type "${contentType}"`
     }
 

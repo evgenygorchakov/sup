@@ -42,7 +42,8 @@ function globToRegex(glob: string): RegExp {
         index += 1
         continue
       }
-      pattern += glob.slice(index, closeIndex + 1)
+      const body = glob.slice(index + 1, closeIndex)
+      pattern += `[${body.startsWith('!') ? `^${body.slice(1)}` : body}]`
       index = closeIndex + 1
       continue
     }

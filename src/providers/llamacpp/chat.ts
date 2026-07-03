@@ -146,7 +146,7 @@ function parseArguments(raw: unknown): Record<string, unknown> {
 
   try {
     const parsed: unknown = JSON.parse(raw)
-    return typeof parsed === 'object' && parsed !== null ? parsed as Record<string, unknown> : {}
+    return typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed) ? parsed as Record<string, unknown> : {}
   }
   catch {
     return {}

@@ -28,10 +28,21 @@ const PRIVATE_IPV4_RANGES: Array<[number, number]> = [
 ]
 
 const IPV4_MAPPED_IPV6_PATTERN = /^::ffff:(\d+\.\d+\.\d+\.\d+)$/i
+const IPV4_MAPPED_IPV6_HEX_PATTERN = /^::ffff:([0-9a-f]{1,4}):([0-9a-f]{1,4})$/i
 
 function isPrivateIpv4(address: string): boolean {
   const asInteger = parseIpv4Address(address)
   return PRIVATE_IPV4_RANGES.some(([rangeStart, rangeEnd]) => asInteger >= rangeStart && asInteger <= rangeEnd)
+}
+
+function mappedHexToIpv4(highWord: string, lowWord: string): string {
+  const high = Number.parseInt(highWord, 16)
+  const low = Number.parseInt(lowWord, 16)
+  return `${high >> 8}.${high & 0xFF}.${low >> 8}.${low & 0xFF}`
+}
+
+function stripIpv6Brackets(hostname: string): string {
+  return hostname.startsWith('[') && hostname.endsWith(']') ? hostname.slice(1, -1) : hostname
 }
 
 export function isPrivateHost(hostname: string): boolean {
@@ -64,6 +75,11 @@ export function isPrivateHost(hostname: string): boolean {
     if (mapped && isPrivateIpv4(mapped[1]!)) {
       return true
     }
+
+    const mappedHex = lowered.match(IPV4_MAPPED_IPV6_HEX_PATTERN)
+    if (mappedHex && isPrivateIpv4(mappedHexToIpv4(mappedHex[1]!, mappedHex[2]!))) {
+      return true
+    }
   }
 
   return false
@@ -72,17 +88,19 @@ export function isPrivateHost(hostname: string): boolean {
 export type HostCheck = | { ok: true } | { ok: false, error: string }
 
 export async function resolveAndCheckPublicHost(hostname: string): Promise<HostCheck> {
-  if (isPrivateHost(hostname)) {
+  const bareHost = stripIpv6Brackets(hostname)
+
+  if (isPrivateHost(bareHost)) {
     return { ok: false, error: `host ${hostname} is on the private/local network` }
   }
 
-  if (isIP(hostname)) {
+  if (isIP(bareHost)) {
     return { ok: true }
   }
 
   let addresses: { address: string }[]
   try {
-    addresses = await lookup(hostname, { all: true, verbatim: true })
+    addresses = await lookup(bareHost, { all: true, verbatim: true })
   }
   catch (error) {
     return { ok: false, error: `DNS lookup failed for ${hostname}: ${(error as Error).message}` }

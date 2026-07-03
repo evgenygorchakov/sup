@@ -26,8 +26,46 @@ Requires Node.js 24+ (the CLI runs its TypeScript sources directly, no build ste
 - Every setting is an `.env` variable with a sane default — see `.env.example`.
 - Defaults to Ollama; switch to llama.cpp for a single run with `sup --llama` (or `sup --provider <name>`) without touching `.env`. The active provider and model are printed at startup.
 - `AGENTS.md` in the working directory is appended to the system prompt.
-- Skills (like Claude Code skills): drop `.sup/skills/<name>/SKILL.md` with a `description` in the frontmatter (the skill name is the folder name); the body is loaded on demand via the `skill` tool.
+- Skills (like Claude Code skills): reusable instructions in `.sup/skills`, loaded on demand — see [Skills](#skills).
 - Paste an image from the clipboard
+
+## Skills
+
+Reusable instruction sets the model loads on demand, like Claude Code skills. Each skill is a folder in `.sup/skills` with a `SKILL.md`; the folder name is the skill name, and the frontmatter needs a `description`:
+
+```markdown
+---
+description: Release a new version of the package to npm.
+---
+
+Cut a release from the current state of main.
+
+## Steps
+
+1. Run `npm run lint` and fix anything it reports.
+2. Bump the version in package.json (patch unless the user says otherwise).
+3. Commit, tag `v<version>`, and run `npm publish`.
+
+## Verification
+
+- `npm run lint`
+- `git status --porcelain` prints nothing
+```
+
+How skills surface:
+
+- Skill names and descriptions go into the system prompt; when the task matches, the model loads the full body with the `skill` tool.
+- Small models are bad at noticing "this task matches a skill", so you can force one yourself: `/skills` lists them, `/skills <number|name> [task]` loads one into the conversation immediately.
+- Other files in the skill folder (subfolders included, e.g. `references/checklist.md`) are listed to the model as readable with `read_file`.
+
+Writing skills for small models:
+
+- Keep them short, linear, and imperative: one procedure per skill, concrete commands over judgment calls, no branching like "if X, see references/y.md".
+- Name the tools sup actually has — `read_file`, `write_file`, `edit_file`, `run_shell`, `grep`, `glob`, `web_search`, `fetch_url` — not another agent's tool names.
+- Everything between `## Steps` and the next heading becomes a ledger step, bullet lists included — keep notes and rules under their own heading.
+- A `## Steps` section with a numbered list unlocks [babysitter](#babysitter-mode) gating (needs `USE_BABYSITTER=true`; `BABYSITTER_GATED_SKILLS` is on by default): the steps become an enforced checklist the model ticks off with `ledger_update`. An optional `## Verification` section lists checks that must pass before the model may finish; commands are picked from inline code or fenced blocks and must start with a known runner (`npm`, `git`, `pytest`, `cargo`, ... — see `RUNNER_COMMAND` in `src/babysitter/parse-sections.ts`). Russian headings (`## Шаги`, `## Проверка`) work too.
+
+Porting Claude Code skills: they load as-is — the frontmatter convention is the same, multi-line `description: >-` is supported, unknown fields are ignored. But treat them as drafts, not drop-ins: rename tools to sup's names (`Read` → `read_file`, `Bash` → `run_shell`, `WebFetch` → `fetch_url`), strip mechanics sup doesn't have (`$ARGUMENTS`, `allowed-tools`, hooks, subagents), and shorten aggressively — skills written for frontier models are usually too long and too branchy for a <30B model to follow.
 
 ## Run journal
 

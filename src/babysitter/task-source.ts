@@ -32,15 +32,8 @@ function gatedSkillsEnabled(): boolean {
   return Config.USE_BABYSITTER && Config.BABYSITTER_GATED_SKILLS
 }
 
-function isGatedSkill(skill: Skill): boolean {
-  if (!gatedSkillsEnabled()) {
-    return false
-  }
-  return findSection(skill.body, STEPS_HEADINGS) !== null
-}
-
 export function activateSkill(skill: Skill): string | null {
-  if (!isGatedSkill(skill)) {
+  if (!gatedSkillsEnabled()) {
     return null
   }
   const steps = extractSteps(findSection(skill.body, STEPS_HEADINGS) ?? '')

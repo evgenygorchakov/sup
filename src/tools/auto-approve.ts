@@ -30,8 +30,5 @@ export function shouldAutoApprove(call: ToolCall): boolean {
   if (call.function.name === 'run_shell') {
     return canAutoApproveCall(call)
   }
-  if (!tool.mutates) {
-    return true
-  }
-  return isAutoModeActive()
+  return tool.autoApprove === true || isAutoModeActive()
 }

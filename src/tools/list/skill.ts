@@ -1,8 +1,6 @@
 import type { Tool } from '../../types.ts'
-import { join, relative } from 'node:path'
-import process from 'node:process'
 import { activateSkill } from '../../babysitter/index.ts'
-import { skills, skillsByName } from '../../skills/registry.ts'
+import { findSkill, renderSkillContent, skills } from '../../skills/registry.ts'
 import { blue } from '../../utils/colors.ts'
 
 const skillNames = skills.map(skill => skill.name)
@@ -34,18 +32,13 @@ export const skill: Tool = {
       return 'ERROR: skill expects { name: string }'
     }
 
-    const found = skillsByName[name]
+    const found = findSkill(name)
     if (!found) {
       const available = skillNames.length > 0 ? skillNames.join(', ') : '(none)'
       return `ERROR: unknown skill "${name}". Available skills: ${available}`
     }
 
-    const sections = [`# Skill: ${found.name}`, '', found.body]
-
-    if (found.files.length > 0) {
-      const paths = found.files.map(file => relative(process.cwd(), join(found.dir, file)))
-      sections.push('', `Bundled files you can open with read_file: ${paths.join(', ')}`)
-    }
+    const sections = [renderSkillContent(found)]
 
     const gateNote = activateSkill(found)
     if (gateNote) {

@@ -113,10 +113,6 @@ async function* walkFilesInside(start: string, workingDirectory: string, visited
   const entries = await readdir(start, { withFileTypes: true }).catch(() => [])
 
   for (const entry of entries) {
-    if (IGNORED_DIRECTORY_NAMES.has(entry.name)) {
-      continue
-    }
-
     const fullPath = join(start, entry.name)
 
     if (entry.isSymbolicLink()) {
@@ -131,10 +127,12 @@ async function* walkFilesInside(start: string, workingDirectory: string, visited
       }
 
       if (realStats.isDirectory()) {
-        yield* walkFilesInside(real, workingDirectory, visited)
+        if (!IGNORED_DIRECTORY_NAMES.has(entry.name)) {
+          yield* walkFilesInside(real, workingDirectory, visited)
+        }
       }
 
-      else if (realStats.isFile() && !isSensitiveFileName(entry.name)) {
+      else if (realStats.isFile() && !isSensitiveFileName(entry.name) && !isSensitiveFileName(basename(real))) {
         yield fullPath
       }
 
@@ -142,7 +140,9 @@ async function* walkFilesInside(start: string, workingDirectory: string, visited
     }
 
     if (entry.isDirectory()) {
-      yield* walkFilesInside(fullPath, workingDirectory, visited)
+      if (!IGNORED_DIRECTORY_NAMES.has(entry.name)) {
+        yield* walkFilesInside(fullPath, workingDirectory, visited)
+      }
     }
     else if (entry.isFile() && !isSensitiveFileName(entry.name)) {
       yield fullPath

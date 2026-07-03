@@ -28,7 +28,10 @@ const toolLines = [
   '- web_search — search the web; returns title/url/snippet entries.',
   '- fetch_url — fetch and read a URL.',
   ...(readOnly
-    ? ['You are in read-only mode: you can inspect files and search the web, but you cannot modify files or run commands. When a change is needed, describe exactly what to change (file, location, before and after) instead of attempting it.']
+    ? ['- You are in read-only mode: you can inspect files and search the web, but you cannot modify files or run commands. When a change is needed, describe exactly what to change (file, location, before and after) instead of attempting it.']
+    : []),
+  ...(!readOnly && !shellEnabled
+    ? ['- You cannot run shell commands. When a command is needed (build, test, git), give the user the exact command to run and continue from the result they report.']
     : []),
 ]
 
@@ -59,6 +62,8 @@ const workflowLines = [
   '- When the task is done, reply with plain text and no tool calls.',
 ]
 
+const languageName = Config.LANGUAGE.charAt(0).toUpperCase() + Config.LANGUAGE.slice(1)
+
 const styleLines = [
   '# Style',
   '- Be brief. Prefer 1-3 short lines unless the user asks for detail.',
@@ -66,7 +71,7 @@ const styleLines = [
   '- Do not restate tool output. Answer only what was asked. If you already know the answer from the conversation, answer directly without tools.',
   '- No emojis, no flattery, no apologies, no filler.',
   '- If the task cannot be done, say so directly.',
-  `Always respond in ${Config.LANGUAGE}.`,
+  `- Always respond in ${languageName}.`,
 ]
 
 export const SYSTEM_PROMPT = [...roleLines, ...toolLines, ...toolSelectionLines, ...workflowLines, ...styleLines].join('\n')

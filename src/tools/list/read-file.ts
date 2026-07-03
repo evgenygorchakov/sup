@@ -69,6 +69,9 @@ export const readFile: Tool = {
     }
 
     const lines = content.split('\n')
+    if (lines.length > 1 && lines[lines.length - 1] === '') {
+      lines.pop()
+    }
     const start = offset - 1
 
     if (start >= lines.length) {

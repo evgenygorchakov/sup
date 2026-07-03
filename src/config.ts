@@ -33,6 +33,7 @@ export interface ConfigShape {
   USE_TOOL_RESULT_COLLAPSE: boolean
   TOOL_RESULT_KEEP_RECENT: number
   TOOL_RESULT_COLLAPSE_MIN_CHARS: number
+  TOOL_RESULT_COLLAPSE_BATCH: number
   AUTO_APPROVE_SHELL_PATTERNS: readonly RegExp[]
   USE_BABYSITTER: boolean
   BABYSITTER_VERIFICATION_GATE: boolean
@@ -70,6 +71,7 @@ export const Config: ConfigShape = {
   USE_TOOL_RESULT_COLLAPSE: getEnvBoolean('USE_TOOL_RESULT_COLLAPSE', true),
   TOOL_RESULT_KEEP_RECENT: getEnvNumber('TOOL_RESULT_KEEP_RECENT', 8),
   TOOL_RESULT_COLLAPSE_MIN_CHARS: getEnvNumber('TOOL_RESULT_COLLAPSE_MIN_CHARS', 1500),
+  TOOL_RESULT_COLLAPSE_BATCH: getEnvNumber('TOOL_RESULT_COLLAPSE_BATCH', 4),
   AUTO_APPROVE_SHELL_PATTERNS: [
     /^(ls|pwd|wc|file|stat|which|echo|date|uname|whoami|id|tree)(\s|$)/,
     /^git (status|diff|log|show|rev-parse|blame|ls-files)(\s|$)(?!.*--output)/,
