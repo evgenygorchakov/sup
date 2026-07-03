@@ -1,9 +1,11 @@
 import type { Message, Role, ToolCall, ToolDefinition } from '../../types.ts'
 import type { OnStreamPart } from '../../ui/interactive/stream-printer.ts'
+import type { LoopGuard } from '../loop-guard.ts'
 import { Config } from '../../config.ts'
 import { RequestCancelledError } from '../cancel.ts'
 import { reportContextUsage } from '../context-usage.ts'
 import { requestTimeoutError, startIdleTimeout } from '../idle-timeout.ts'
+import { createLoopGuard } from '../loop-guard.ts'
 import { parseJsonObject, readResponseLines } from '../stream-lines.ts'
 import { getContextWindowTokenLimit } from './context-window.ts'
 import { getThinkingModeFor } from './thinking.ts'
@@ -60,15 +62,32 @@ export async function chat(messages: Message[], options: ChatOptions = {}): Prom
 
 function toOllamaMessages(messages: Message[]): object[] {
   return messages.map((message) => {
-    if (!message.images?.length) {
-      return message
+    const wireMessage: Record<string, unknown> = { role: message.role, content: message.content }
+    if (message.tool_calls?.length) {
+      wireMessage.tool_calls = message.tool_calls
     }
-    return { ...message, images: message.images.map(image => image.base64) }
+    if (message.tool_call_id) {
+      wireMessage.tool_call_id = message.tool_call_id
+    }
+    if (message.images?.length) {
+      wireMessage.images = message.images.map(image => image.base64)
+    }
+    return wireMessage
   })
 }
 
 function buildRequestBody(messages: Message[], shouldStream: boolean, tools?: ToolDefinition[], format?: object): Record<string, unknown> {
   const model = Config.MODEL
+  const options: Record<string, unknown> = {
+    num_ctx: getContextWindowTokenLimit(),
+    temperature: Config.TEMPERATURE,
+  }
+  if (Config.MAX_RESPONSE_TOKENS > 0) {
+    options.num_predict = Config.MAX_RESPONSE_TOKENS
+  }
+  if (Config.REPEAT_PENALTY > 0) {
+    options.repeat_penalty = Config.REPEAT_PENALTY
+  }
   return {
     model,
     messages: toOllamaMessages(messages),
@@ -76,10 +95,7 @@ function buildRequestBody(messages: Message[], shouldStream: boolean, tools?: To
     format,
     think: getThinkingModeFor(model),
     stream: shouldStream,
-    options: {
-      num_ctx: getContextWindowTokenLimit(),
-      temperature: Config.TEMPERATURE,
-    },
+    options,
   }
 }
 
@@ -155,6 +171,7 @@ interface StreamedLine {
 
 async function readStreamingResponse(response: Response, onStreamPart: OnStreamPart, onActivity: () => void): Promise<Message> {
   const reply: Message = { role: 'assistant', content: '' }
+  const loopGuard = createLoopGuard()
 
   for await (const rawLine of readResponseLines(response, onActivity)) {
     const line = rawLine.trim()
@@ -167,7 +184,14 @@ async function readStreamingResponse(response: Response, onStreamPart: OnStreamP
       continue
     }
 
-    mergeLineIntoMessage(parsedLine, reply, onStreamPart)
+    mergeLineIntoMessage(parsedLine, reply, onStreamPart, loopGuard)
+
+    const cutOff = loopGuard.cutOffReason()
+    if (cutOff) {
+      reply.content = loopGuard.trimLoopedTail(reply.content)
+      reply.cutOff = cutOff
+      break
+    }
 
     if (parsedLine.done) {
       reportContextUsage(parsedLine.prompt_eval_count, parsedLine.eval_count)
@@ -178,7 +202,7 @@ async function readStreamingResponse(response: Response, onStreamPart: OnStreamP
   return reply
 }
 
-function mergeLineIntoMessage(line: StreamedLine, reply: Message, onStreamPart: OnStreamPart): void {
+function mergeLineIntoMessage(line: StreamedLine, reply: Message, onStreamPart: OnStreamPart, loopGuard: LoopGuard): void {
   if (line.error) {
     throw new Error(`Ollama stream error: ${line.error}`)
   }
@@ -194,10 +218,12 @@ function mergeLineIntoMessage(line: StreamedLine, reply: Message, onStreamPart: 
 
   if (typeof partial.content === 'string' && partial.content.length > 0) {
     reply.content += partial.content
+    loopGuard.pushContent(partial.content)
     onStreamPart({ content: partial.content })
   }
 
   if (typeof partial.thinking === 'string' && partial.thinking.length > 0) {
+    loopGuard.pushThinking(partial.thinking)
     onStreamPart({ thinking: partial.thinking })
   }
 

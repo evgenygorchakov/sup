@@ -1,6 +1,6 @@
 import type { Interface as ReadlineInterface } from 'node:readline/promises'
 import type { ChatProvider } from './providers/types.ts'
-import type { Message, ToolCall } from './types.ts'
+import type { CutOffReason, Message, ToolCall } from './types.ts'
 import type { OnStreamPart } from './ui/interactive/stream-printer.ts'
 
 import process from 'node:process'
@@ -37,6 +37,18 @@ function buildBatchSignature(calls: ToolCall[]): string {
 
 const REJECTED_TOOL_RESULT = 'Rejected by user. Do not run this command.'
 const STOPPED_TOOL_RESULT = 'Not executed: the harness stopped this turn.'
+
+const CUT_OFF_CONSOLE_MESSAGES: Record<CutOffReason, string> = {
+  'content-loop': 'Model got stuck repeating itself. Response truncated.',
+  'thinking-loop': 'Model got stuck repeating itself while thinking. Response stopped.',
+  'thinking-flood': 'Model exceeded the thinking length limit. Response stopped.',
+}
+
+const CUT_OFF_NOTICES: Record<CutOffReason, string> = {
+  'content-loop': 'Stopped: your reply degenerated into repeating the same text and was truncated at the first repetition. Do not produce that text again. Take a different approach or wait for the user.',
+  'thinking-loop': 'Stopped: your thinking degenerated into repeating the same text. Think briefly and answer directly, or wait for the user.',
+  'thinking-flood': 'Stopped: your thinking exceeded the length limit. Think briefly and answer directly, or wait for the user.',
+}
 
 function pushUnexecutedToolResults(messages: Message[], calls: ToolCall[], content: string): void {
   for (const call of calls) {
@@ -119,6 +131,18 @@ export async function run(provider: ChatProvider, messages: Message[], readline:
 
     messages.push(reply)
     recordAssistant(reply)
+
+    if (reply.cutOff) {
+      if (didPrintAnything()) {
+        process.stderr.write('\n')
+      }
+      console.error(red(CUT_OFF_CONSOLE_MESSAGES[reply.cutOff]))
+      if (reply.tool_calls?.length) {
+        pushUnexecutedToolResults(messages, reply.tool_calls, STOPPED_TOOL_RESULT)
+      }
+      pushUserNotice(messages, CUT_OFF_NOTICES[reply.cutOff])
+      return
+    }
 
     if (!reply.tool_calls?.length) {
       if (didPrintAnything()) {

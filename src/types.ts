@@ -5,12 +5,15 @@ export interface ImageAttachment {
   mimeType: string
 }
 
+export type CutOffReason = 'content-loop' | 'thinking-loop' | 'thinking-flood'
+
 export interface Message {
   role: Role
   content: string
   images?: ImageAttachment[]
   tool_calls?: ToolCall[]
   tool_call_id?: string
+  cutOff?: CutOffReason
 }
 
 export interface ToolCall {

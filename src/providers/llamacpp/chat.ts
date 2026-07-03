@@ -1,9 +1,11 @@
 import type { Message, Role, ToolCall, ToolDefinition } from '../../types.ts'
 import type { OnStreamPart } from '../../ui/interactive/stream-printer.ts'
+import type { LoopGuard } from '../loop-guard.ts'
 import { Config } from '../../config.ts'
 import { RequestCancelledError } from '../cancel.ts'
 import { reportContextUsage } from '../context-usage.ts'
 import { requestTimeoutError, startIdleTimeout } from '../idle-timeout.ts'
+import { createLoopGuard } from '../loop-guard.ts'
 import { parseJsonObject, readResponseLines } from '../stream-lines.ts'
 
 const LLAMACPP_HOST = Config.LLAMACPP_HOST
@@ -62,6 +64,12 @@ function buildRequestBody(messages: Message[], shouldStream: boolean, tools?: To
     temperature: Config.TEMPERATURE,
   }
 
+  if (Config.MAX_RESPONSE_TOKENS > 0) {
+    body.max_tokens = Config.MAX_RESPONSE_TOKENS
+  }
+  if (Config.REPEAT_PENALTY > 0) {
+    body.repeat_penalty = Config.REPEAT_PENALTY
+  }
   if (tools?.length) {
     body.tools = tools
     body.tool_choice = 'auto'
@@ -220,6 +228,7 @@ interface ToolCallAccumulator {
 async function readStreamingResponse(response: Response, onStreamPart: OnStreamPart, onActivity: () => void): Promise<Message> {
   const reply: Message = { role: 'assistant', content: '' }
   const toolCalls = new Map<number, ToolCallAccumulator>()
+  const loopGuard = createLoopGuard()
 
   for await (const rawLine of readResponseLines(response, onActivity)) {
     const line = rawLine.trim()
@@ -234,7 +243,14 @@ async function readStreamingResponse(response: Response, onStreamPart: OnStreamP
 
     const chunk = parseJsonObject<StreamChunk>(payload)
     if (chunk) {
-      applyChunk(chunk, reply, toolCalls, onStreamPart)
+      applyChunk(chunk, reply, toolCalls, onStreamPart, loopGuard)
+    }
+
+    const cutOff = loopGuard.cutOffReason()
+    if (cutOff) {
+      reply.content = loopGuard.trimLoopedTail(reply.content)
+      reply.cutOff = cutOff
+      break
     }
   }
 
@@ -242,7 +258,7 @@ async function readStreamingResponse(response: Response, onStreamPart: OnStreamP
   return reply
 }
 
-function applyChunk(chunk: StreamChunk, reply: Message, toolCalls: Map<number, ToolCallAccumulator>, onStreamPart: OnStreamPart): void {
+function applyChunk(chunk: StreamChunk, reply: Message, toolCalls: Map<number, ToolCallAccumulator>, onStreamPart: OnStreamPart, loopGuard: LoopGuard): void {
   if (chunk.error) {
     throw new Error(`llama.cpp stream error: ${typeof chunk.error === 'string' ? chunk.error : JSON.stringify(chunk.error)}`)
   }
@@ -258,11 +274,13 @@ function applyChunk(chunk: StreamChunk, reply: Message, toolCalls: Map<number, T
 
   if (typeof delta.content === 'string' && delta.content.length > 0) {
     reply.content += delta.content
+    loopGuard.pushContent(delta.content)
     onStreamPart({ content: delta.content })
   }
 
   const reasoning = extractReasoning(delta)
   if (reasoning.length > 0) {
+    loopGuard.pushThinking(reasoning)
     onStreamPart({ thinking: reasoning })
   }
 
