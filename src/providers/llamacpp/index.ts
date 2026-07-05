@@ -8,8 +8,6 @@ import { chat as rawChat } from './chat.ts'
 import { getContextWindowTokenLimit, initializeContextWindow } from './context-window.ts'
 import { listInstalledModels } from './models.ts'
 
-const nativeToolsEnabled = Config.USE_NATIVE_TOOLS
-
 function toResponseFormat(tools: ToolDefinition[]): object {
   return {
     type: 'json_schema',
@@ -22,7 +20,7 @@ async function chat(messages: Message[], tools: ToolDefinition[], onStreamPart?:
     return await rawChat(messages, { onStreamPart, signal })
   }
 
-  if (nativeToolsEnabled) {
+  if (Config.USE_NATIVE_TOOLS) {
     return await rawChat(messages, { tools, onStreamPart, signal })
   }
 

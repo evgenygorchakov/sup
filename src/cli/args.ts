@@ -24,7 +24,7 @@ export function parseArgs(argv: string[]): CliArgs {
       provider = 'llamacpp'
     }
     else if (arg === '--provider') {
-      provider = argv[++index]
+      provider = argv[++index] ?? ''
     }
     else if (arg.startsWith('--provider=')) {
       provider = arg.slice('--provider='.length)

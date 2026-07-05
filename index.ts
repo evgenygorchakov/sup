@@ -17,7 +17,7 @@ import { restorePendingImages } from './src/images/pending.ts'
 import { getMode } from './src/plan/mode-state.ts'
 import { RequestCancelledError } from './src/providers/cancel.ts'
 import { getLastContextUsage } from './src/providers/context-usage.ts'
-import { getProvider } from './src/providers/index.ts'
+import { getProvider, providerNames } from './src/providers/index.ts'
 import { buildSkillsPromptSection, skills } from './src/skills/registry.ts'
 import { SYSTEM_PROMPT } from './src/system-prompt.ts'
 import { isSkipPermissionsActive, setSkipPermissions } from './src/tools/skip-permissions.ts'
@@ -100,6 +100,10 @@ async function handleUserTurn(provider: ChatProvider, messages: Message[], readl
 async function main() {
   const args = parseArgs(process.argv.slice(2))
   setSkipPermissions(args.skipPermissions)
+  if (args.provider !== undefined && !providerNames.includes(args.provider)) {
+    console.error(red(`Unknown provider ${JSON.stringify(args.provider)}. Available: ${providerNames.join(', ')}`))
+    process.exit(1)
+  }
   Config.PROVIDER = args.provider ?? Config.PROVIDER
   const provider = getProvider()
   await provider.initializeContextWindow()

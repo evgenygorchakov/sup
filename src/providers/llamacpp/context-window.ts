@@ -1,19 +1,12 @@
+import type { ContextWindowProbeResult } from '../context-window.ts'
 import { Config } from '../../config.ts'
-import { gray, yellow } from '../../utils/colors.ts'
-
-const PROPS_REQUEST_TIMEOUT_MS = 10_000
+import { createContextWindow } from '../context-window.ts'
 
 interface LlamaCppPropsResponse {
   n_ctx?: unknown
   default_generation_settings?: { n_ctx?: unknown }
   model_alias?: unknown
   model_path?: unknown
-}
-
-let resolvedContextWindowTokenLimit: number = Config.CONTEXT_WINDOW_TOKEN_LIMIT
-
-export function getContextWindowTokenLimit(): number {
-  return resolvedContextWindowTokenLimit
 }
 
 function readServerContextLength(props: LlamaCppPropsResponse): number | null {
@@ -39,43 +32,28 @@ function readServerModelName(props: LlamaCppPropsResponse): string {
   return Config.MODEL
 }
 
-function reportFallback(reason: string): void {
-  console.warn(yellow(`Could not detect context length from llama.cpp server: ${reason}. Using configured limit ${Config.CONTEXT_WINDOW_TOKEN_LIMIT}.`))
-}
-
-export async function initializeContextWindow(): Promise<void> {
-  const userRequestedLimit = Config.CONTEXT_WINDOW_TOKEN_LIMIT
-  resolvedContextWindowTokenLimit = userRequestedLimit
-
-  let response: Response
-  try {
-    response = await fetch(`${Config.LLAMACPP_HOST}/props`, {
-      signal: AbortSignal.timeout(PROPS_REQUEST_TIMEOUT_MS),
-    })
-  }
-  catch (error) {
-    reportFallback(error instanceof Error ? error.message : String(error))
-    return
-  }
+async function probeServer(signal: AbortSignal): Promise<ContextWindowProbeResult> {
+  const response = await fetch(`${Config.LLAMACPP_HOST}/props`, { signal })
 
   if (!response.ok) {
-    reportFallback(`HTTP ${response.status}`)
-    return
+    return { detected: false, reason: `HTTP ${response.status}` }
   }
 
-  const payload = await response.json() as LlamaCppPropsResponse
-  const serverMax = readServerContextLength(payload)
+  const props = await response.json() as LlamaCppPropsResponse
+  const serverMax = readServerContextLength(props)
 
   if (serverMax === null) {
-    reportFallback('/props did not report n_ctx')
-    return
+    return { detected: false, reason: '/props did not report n_ctx' }
   }
 
-  const effectiveLimit = Math.min(userRequestedLimit, serverMax)
-  resolvedContextWindowTokenLimit = effectiveLimit
-
-  const detail = effectiveLimit === serverMax
-    ? `${effectiveLimit} tokens`
-    : `${effectiveLimit} of ${serverMax} tokens`
-  console.warn(gray(`Connected to llama.cpp (model ${readServerModelName(payload)}, context: ${detail})`))
+  return {
+    detected: true,
+    serverMax,
+    banner: detail => `Connected to llama.cpp (model ${readServerModelName(props)}, context: ${detail})`,
+  }
 }
+
+export const { initializeContextWindow, getContextWindowTokenLimit } = createContextWindow(
+  probeServer,
+  reason => `Could not detect context length from llama.cpp server: ${reason}. Using configured limit ${Config.CONTEXT_WINDOW_TOKEN_LIMIT}.`,
+)
