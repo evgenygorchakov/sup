@@ -3,7 +3,7 @@ import { Buffer } from 'node:buffer'
 import { mkdir, stat, writeFile as writeToDisk } from 'node:fs/promises'
 import { basename, dirname } from 'node:path'
 import { blue } from '../../utils/colors.ts'
-import { isSensitiveFileName, resolveInsideWorkingDirectory } from './shared.ts'
+import { isProtectedProjectPath, isSensitiveFileName, resolveInsideWorkingDirectory } from './shared.ts'
 
 async function fileExists(absolute: string): Promise<boolean> {
   try {
@@ -62,6 +62,10 @@ export const writeFile: Tool = {
 
     if (isSensitiveFileName(basename(resolved.absolute))) {
       return `ERROR: refused to write sensitive file "${path}"`
+    }
+
+    if (await isProtectedProjectPath(resolved.absolute)) {
+      return `ERROR: refused to write inside a protected directory (.git/.sup) "${path}"`
     }
 
     if (!overwrite && await fileExists(resolved.absolute)) {

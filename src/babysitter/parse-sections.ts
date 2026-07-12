@@ -1,3 +1,5 @@
+import { containsShellMetacharacters } from '../tools/shell-auto-approve.ts'
+
 export const STEPS_HEADINGS = ['steps', 'шаги'] as const
 export const VERIFICATION_HEADINGS = ['verification', 'проверка', 'верификация'] as const
 
@@ -143,6 +145,6 @@ export function extractCommands(verificationSection: string): string[] {
     }
   }
 
-  const unique = [...new Set(commands)].filter(cmd => cmd.length > 0 && !cmd.includes('\0'))
+  const unique = [...new Set(commands)].filter(cmd => cmd.length > 0 && !cmd.includes('\0') && !containsShellMetacharacters(cmd))
   return unique.slice(0, MAX_COMMANDS)
 }

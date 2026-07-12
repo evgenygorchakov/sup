@@ -2,7 +2,7 @@ import type { Tool } from '../../types.ts'
 import { readFile as readFromDisk, writeFile as writeToDisk } from 'node:fs/promises'
 import { basename } from 'node:path'
 import { blue } from '../../utils/colors.ts'
-import { isSensitiveFileName, resolveInsideWorkingDirectory } from './shared.ts'
+import { isProtectedProjectPath, isSensitiveFileName, resolveInsideWorkingDirectory } from './shared.ts'
 
 export const editFile: Tool = {
   definition: {
@@ -51,6 +51,10 @@ export const editFile: Tool = {
 
     if (isSensitiveFileName(basename(resolved.absolute))) {
       return `ERROR: refused to edit sensitive file "${path}"`
+    }
+
+    if (await isProtectedProjectPath(resolved.absolute)) {
+      return `ERROR: refused to edit inside a protected directory (.git/.sup) "${path}"`
     }
 
     let content: string

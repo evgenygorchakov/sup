@@ -85,7 +85,7 @@ export function isPrivateHost(hostname: string): boolean {
   return false
 }
 
-export type HostCheck = | { ok: true } | { ok: false, error: string }
+export type HostCheck = | { ok: true, addresses: string[] } | { ok: false, error: string }
 
 export async function resolveAndCheckPublicHost(hostname: string): Promise<HostCheck> {
   const bareHost = stripIpv6Brackets(hostname)
@@ -95,7 +95,7 @@ export async function resolveAndCheckPublicHost(hostname: string): Promise<HostC
   }
 
   if (isIP(bareHost)) {
-    return { ok: true }
+    return { ok: true, addresses: [bareHost] }
   }
 
   let addresses: { address: string }[]
@@ -112,5 +112,9 @@ export async function resolveAndCheckPublicHost(hostname: string): Promise<HostC
     }
   }
 
-  return { ok: true }
+  if (addresses.length === 0) {
+    return { ok: false, error: `DNS lookup returned no addresses for ${hostname}` }
+  }
+
+  return { ok: true, addresses: addresses.map(entry => entry.address) }
 }

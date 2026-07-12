@@ -14,6 +14,7 @@ import { commands, runSlashCommand } from './src/commands/registry.ts'
 import { Config } from './src/config.ts'
 import { buildUserMessage } from './src/images/build-message.ts'
 import { restorePendingImages } from './src/images/pending.ts'
+import { recordUserMessage } from './src/journal/index.ts'
 import { getMode } from './src/plan/mode-state.ts'
 import { RequestCancelledError } from './src/providers/cancel.ts'
 import { getLastContextUsage } from './src/providers/context-usage.ts'
@@ -72,6 +73,16 @@ async function loadProjectInstructions(): Promise<string | null> {
 }
 
 const CANCELLED_NOTICE = yellow('\n⏹  Cancelled. Type your message again.')
+const INTERRUPTED_NOTICE = yellow('\n⏹  Interrupted. The work so far is kept; type your next message.')
+
+const INTERRUPTED_TURN_RECORD = 'Note: the user interrupted the previous turn (Esc) before it finished. Any tool calls shown above already ran and their results are final. Do not redo that work; continue from the user\'s next message.'
+
+function noteInterruptedTurn(messages: Message[]): void {
+  const notice: Message = { role: 'user', content: INTERRUPTED_TURN_RECORD }
+  messages.push(notice)
+  recordUserMessage(notice)
+  console.warn(INTERRUPTED_NOTICE)
+}
 
 async function handleUserTurn(provider: ChatProvider, messages: Message[], readline: ReadlineInterface, userInput: string): Promise<void> {
   const mark = messages.length
@@ -86,11 +97,16 @@ async function handleUserTurn(provider: ChatProvider, messages: Message[], readl
   }
   catch (error) {
     if (error instanceof RequestCancelledError) {
-      messages.length = mark
-      if (message.images) {
-        restorePendingImages(message.images)
+      if (messages.length > mark + 1) {
+        noteInterruptedTurn(messages)
       }
-      console.warn(CANCELLED_NOTICE)
+      else {
+        messages.length = mark
+        if (message.images) {
+          restorePendingImages(message.images)
+        }
+        console.warn(CANCELLED_NOTICE)
+      }
       return
     }
     throw error
@@ -228,7 +244,21 @@ async function main() {
             break
           }
           if (result.kind === 'run') {
-            await run(provider, messages, readline, { skipPlanApproval: true })
+            const runMark = messages.length
+            try {
+              await run(provider, messages, readline, { skipPlanApproval: true })
+            }
+            catch (error) {
+              if (!(error instanceof RequestCancelledError)) {
+                throw error
+              }
+              if (messages.length > runMark) {
+                noteInterruptedTurn(messages)
+              }
+              else {
+                console.warn(CANCELLED_NOTICE)
+              }
+            }
           }
           continue
         }

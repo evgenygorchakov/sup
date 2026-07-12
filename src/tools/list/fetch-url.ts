@@ -1,5 +1,11 @@
+import type { LookupAddress } from 'node:dns'
+import type { IncomingMessage } from 'node:http'
+import type { LookupFunction } from 'node:net'
 import type { Tool } from '../../types.ts'
 import { Buffer } from 'node:buffer'
+import { request as httpRequest } from 'node:http'
+import { request as httpsRequest } from 'node:https'
+import { isIP } from 'node:net'
 import { Config } from '../../config.ts'
 import { cyan } from '../../utils/colors.ts'
 import { htmlToText } from '../../utils/html-to-text.ts'
@@ -11,7 +17,56 @@ const SUPPORTED_CONTENT_TYPES = ['text/html', 'text/plain', 'text/markdown', 'ap
 const PREVIEW_LINE_COUNT = 3
 const MAX_REDIRECTS = 5
 
-type SafeFetchResult = | { ok: true, response: Response, finalUrl: URL } | { ok: false, error: string }
+interface RawResponse {
+  status: number
+  statusText: string
+  contentType: string
+  location: string | null
+  stream: IncomingMessage
+}
+
+function pinnedLookup(addresses: string[]): LookupFunction {
+  const entries: LookupAddress[] = addresses.map(address => ({ address, family: isIP(address) === 6 ? 6 : 4 }))
+
+  return (_hostname, options, callback) => {
+    if (options.all) {
+      callback(null, entries)
+      return
+    }
+    const first = entries[0]!
+    callback(null, first.address, first.family)
+  }
+}
+
+function performRequest(url: URL, addresses: string[]): Promise<RawResponse> {
+  const requestImpl = url.protocol === 'https:' ? httpsRequest : httpRequest
+
+  return new Promise((resolve, reject) => {
+    const request = requestImpl(url, {
+      method: 'GET',
+      lookup: pinnedLookup(addresses),
+      headers: {
+        'User-Agent': USER_AGENT,
+        'Accept': 'text/html,text/plain,application/json,application/xml;q=0.9',
+      },
+      signal: AbortSignal.timeout(Config.FETCH_URL_TIMEOUT_MS),
+    }, (response) => {
+      const rawContentType = response.headers['content-type'] ?? ''
+      const location = response.headers.location
+      resolve({
+        status: response.statusCode ?? 0,
+        statusText: response.statusMessage ?? '',
+        contentType: (Array.isArray(rawContentType) ? rawContentType[0] ?? '' : rawContentType).split(';')[0]!.trim().toLowerCase(),
+        location: typeof location === 'string' ? location : null,
+        stream: response,
+      })
+    })
+    request.on('error', reject)
+    request.end()
+  })
+}
+
+type SafeFetchResult = | { ok: true, response: RawResponse, finalUrl: URL } | { ok: false, error: string }
 
 async function followRedirectsSafely(initialUrl: URL): Promise<SafeFetchResult> {
   let url = initialUrl
@@ -22,16 +77,9 @@ async function followRedirectsSafely(initialUrl: URL): Promise<SafeFetchResult> 
       return { ok: false, error: hostCheck.error }
     }
 
-    let response: Response
+    let response: RawResponse
     try {
-      response = await fetch(url, {
-        headers: {
-          'User-Agent': USER_AGENT,
-          'Accept': 'text/html,text/plain,application/json,application/xml;q=0.9',
-        },
-        redirect: 'manual',
-        signal: AbortSignal.timeout(Config.FETCH_URL_TIMEOUT_MS),
-      })
+      response = await performRequest(url, hostCheck.addresses)
     }
     catch (error) {
       return { ok: false, error: (error as Error).message }
@@ -41,19 +89,18 @@ async function followRedirectsSafely(initialUrl: URL): Promise<SafeFetchResult> 
       return { ok: true, response, finalUrl: url }
     }
 
-    const location = response.headers.get('location')
-    await response.body?.cancel().catch(() => undefined)
+    response.stream.destroy()
 
-    if (!location) {
+    if (!response.location) {
       return { ok: false, error: `redirect status ${response.status} without Location header` }
     }
 
     let nextUrl: URL
     try {
-      nextUrl = new URL(location, url)
+      nextUrl = new URL(response.location, url)
     }
     catch {
-      return { ok: false, error: `invalid redirect Location: ${location}` }
+      return { ok: false, error: `invalid redirect Location: ${response.location}` }
     }
 
     if (nextUrl.protocol !== 'http:' && nextUrl.protocol !== 'https:') {
@@ -117,19 +164,26 @@ export const fetchUrl: Tool = {
 
     const { response, finalUrl } = fetchResult
 
-    if (!response.ok) {
-      await response.body?.cancel().catch(() => undefined)
+    if (response.status < 200 || response.status >= 300) {
+      response.stream.destroy()
       return `ERROR: HTTP ${response.status} ${response.statusText}`
     }
 
-    const contentType = (response.headers.get('content-type') ?? '').split(';')[0]!.trim().toLowerCase()
+    const contentType = response.contentType
     if (contentType && !SUPPORTED_CONTENT_TYPES.some(type => contentType.startsWith(type))) {
-      await response.body?.cancel().catch(() => undefined)
+      response.stream.destroy()
       return `ERROR: unsupported content-type "${contentType}"`
     }
 
-    const { text: rawText, bytesRead, truncated } = await readBoundedText(response, byteLimit)
+    let bounded: { text: string, bytesRead: number, truncated: boolean }
+    try {
+      bounded = await readBoundedText(response.stream, byteLimit)
+    }
+    catch (error) {
+      return `ERROR: ${(error as Error).message}`
+    }
 
+    const { text: rawText, bytesRead, truncated } = bounded
     const isHtmlContent = contentType.startsWith('text/html') || contentType.startsWith('application/xhtml')
     const text = isHtmlContent ? htmlToText(rawText) : rawText
 
@@ -169,41 +223,26 @@ export const fetchUrl: Tool = {
   autoApprove: false,
 }
 
-async function readBoundedText(response: Response, byteLimit: number): Promise<{ text: string, bytesRead: number, truncated: boolean }> {
-  const reader = response.body?.getReader()
-
-  if (!reader) {
-    const fallback = await response.text()
-    const limited = fallback.slice(0, byteLimit)
-    return { text: limited, bytesRead: Buffer.byteLength(limited), truncated: fallback.length > limited.length }
-  }
-
+async function readBoundedText(stream: IncomingMessage, byteLimit: number): Promise<{ text: string, bytesRead: number, truncated: boolean }> {
   const chunks: Buffer[] = []
   let bytesRead = 0
   let truncated = false
 
-  while (true) {
-    const { done, value } = await reader.read()
-    if (done) {
-      break
-    }
-    if (!value) {
-      continue
-    }
-
-    if (bytesRead + value.byteLength > byteLimit) {
+  for await (const chunk of stream) {
+    const buffer = chunk as Buffer
+    if (bytesRead + buffer.byteLength > byteLimit) {
       const remaining = byteLimit - bytesRead
       if (remaining > 0) {
-        chunks.push(Buffer.from(value.slice(0, remaining)))
+        chunks.push(buffer.subarray(0, remaining))
         bytesRead += remaining
       }
       truncated = true
-      await reader.cancel()
+      stream.destroy()
       break
     }
 
-    chunks.push(Buffer.from(value))
-    bytesRead += value.byteLength
+    chunks.push(buffer)
+    bytesRead += buffer.byteLength
   }
 
   return { text: Buffer.concat(chunks).toString('utf-8'), bytesRead, truncated }

@@ -1,5 +1,5 @@
 import { readdir, realpath, stat } from 'node:fs/promises'
-import { basename, dirname, join, resolve, sep } from 'node:path'
+import { basename, dirname, join, relative, resolve, sep } from 'node:path'
 import process from 'node:process'
 
 type ResolvedPath = | { ok: true, absolute: string } | { ok: false, error: string }
@@ -81,6 +81,18 @@ export async function resolveInsideWorkingDirectory(path: string): Promise<Resol
   }
 
   return { ok: true, absolute }
+}
+
+const PROTECTED_DIRECTORY_NAMES = new Set(['.git', '.sup'])
+
+export async function isProtectedProjectPath(absolute: string): Promise<boolean> {
+  const workingDirectory = await getWorkingDirectoryRealPath()
+  if (!isInside(absolute, workingDirectory)) {
+    return false
+  }
+  return relative(workingDirectory, absolute)
+    .split(sep)
+    .some(segment => PROTECTED_DIRECTORY_NAMES.has(segment))
 }
 
 export async function* walkFiles(start: string): AsyncGenerator<string> {

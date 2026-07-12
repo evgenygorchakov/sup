@@ -65,8 +65,8 @@ function parseResult(text: string): ParsedResult {
   if (stdoutAt === -1) {
     return { ok: false }
   }
-  const stderrAt = text.lastIndexOf(STDERR_MARKER)
-  if (stderrAt === -1 || stderrAt <= stdoutAt) {
+  const stderrAt = text.indexOf(STDERR_MARKER, stdoutAt + STDOUT_MARKER.length)
+  if (stderrAt === -1) {
     return { ok: false }
   }
   return {

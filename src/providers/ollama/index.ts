@@ -8,14 +8,12 @@ import { chat as rawChat } from './chat.ts'
 import { getContextWindowTokenLimit, initializeContextWindow } from './context-window.ts'
 import { listInstalledModels } from './models.ts'
 
-const nativeToolsEnabled = Config.USE_NATIVE_TOOLS
-
 async function chat(messages: Message[], tools: ToolDefinition[], onStreamPart?: OnStreamPart, signal?: AbortSignal): Promise<Message> {
   if (!tools.length) {
     return await rawChat(messages, { onStreamPart, signal })
   }
 
-  if (nativeToolsEnabled) {
+  if (Config.USE_NATIVE_TOOLS) {
     return await rawChat(messages, { tools, onStreamPart, signal })
   }
 

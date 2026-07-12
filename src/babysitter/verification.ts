@@ -3,7 +3,6 @@ import type { Message } from '../types.ts'
 import process from 'node:process'
 import { Config } from '../config.ts'
 import { appendEvent, recordUserMessage } from '../journal/index.ts'
-import { isAutoModeActive } from '../plan/mode-state.ts'
 import { executeShellCommand } from '../tools/list/run-shell.ts'
 import { isShellCommandAutoApprovable } from '../tools/shell-auto-approve.ts'
 import { isSkipPermissionsActive } from '../tools/skip-permissions.ts'
@@ -69,7 +68,7 @@ function pushUserMessage(messages: Message[], content: string): void {
 }
 
 function checksNeedApproval(commands: string[]): boolean {
-  if (areGateChecksApproved() || isSkipPermissionsActive() || isAutoModeActive()) {
+  if (areGateChecksApproved() || isSkipPermissionsActive()) {
     return false
   }
   return commands.some(command => !isShellCommandAutoApprovable(command))

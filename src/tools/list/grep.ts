@@ -1,13 +1,13 @@
 import type { Tool } from '../../types.ts'
 import { spawn, spawnSync } from 'node:child_process'
-import { readFile as readFromDisk, stat } from 'node:fs/promises'
+import { stat } from 'node:fs/promises'
 import { basename, relative } from 'node:path'
 import process from 'node:process'
+import { Worker } from 'node:worker_threads'
 import { green } from '../../utils/colors.ts'
-import { isSensitiveFileName, OUTPUT_CHAR_LIMIT, resolveInsideWorkingDirectory, truncateText, walkFiles } from './shared.ts'
+import { isSensitiveFileName, OUTPUT_CHAR_LIMIT, resolveInsideWorkingDirectory, truncateText } from './shared.ts'
 
 const SEARCH_TIMEOUT_MS = 30_000
-const MAX_FILE_BYTES = 5 * 1024 * 1024
 const PREVIEW_MATCH_COUNT = 10
 const STDOUT_COLLECT_LIMIT = OUTPUT_CHAR_LIMIT * 2
 
@@ -41,15 +41,6 @@ const ripgrepAvailable = (() => {
     return false
   }
 })()
-
-function globToRegex(glob: string): RegExp {
-  const escaped = glob
-    .replace(/[.+^${}()|[\]\\]/g, '\\$&')
-    .replace(/\*/g, '.*')
-    .replace(/\?/g, '.')
-
-  return new RegExp(`^${escaped}$`)
-}
 
 async function searchWithRipgrep(
   pattern: string,
@@ -115,62 +106,54 @@ async function searchWithRipgrep(
   })
 }
 
-async function searchWithNode(
+type NodeSearchMessage
+  = | { ok: true, result: string }
+    | { ok: false, error: string }
+
+function runNodeSearchInWorker(
   pattern: string,
   searchPath: string,
   glob: string | undefined,
   caseSensitive: boolean,
 ): Promise<string> {
-  let regex: RegExp
-  try {
-    regex = new RegExp(pattern, caseSensitive ? '' : 'i')
-  }
-  catch (error) {
-    return `ERROR: invalid regex: ${(error as Error).message}`
-  }
-
-  const globRegex = glob ? globToRegex(glob) : null
-  const collectedMatches: string[] = []
-  const workingDirectory = process.cwd()
-
-  for await (const file of walkFiles(searchPath)) {
-    if (globRegex && !globRegex.test(basename(file))) {
-      continue
-    }
-
-    const fileStats = await stat(file).catch(() => null)
-    if (!fileStats || fileStats.size > MAX_FILE_BYTES) {
-      continue
-    }
-
-    let content: string
+  return new Promise((resolveResult) => {
+    let worker: Worker
     try {
-      content = await readFromDisk(file, 'utf8')
+      worker = new Worker(new URL('./grep-worker.ts', import.meta.url), {
+        workerData: { pattern, searchPath, glob, caseSensitive },
+      })
     }
-    catch {
-      continue
+    catch (error) {
+      resolveResult(`ERROR: ${(error as Error).message}`)
+      return
     }
 
-    if (content.includes('\0')) {
-      continue
-    }
-
-    const lines = content.split('\n')
-    const relativePath = relative(workingDirectory, file) || file
-    let lineNumber = 0
-    for (const line of lines) {
-      lineNumber += 1
-      if (regex.test(line)) {
-        collectedMatches.push(`${relativePath}:${lineNumber}:${line}`)
+    let settled = false
+    let timer: ReturnType<typeof setTimeout>
+    const finish = (value: string): void => {
+      if (settled) {
+        return
       }
+      settled = true
+      clearTimeout(timer)
+      void worker.terminate()
+      resolveResult(value)
     }
-  }
 
-  if (collectedMatches.length === 0) {
-    return `No matches for "${pattern}" in ${relative(workingDirectory, searchPath) || '.'}`
-  }
+    timer = setTimeout(() => {
+      finish(`ERROR: search timed out after ${SEARCH_TIMEOUT_MS / 1000}s (the pattern may be too expensive); narrow the pattern or path`)
+    }, SEARCH_TIMEOUT_MS)
 
-  return collectedMatches.join('\n')
+    worker.on('message', (message: NodeSearchMessage) => {
+      finish(message.ok ? message.result : `ERROR: ${message.error}`)
+    })
+    worker.on('error', (error: Error) => finish(`ERROR: ${error.message}`))
+    worker.on('exit', (code) => {
+      if (code !== 0) {
+        finish(`ERROR: grep worker stopped unexpectedly (exit ${code})`)
+      }
+    })
+  })
 }
 
 export const grep: Tool = {
@@ -231,7 +214,7 @@ export const grep: Tool = {
 
     const result = ripgrepAvailable
       ? await searchWithRipgrep(pattern, resolved.absolute, glob, caseSensitive)
-      : await searchWithNode(pattern, resolved.absolute, glob, caseSensitive)
+      : await runNodeSearchInWorker(pattern, resolved.absolute, glob, caseSensitive)
 
     return truncateText(result)
   },
