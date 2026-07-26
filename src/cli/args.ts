@@ -3,6 +3,7 @@ export interface CliArgs {
   resumeRequested: boolean
   resumeRunId?: string
   skipPermissions: boolean
+  noSystemPrompt: boolean
   promptArgs: string[]
 }
 
@@ -13,6 +14,7 @@ export function parseArgs(argv: string[]): CliArgs {
   let resumeRequested = false
   let resumeRunId: string | undefined
   let skipPermissions = false
+  let noSystemPrompt = false
   const promptArgs: string[] = []
 
   for (let index = 0; index < argv.length; index++) {
@@ -39,10 +41,13 @@ export function parseArgs(argv: string[]): CliArgs {
     else if (arg === '--dangerously-skip-permissions') {
       skipPermissions = true
     }
+    else if (arg === '--no-system-prompt') {
+      noSystemPrompt = true
+    }
     else {
       promptArgs.push(arg)
     }
   }
 
-  return { provider, resumeRequested, resumeRunId, skipPermissions, promptArgs }
+  return { provider, resumeRequested, resumeRunId, skipPermissions, noSystemPrompt, promptArgs }
 }

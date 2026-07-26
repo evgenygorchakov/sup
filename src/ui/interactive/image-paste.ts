@@ -1,30 +1,17 @@
 import type { EventEmitter } from 'node:events'
 import type { Interface as ReadlineInterface } from 'node:readline/promises'
-import type { PromptLineBuffer } from './below-cursor.ts'
+import type { NoticeArea } from './notice-area.ts'
 import { readClipboardImage } from '../../images/clipboard.ts'
 import { addPendingImage } from '../../images/pending.ts'
 import { gray, yellow } from '../../utils/colors.ts'
-import { paintBelowCursor } from './below-cursor.ts'
 
 export function installImagePasteHandler(
   inputStream: EventEmitter,
-  readline: Pick<ReadlineInterface, 'write'> & PromptLineBuffer,
+  readline: Pick<ReadlineInterface, 'write'>,
+  notices: NoticeArea,
 ): { setActive: (value: boolean) => void } {
   let active = false
   let busy = false
-  let noticeVisible = false
-
-  function showNotice(text: string): void {
-    paintBelowCursor(readline, `\r\n${text}`)
-    noticeVisible = true
-  }
-
-  function eraseNotice(): void {
-    if (noticeVisible) {
-      paintBelowCursor(readline, '')
-      noticeVisible = false
-    }
-  }
 
   async function handlePaste(): Promise<void> {
     if (busy) {
@@ -34,23 +21,19 @@ export function installImagePasteHandler(
     try {
       const image = await readClipboardImage()
       if (!image) {
-        showNotice(gray('No image in clipboard.'))
+        notices.flash(gray('No image in clipboard.'))
         return
       }
       const index = addPendingImage(image)
       readline.write(`[image #${index}] `)
     }
     catch {
-      showNotice(yellow('Could not read image from clipboard.'))
+      notices.flash(yellow('Could not read image from clipboard.'))
     }
     finally {
       busy = false
     }
   }
-
-  inputStream.on('keypress', () => {
-    eraseNotice()
-  })
 
   inputStream.on('ctrl-v', () => {
     if (active) {
@@ -62,7 +45,7 @@ export function installImagePasteHandler(
     setActive(value) {
       active = value
       if (!active) {
-        eraseNotice()
+        notices.clear()
       }
     },
   }

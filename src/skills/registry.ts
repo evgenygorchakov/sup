@@ -2,11 +2,18 @@ import type { Skill } from './types.ts'
 import { readdirSync, readFileSync, statSync } from 'node:fs'
 import { join, relative, resolve } from 'node:path'
 import process from 'node:process'
+import { Config } from '../config.ts'
 import { yellow } from '../utils/colors.ts'
 import { parseFrontmatter } from './loader.ts'
 
-const SKILLS_SUBDIR = ['.sup', 'skills']
 const SKILL_FILE = 'SKILL.md'
+const SUP_SKILLS_DIR = '.sup/skills'
+const CLAUDE_SKILLS_DIR = '.claude/skills'
+
+/** Own skills first, so a name in `.sup/skills` wins over the same one in `.claude/skills`. */
+export const skillDirs: readonly string[] = Config.USE_CLAUDE_SKILLS
+  ? [SUP_SKILLS_DIR, CLAUDE_SKILLS_DIR]
+  : [SUP_SKILLS_DIR]
 
 function listSkillFiles(skillDir: string): string[] {
   return readdirSync(skillDir, { recursive: true })
@@ -15,9 +22,7 @@ function listSkillFiles(skillDir: string): string[] {
     .sort()
 }
 
-function loadSkills(): Skill[] {
-  const dir = resolve(process.cwd(), ...SKILLS_SUBDIR)
-
+function loadSkillsFrom(dir: string, taken: Set<string>): Skill[] {
   let entries: string[]
   try {
     entries = readdirSync(dir)
@@ -29,6 +34,10 @@ function loadSkills(): Skill[] {
   const loaded: Skill[] = []
 
   for (const entry of entries.sort()) {
+    if (taken.has(entry.toLowerCase())) {
+      continue
+    }
+
     const skillDir = join(dir, entry)
     if (!statSync(skillDir, { throwIfNoEntry: false })?.isDirectory()) {
       continue
@@ -49,10 +58,19 @@ function loadSkills(): Skill[] {
       continue
     }
 
+    taken.add(entry.toLowerCase())
     loaded.push({ name: entry, description, body, dir: skillDir, files: listSkillFiles(skillDir) })
   }
 
   return loaded
+}
+
+function loadSkills(): Skill[] {
+  const taken = new Set<string>()
+
+  return skillDirs
+    .flatMap(dir => loadSkillsFrom(resolve(process.cwd(), dir), taken))
+    .sort((left, right) => left.name.localeCompare(right.name))
 }
 
 export const skills: Skill[] = loadSkills()

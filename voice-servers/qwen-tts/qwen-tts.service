@@ -1,0 +1,14 @@
+[Unit]
+Description=Qwen3-TTS speech server with voice cloning
+After=default.target
+
+[Service]
+ExecStart=%h/.local/bin/qwen-tts-serve
+WorkingDirectory=%h/.local/share/qwen-tts
+Environment=HF_HOME=%h/.local/share/qwen-tts/models
+Environment=QWEN_TTS_LANGUAGE=russian
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=default.target

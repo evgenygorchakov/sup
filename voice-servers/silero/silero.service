@@ -1,0 +1,12 @@
+[Unit]
+Description=Silero v5 Russian text-to-speech server
+After=default.target
+
+[Service]
+ExecStart=%h/.local/bin/silero-serve
+WorkingDirectory=%h/.local/share/silero
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=default.target

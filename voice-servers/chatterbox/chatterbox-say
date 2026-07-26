@@ -1,0 +1,45 @@
+#!/bin/sh
+# chatterbox-say [-s <голос>] [-l <язык>] <текст...>   — синтезирует фразу клонированным голосом и играет её
+set -e
+
+host="${CHATTERBOX_HOST:-http://127.0.0.1:5012}"
+voice=""
+language=""
+
+while [ $# -gt 0 ]; do
+    case "$1" in
+        -s) voice="$2"; shift 2 ;;
+        -l) language="$2"; shift 2 ;;
+        *)  break ;;
+    esac
+done
+
+if [ $# -lt 1 ]; then
+    echo "использование: chatterbox-say [-s <голос>] [-l <язык>] <текст...>" >&2
+    echo "голоса:" >&2
+    curl -s "$host/voices" >&2
+    echo >&2
+    exit 2
+fi
+
+body=$(python3 -c 'import json,sys
+voice, language, *words = sys.argv[1:]
+payload = {"text": " ".join(words)}
+if voice:
+    payload["voice"] = voice
+if language:
+    payload["language"] = language
+print(json.dumps(payload))' "$voice" "$language" "$@")
+out="${TMPDIR:-/tmp}/chatterbox-say.wav"
+
+code=$(curl -s -o "$out" -w '%{http_code}' -X POST "$host/synthesize" \
+    -H 'Content-Type: application/json' --data "$body")
+
+if [ "$code" != "200" ]; then
+    echo "сервер ответил $code:" >&2
+    cat "$out" >&2
+    echo >&2
+    exit 1
+fi
+
+exec paplay "$out"

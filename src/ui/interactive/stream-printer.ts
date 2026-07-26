@@ -15,7 +15,12 @@ export interface StreamPrinter {
   didPrintContent: () => boolean
 }
 
-export function createStreamPrinter(colorize: (text: string) => string): StreamPrinter {
+export interface StreamPrinterOptions {
+  colorize?: (text: string) => string
+}
+
+export function createStreamPrinter(options: StreamPrinterOptions = {}): StreamPrinter {
+  const { colorize = (text: string) => text } = options
   let printedContent = false
   let printedThinking = false
   let lastPrintedKind: 'content' | 'thinking' | null = null

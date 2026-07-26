@@ -10,7 +10,7 @@ export const clearCommand: SlashCommand = {
   name: 'clear',
   description: 'Clear the conversation history.',
   run: (context) => {
-    context.messages.length = 1
+    context.messages.length = context.messages[0]?.role === 'system' ? 1 : 0
     resetContextUsage()
     clearActivePlan()
     clearConversation()

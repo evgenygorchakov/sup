@@ -14,58 +14,60 @@ Requires Node.js 24+ (the CLI runs its TypeScript sources directly, no build ste
 
 ## Usage
 
-- Type `/` to see commands (`Tab` completes): switch model, toggle plan / auto / thinking / verbose output, list saved plans, clear history.
-- Three modes, like Claude Code; `Shift+Tab` cycles them in place (the prompt indicator updates immediately):
-  - **normal** — asks `[y / n / type feedback]` before mutating edits (`write_file`/`edit_file`) and before non-allowlisted shell commands.
-  - **auto** (`[auto]`) — auto-approves edits without asking; shell still goes through the read-only allowlist (anything else still asks).
-  - **plan** (`[plan]`) — read-only investigation, then a Markdown plan: approve with `y` (edits still ask one by one), `a` (approve and auto-approve edits, like auto mode), reject with `n` (the request is removed from history, so the next message starts clean), or type feedback to replan. `Esc` interrupts a plan that is still generating.
-  - Pick the starting mode with `USE_PLAN_MODE` / `USE_AUTO_MODE`, or switch at runtime with `Shift+Tab`, `/plan-mode`, `/auto-mode`.
-  - **`sup --read-only`** (or `USE_READ_ONLY_MODE=true`) — session-wide read-only: `write_file` / `edit_file` / `run_shell` are removed from the toolset entirely, so a small model has fewer tools to pick from and no way to mutate anything. The prompt shows `[read-only]`. This is a startup flag, not a fourth mode: the toolset and system prompt are fixed once per session, which keeps them consistent and the prompt-prefix cache warm.
-  - **`--dangerously-skip-permissions`** — like Claude Code, bypasses every approval prompt for the whole session: edits and shell commands run without asking, regardless of mode or the shell allowlist. The prompt shows a red `[skip-perms]` indicator. Only use it when you trust the model and the working directory.
-- Tuned for small local models: low default temperature, tool arguments validated against the schema with precise repair errors, the approved plan re-injected near the end of the context every turn, old tool outputs collapsed to keep the context short. Models without native tool calling fall back to prompt-engineered tools (`USE_NATIVE_TOOLS=false`).
+- Type `/` to see commands (`Tab` completes): switch model, toggle plan / auto / thinking / verbose output, list saved plans, clear history; `Shift+Tab` cycles the mode in place.
+- Tuned for small local models: low default temperature, tool arguments validated against the schema with precise repair errors, the approved plan re-injected near the end of the context every turn, old tool outputs collapsed to keep the context short.
+- Models without native tool calling fall back to prompt-engineered tools (`USE_NATIVE_TOOLS=false`).
 - Every setting is an `.env` variable with a sane default — see `.env.example`.
-- Defaults to Ollama; switch to llama.cpp for a single run with `sup --llama` (or `sup --provider <name>`) without touching `.env`. The active provider and model are printed at startup.
-- `AGENTS.md` in the working directory is appended to the system prompt.
-- Skills (like Claude Code skills): reusable instructions in `.sup/skills`, loaded on demand — see [Skills](#skills).
-- Paste an image from the clipboard
+- Defaults to Ollama; `sup --llama` (or `sup --provider <name>`) switches for a single run without touching `.env`.
+- `AGENTS.md` in the working directory is appended to the system prompt, and `sup --no-system-prompt` drops the system prompt entirely (role, workflow, skills, `AGENTS.md`) for probing a research model's raw behavior.
+- Optional persona (`PERSONA_FILE`): a markdown character that replaces the assistant voice — role line, style rules, and a per-request reminder all hand over to it, while tools and permissions stay untouched.
+- Skills: Claude Code ones load as-is, from `.sup/skills` and callable as `/<skill-name>`; see [Skills](#skills).
+- Paste an image from the clipboard.
+- Talk to it instead of typing — see [Voice](#voice).
 
 ## Skills
 
-Reusable instruction sets the model loads on demand, like Claude Code skills. Each skill is a folder in `.sup/skills` with a `SKILL.md`; the folder name is the skill name, and the frontmatter needs a `description`:
+Claude Code skills load as-is — same `SKILL.md` convention, multi-line `description: >-` parsed, unknown frontmatter fields ignored. What differs:
+
+- They are read from `.sup/skills` in the directory you run sup in, so every project brings its own; `USE_CLAUDE_SKILLS=true` also picks up `.claude/skills` there, with `.sup/skills` winning a name collision.
+- Tools go by sup's names: `Read` → `read_file`, `Bash` → `run_shell`, `WebFetch` → `fetch_url`, plus `write_file`, `edit_file`, `grep`, `glob`, `web_search`.
+- `$ARGUMENTS`, `allowed-tools`, hooks, and subagents don't exist here and are ignored, so strip them.
+- Bundled files, subfolders included, are listed to the model automatically, so the body doesn't have to point at them.
+- A small model rarely notices "this task matches a skill", so you can force one: `/skills` lists them, `/skills <number|name> [task]` loads one, and every skill is also its own command (`/aif-commit only staged files`) unless a built-in command has the same name.
+- Shorten aggressively — one procedure, imperative steps, concrete commands, no branching like "if X, see references/y.md"; what a frontier model follows is usually too long and too branchy for a <30B one.
+
+### Steps and Verification
+
+Two headings mean more than prose to the [babysitter](src/babysitter/README.md) (needs `USE_BABYSITTER=true`; `BABYSITTER_GATED_SKILLS` is on by default), which turns them into an enforced checklist and a finish gate:
 
 ```markdown
----
-description: Release a new version of the package to npm.
----
-
-Cut a release from the current state of main.
-
 ## Steps
 
-1. Run `npm run lint` and fix anything it reports.
-2. Bump the version in package.json (patch unless the user says otherwise).
-3. Commit, tag `v<version>`, and run `npm publish`.
+1. [x] Bump the version in package.json.
+2. Commit, tag `v<version>`, and run `npm publish`.
 
 ## Verification
 
 - `npm run lint`
-- `git status --porcelain` prints nothing
 ```
 
-How skills surface:
+- Every list item under `## Steps` becomes a ledger step the model ticks off with `ledger_update`, bullets included — keep notes and rules under their own heading.
+- `- [x]` marks a step as already done, so an interrupted run resumes where it stopped; tick them all and the skill only runs its verification.
+- `## Verification` commands have to pass before the model may finish, and are read from inline code, `$`-prefixed lines, or fenced blocks.
+- Such a command must start with a known runner (`npm`, `git`, `pytest`, `cargo`, … — `RUNNER_COMMAND` in `src/babysitter/parse-sections.ts`) and carry no shell metacharacters, so `&&` and pipes are skipped.
+- Russian headings (`## Шаги`, `## Проверка`) work, as does a bold `**Steps**` line instead of a real heading.
 
-- Skill names and descriptions go into the system prompt; when the task matches, the model loads the full body with the `skill` tool.
-- Small models are bad at noticing "this task matches a skill", so you can force one yourself: `/skills` lists them, `/skills <number|name> [task]` loads one into the conversation immediately.
-- Other files in the skill folder (subfolders included, e.g. `references/checklist.md`) are listed to the model as readable with `read_file`.
+## Voice
 
-Writing skills for small models:
+Speech in and out, both through local servers, so nothing leaves the machine. The servers themselves live outside this app — their scripts, systemd units, and a from-scratch setup guide (in Russian) are in [`voice-servers/`](voice-servers/README.md).
 
-- Keep them short, linear, and imperative: one procedure per skill, concrete commands over judgment calls, no branching like "if X, see references/y.md".
-- Name the tools sup actually has — `read_file`, `write_file`, `edit_file`, `run_shell`, `grep`, `glob`, `web_search`, `fetch_url` — not another agent's tool names.
-- Everything between `## Steps` and the next heading becomes a ledger step, bullet lists included — keep notes and rules under their own heading.
-- A `## Steps` section with a numbered list unlocks [babysitter](#babysitter-mode) gating (needs `USE_BABYSITTER=true`; `BABYSITTER_GATED_SKILLS` is on by default): the steps become an enforced checklist the model ticks off with `ledger_update`. An optional `## Verification` section lists checks that must pass before the model may finish; commands are picked from inline code or fenced blocks and must start with a known runner (`npm`, `git`, `pytest`, `cargo`, ... — see `RUNNER_COMMAND` in `src/babysitter/parse-sections.ts`). Russian headings (`## Шаги`, `## Проверка`) work too.
-
-Porting Claude Code skills: they load as-is — the frontmatter convention is the same, multi-line `description: >-` is supported, unknown fields are ignored. But treat them as drafts, not drop-ins: rename tools to sup's names (`Read` → `read_file`, `Bash` → `run_shell`, `WebFetch` → `fetch_url`), strip mechanics sup doesn't have (`$ARGUMENTS`, `allowed-tools`, hooks, subagents), and shorten aggressively — skills written for frontier models are usually too long and too branchy for a <30B model to follow.
+- Dictation is on by default: `Ctrl+G` records, then `Enter` sends what you said, `Ctrl+G` inserts it without sending, `Esc` drops it — `/stt` mid-session or `USE_STT=false` at startup turns it off.
+- Audio is captured with `parecord` and transcribed by a local [faster-whisper](https://github.com/SYSTRAN/faster-whisper) server; how it is wired is in [`src/stt/README.md`](src/stt/README.md) (in Russian).
+- Text to speech is off by default (`/tts` mid-session, or `USE_TTS=true` at startup) and speaks the final answer through [Silero v5](https://github.com/snakers4/silero-models), with [Chatterbox](https://huggingface.co/ResembleAI/chatterbox) and [Qwen3-TTS](https://huggingface.co/Qwen/Qwen3-TTS-12Hz-1.7B-Base) as cloned-voice alternatives.
+- Thinking, tool output, proposed plans, and the report after an interrupted turn stay silent — they are written for the screen, paths and identifiers included — as do code blocks and tables.
+- While speech is on, each request carries a spoken-style reminder (conversational sentences, no markdown, no dictated paths) that also makes answers a little roomier; `VOICE_MODE_SHORT=true` keeps them as short as they are with speech off.
+- `Esc` cuts the voice, during the request or at the prompt afterwards, as does sending the next one; a TTS server that stops answering turns speech off by itself.
+- `TTS_LEXICON_FILE` points at an optional pronunciation lexicon — `written = spoken` lines applied on the way to the synthesizer only, for names it stresses or transliterates wrong.
 
 ## Run journal
 
@@ -75,30 +77,13 @@ This is what powers `sup --resume` (or `sup --resume=<run-id>` for a specific ru
 
 ## Babysitter mode
 
-Think of the model as a junior intern who knows the job but keeps forgetting where it stopped, skips list items, and says "all done" without checking. Babysitter is the strict mentor standing behind its shoulder. Importantly, the mentor is not the model itself — it is the harness, deterministic code that keeps the model honest.
-
-Off by default; enable with `USE_BABYSITTER=true`. It then does two things:
-
-### The two jobs of Babysitter
-
-1. **Keeps the checklist in front of the model.** When a new task starts (a plan is approved or a skill with steps is loaded), Babysitter takes the numbered steps and shows the checklist before every model reply: "Here are your tasks. Step 1 done? No? Then work on step 3, don't skip ahead." The model marks finished steps via the `ledger_update` tool, so it doesn't lose the thread.
-2. **Doesn't take "all done" at face value.** When the model tries to finish, Babysitter checks whether the verification commands have actually run.
-   * If the task has commands, Babysitter runs them itself. All green — the model may finish; otherwise Babysitter returns the failures and demands fixes.
-   * If there are no commands, Babysitter asks the model to verify and won't accept "done" until a check has run. To avoid an endless loop it limits the attempts (3 by default), then gives up and allows the finish.
-
-Its checklist and gate events are written to the [run journal](#run-journal), so an interrupted task can be resumed with the step ledger intact.
-
-#### What a pass looks like
-
-One pass of a task has four stages:
-
-1. **Start.** The user gives a task or approves a plan. Babysitter builds the step list.
-2. **Work loop.** Before each reply Babysitter shows the current checklist. The model does a step, calls tools (file edits, shell, etc.) and marks finished steps.
-3. **Finish attempt.** When the model stops calling tools, Babysitter runs the verification gate.
-4. **Fork.** If the gate fails, the loop continues. If it passes, Babysitter marks all steps done, clears the state, and returns the final answer.
+Deterministic harness-side control that keeps the model on its checklist and verifies "all done" before accepting it. Off by default (`USE_BABYSITTER=true`) — see [`src/babysitter/README.md`](src/babysitter/README.md).
 
 ## Security
 
 - All file tools are confined to the working directory; sensitive files (`.env`, keys, credentials) are refused for both reading and writing.
-- Confirmation depends on the mode (see Usage above): in **normal** mode, edits (`write_file`/`edit_file`) and non-allowlisted shell commands ask `[y / n / type feedback]`; in **auto** mode, edits run unattended but shell still respects the allowlist. Network tools (`fetch_url`/`web_search`) run without confirmation. Shell commands matching the read-only allowlist in `src/config.ts` always run unattended; in plan mode those allowlisted commands are what's available during exploration.
+- Starts in auto mode, so edits (`write_file`/`edit_file`) run unattended while non-allowlisted shell commands still ask `[y / n / type feedback]`; `USE_AUTO_MODE=false` starts in normal mode, where edits ask too.
+- Network tools (`fetch_url`/`web_search`) run without confirmation.
 - The shell tool is on by default (`USE_SHELL_TOOL=false` to disable).
+- `sup --read-only` (or `USE_READ_ONLY_MODE=true`) removes `write_file` / `edit_file` / `run_shell` from the toolset for the whole session.
+- `sup --dangerously-skip-permissions` bypasses every approval prompt for the whole session — only use it when you trust the model and the working directory.

@@ -1,8 +1,9 @@
 import type { Interface as ReadlineInterface } from 'node:readline/promises'
 import type { ToolCall } from '../../types.ts'
 
+import process from 'node:process'
 import { toolsByName } from '../../tools/registry.ts'
-import { bold, brightBlue, brightGreen, yellow } from '../../utils/colors.ts'
+import { bold, brightBlue, brightGreen, red, yellow } from '../../utils/colors.ts'
 import { readUserInput } from './multiline-input.ts'
 import { renderToolHeader } from './render-tool-call.ts'
 
@@ -28,6 +29,11 @@ export async function confirmToolCalls(calls: ToolCall[], fallbackIntent: string
 
   for (const call of calls) {
     console.warn(renderToolHeader(call, toolsByName[call.function.name]))
+  }
+
+  if (!process.stdin.isTTY) {
+    console.error(red('\nNo terminal to ask for approval, so the call is refused. Rerun interactively, or start with --dangerously-skip-permissions.'))
+    return { kind: CONFIRM_KIND.quit }
   }
 
   while (true) {

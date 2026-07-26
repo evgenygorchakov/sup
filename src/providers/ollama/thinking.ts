@@ -1,6 +1,6 @@
 import { Config } from '../../config.ts'
 
-export type ThinkingMode = false | true | 'low' | 'medium' | 'high'
+export type ThinkingMode = false | true | 'low' | 'medium' | 'high' | 'max'
 
 const THINKING_MODELS = new Set(['qwen3.5:35b', 'qwen3.6', 'qwen3.5:9b'])
 
@@ -17,7 +17,7 @@ export function getThinkingModeFor(model: string): ThinkingMode {
   const baseName = baseModelName(model)
 
   if (baseName === 'gpt-oss') {
-    return 'high'
+    return 'max'
   }
 
   return THINKING_MODELS.has(model) || THINKING_MODELS.has(baseName)

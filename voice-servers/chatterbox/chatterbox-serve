@@ -1,0 +1,4 @@
+#!/bin/sh
+cd "$HOME/.local/share/chatterbox" || exit 1
+export HF_HOME="${HF_HOME:-$HOME/.local/share/chatterbox/models}"
+exec "$HOME/.local/share/chatterbox/venv/bin/python" "$HOME/.local/share/chatterbox/server.py"

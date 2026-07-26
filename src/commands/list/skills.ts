@@ -1,11 +1,11 @@
 import type { CommandContext, CommandResult, SlashCommand } from '../types.ts'
 import { activateSkill } from '../../babysitter/index.ts'
-import { findSkill, renderSkillContent, skills } from '../../skills/registry.ts'
+import { findSkill, renderSkillContent, skillDirs, skills } from '../../skills/registry.ts'
 import { bold, brightGreen, gray, red } from '../../utils/colors.ts'
 
 function run(context: CommandContext): CommandResult {
   if (skills.length === 0) {
-    console.warn(gray('No skills in .sup/skills yet.'))
+    console.warn(gray(`No skills in ${skillDirs.join(', ')} yet.`))
     return { kind: 'continue' }
   }
 
@@ -16,7 +16,7 @@ function run(context: CommandContext): CommandResult {
     skills.forEach((skill, index) => {
       console.warn(`  ${brightGreen(String(index + 1))}  ${skill.name} ${gray(`— ${skill.description}`)}`)
     })
-    console.warn(gray('\nThe model loads a skill on demand via the skill tool. Force one now with /skills <number|name> [task].'))
+    console.warn(gray('\nThe model loads a skill on demand via the skill tool. Force one now with /skills <number|name> [task], or call it directly as /<name> [task].'))
     return { kind: 'continue' }
   }
 
@@ -52,6 +52,6 @@ function run(context: CommandContext): CommandResult {
 
 export const skillsCommand: SlashCommand = {
   name: 'skills',
-  description: 'List skills from .sup/skills, or force-load one: /skills [number|name] [task].',
+  description: 'List available skills, or force-load one: /skills [number|name] [task].',
   run,
 }

@@ -1,0 +1,11 @@
+[Unit]
+Description=faster-whisper speech recognition server
+After=default.target
+
+[Service]
+ExecStart=%h/.local/bin/whisper-serve
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=default.target

@@ -8,10 +8,13 @@ import { beginTurn, buildHarnessReminder, finishTask, noteToolCall, recordLedger
 import { Config } from './config.ts'
 import { collapseOldToolResults } from './context/collapse.ts'
 import { recordAssistant, recordFinish, recordToolCall, recordToolResult, recordUserMessage, startRun } from './journal/index.ts'
+import { buildPersonaReminder } from './persona.ts'
 import { clearActivePlan } from './plan/active-plan.ts'
 import { isPlanModeActive, setMode } from './plan/mode-state.ts'
 import { shouldAutoApprove } from './tools/auto-approve.ts'
 import { runTool, toolDefinitions, toolsByName } from './tools/registry.ts'
+import { getSpeaker } from './tts/speaker.ts'
+import { buildVoiceStyleReminder } from './tts/voice-style.ts'
 import { CONFIRM_KIND, confirmToolCalls } from './ui/interactive/confirm.ts'
 import { withRequestInterrupt } from './ui/interactive/interrupt.ts'
 import { askForPlanApproval } from './ui/interactive/plan-approval.ts'
@@ -37,6 +40,12 @@ function buildBatchSignature(calls: ToolCall[]): string {
 
 const REJECTED_TOOL_RESULT = 'Rejected by user. Do not run this command.'
 const STOPPED_TOOL_RESULT = 'Not executed: the harness stopped this turn.'
+
+const STOPPED_SUMMARY_REQUEST = [
+  'Tools are disabled for this one reply only and work again from your next turn on, so do not call any right now.',
+  'Tell the user what you already finished, what is still undone, and what you suggest doing next.',
+  'Be brief and concrete: name the files and the results you actually saw, and do not claim work you did not do.',
+].join(' ')
 
 const CUT_OFF_CONSOLE_MESSAGES: Record<CutOffReason, string> = {
   'content-loop': 'Model got stuck repeating itself. Response truncated.',
@@ -71,12 +80,75 @@ function lastBatchesAreIdentical(signatures: string[], threshold: number): boole
   return tail.every(item => item === tail[0])
 }
 
-function withPlanReminder(messages: Message[]): Message[] {
-  const reminder = buildHarnessReminder()
-  if (!reminder || messages[messages.length - 1]?.role !== 'tool') {
+function withReminders(messages: Message[], willBeSpoken: boolean): Message[] {
+  const reminders: string[] = []
+  const last = messages[messages.length - 1]
+
+  if (last?.role === 'tool') {
+    const harnessReminder = buildHarnessReminder()
+    if (harnessReminder) {
+      reminders.push(harnessReminder.content)
+    }
+  }
+
+  const voiceReminder = willBeSpoken ? buildVoiceStyleReminder() : null
+  if (voiceReminder) {
+    reminders.push(voiceReminder)
+  }
+
+  const personaReminder = buildPersonaReminder()
+  if (personaReminder) {
+    reminders.push(personaReminder)
+  }
+
+  if (reminders.length === 0) {
     return messages
   }
-  return [...messages, reminder]
+
+  const reminder = reminders.join('\n\n')
+  if (last?.role === 'user') {
+    return [...messages.slice(0, -1), { ...last, content: `${last.content}\n\n${reminder}` }]
+  }
+  return [...messages, { role: 'user', content: reminder }]
+}
+
+async function stopTurnWithSummary(provider: ChatProvider, messages: Message[], calls: ToolCall[], reason: string): Promise<void> {
+  pushUnexecutedToolResults(messages, calls, STOPPED_TOOL_RESULT)
+  pushUserNotice(messages, `${reason}\n\n${STOPPED_SUMMARY_REQUEST}`)
+
+  const { onStreamPart, didPrintAnything, didPrintContent } = createStreamPrinter()
+
+  const spinner = startSpinner('Summarizing…')
+  const handleStreamPart: OnStreamPart = (part) => {
+    spinner.stop()
+    onStreamPart(part)
+  }
+
+  let reply: Message
+  try {
+    reply = await withRequestInterrupt(signal =>
+      provider.chat(withReminders(messages, false), [], handleStreamPart, signal))
+  }
+  finally {
+    spinner.stop()
+  }
+
+  if (didPrintAnything()) {
+    process.stderr.write('\n')
+  }
+
+  const summary = reply.content.trim()
+  if (!summary) {
+    return
+  }
+
+  const summaryMessage: Message = { role: 'assistant', content: summary }
+  messages.push(summaryMessage)
+  recordAssistant(summaryMessage)
+
+  if (!didPrintContent()) {
+    console.warn(summary)
+  }
 }
 
 export interface RunOptions {
@@ -84,6 +156,7 @@ export interface RunOptions {
 }
 
 export async function run(provider: ChatProvider, messages: Message[], readline: ReadlineInterface, options: RunOptions = {}): Promise<void> {
+  getSpeaker().stop()
   startRun(messages)
   beginTurn()
 
@@ -112,7 +185,7 @@ export async function run(provider: ChatProvider, messages: Message[], readline:
   while (true) {
     collapseOldToolResults(messages)
 
-    const { onStreamPart, didPrintAnything, didPrintContent } = createStreamPrinter(text => text)
+    const { onStreamPart, didPrintAnything, didPrintContent } = createStreamPrinter()
 
     const spinner = startSpinner('Thinking…')
     const handleStreamPart: OnStreamPart = (part) => {
@@ -123,7 +196,7 @@ export async function run(provider: ChatProvider, messages: Message[], readline:
     let reply: Message
     try {
       reply = await withRequestInterrupt(signal =>
-        provider.chat(withPlanReminder(messages), toolDefinitions, handleStreamPart, signal))
+        provider.chat(withReminders(messages, true), toolDefinitions, handleStreamPart, signal))
     }
     finally {
       spinner.stop()
@@ -133,6 +206,7 @@ export async function run(provider: ChatProvider, messages: Message[], readline:
     recordAssistant(reply)
 
     if (reply.cutOff) {
+      getSpeaker().stop()
       if (didPrintAnything()) {
         process.stderr.write('\n')
       }
@@ -162,6 +236,7 @@ export async function run(provider: ChatProvider, messages: Message[], readline:
         console.warn(reply.content)
       }
 
+      getSpeaker().speak(reply.content)
       return
     }
 
@@ -172,8 +247,7 @@ export async function run(provider: ChatProvider, messages: Message[], readline:
     iterations += 1
     if (iterations > stepBudget) {
       console.error(red(`Reached max tool iterations (${stepBudget}). Stopping this turn.`))
-      pushUnexecutedToolResults(messages, reply.tool_calls, STOPPED_TOOL_RESULT)
-      pushUserNotice(messages, `Stopped: exceeded ${stepBudget} tool calls in a single turn. Summarize progress and wait for the user.`)
+      await stopTurnWithSummary(provider, messages, reply.tool_calls, `Stopped by the harness: you exceeded ${stepBudget} tool calls in a single turn.`)
       return
     }
 
@@ -181,8 +255,7 @@ export async function run(provider: ChatProvider, messages: Message[], readline:
 
     if (lastBatchesAreIdentical(recentBatchSignatures, Config.AUTONOMOUS_REPEAT_THRESHOLD)) {
       console.error(red(`Detected ${Config.AUTONOMOUS_REPEAT_THRESHOLD} identical tool batches in a row. Stopping autonomous loop.`))
-      pushUnexecutedToolResults(messages, reply.tool_calls, STOPPED_TOOL_RESULT)
-      pushUserNotice(messages, `Stopped: same tool calls repeated ${Config.AUTONOMOUS_REPEAT_THRESHOLD} times in a row. Reconsider the approach and wait for the user.`)
+      await stopTurnWithSummary(provider, messages, reply.tool_calls, `Stopped by the harness: you repeated the same tool calls ${Config.AUTONOMOUS_REPEAT_THRESHOLD} times in a row.`)
       return
     }
 

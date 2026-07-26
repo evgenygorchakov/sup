@@ -14,6 +14,7 @@ export interface CommandContext {
 export interface SlashCommand {
   name: string
   description: string
+  isSkill?: boolean
   run: (context: CommandContext) => CommandResult | Promise<CommandResult>
 }
 

@@ -1,9 +1,10 @@
 import type { Message } from '../types.ts'
+import type { ParsedStep } from './parse-sections.ts'
 import type { LedgerStep, StepStatus } from './session.ts'
-import { getLedger } from './session.ts'
+import { getLedger, getVerificationSource } from './session.ts'
 
-export function buildLedgerFromSteps(steps: string[]): LedgerStep[] {
-  return steps.map((text, index) => ({ id: index + 1, text, status: 'pending' as const }))
+export function buildLedgerFromSteps(steps: ParsedStep[]): LedgerStep[] {
+  return steps.map((step, index) => ({ id: index + 1, text: step.text, status: step.done ? 'done' : 'pending' }))
 }
 
 function checkbox(status: StepStatus): string {
@@ -32,8 +33,12 @@ export function buildLedgerReminder(): Message | null {
       ...lines,
       '',
       currentStep
-        ? `Work on step ${currentStep.id} next. Do not skip ahead and do not redo completed steps. Call ledger_update to mark a step in_progress when you start it and done when it is finished.`
-        : 'Every step is marked done. Run the verification checks, then finish with a plain-text reply and no tool calls.',
+        ? currentStep.status === 'in_progress'
+          ? `Step ${currentStep.id} is already marked in_progress — do not mark it again. Get it finished, then call ledger_update once to mark it done. Some steps are finished by writing the answer rather than by calling a tool.`
+          : `Work on step ${currentStep.id} next. Do not skip ahead and do not redo completed steps. Call ledger_update to mark a step in_progress when you start it and done when it is finished.`
+        : getVerificationSource()
+          ? 'Every step is marked done. Do not redo them. Run the verification checks, then finish with a plain-text reply and no tool calls.'
+          : 'Every step is marked done. Do not redo them. Finish with a plain-text reply and no tool calls.',
     ].join('\n'),
   }
 }
@@ -46,6 +51,9 @@ export function markStep(id: number, status: StepStatus): string {
   const step = ledger.find(entry => entry.id === id)
   if (!step) {
     return `ERROR: no ledger step with id ${id}. Valid ids: ${ledger.map(entry => entry.id).join(', ')}.`
+  }
+  if (step.status === status) {
+    return `Step ${id} is already ${status}, so the ledger did not change. Stop updating it and get on with the work itself.`
   }
   step.status = status
   return `Step ${id} marked ${status}.`

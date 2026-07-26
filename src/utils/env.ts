@@ -62,6 +62,10 @@ export function loadEnvFile(filePath: string = resolve(process.cwd(), '.env')): 
   }
 }
 
+export function isEnvSet(name: string): boolean {
+  return process.env[name] !== undefined
+}
+
 export function getEnvString(name: string, defaultValue?: string): string {
   const raw = process.env[name]
   if (raw !== undefined && raw !== '') {

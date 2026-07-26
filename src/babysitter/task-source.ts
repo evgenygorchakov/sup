@@ -1,4 +1,5 @@
 import type { Skill } from '../skills/types.ts'
+import type { ParsedStep } from './parse-sections.ts'
 import type { LedgerStep } from './session.ts'
 import { Config } from '../config.ts'
 import { appendEvent, ensureRun } from '../journal/index.ts'
@@ -32,6 +33,13 @@ function gatedSkillsEnabled(): boolean {
   return Config.USE_BABYSITTER && Config.BABYSITTER_GATED_SKILLS
 }
 
+function ledgerNote(steps: ParsedStep[]): string {
+  if (steps.every(step => step.done)) {
+    return `[harness] This skill is gated: all ${steps.length} of its step(s) are already marked done, so there is nothing left to work through. Do not redo them.`
+  }
+  return `[harness] This skill is gated: its ${steps.length} step(s) are now tracked as a ledger. Work through them in order and mark each with ledger_update.`
+}
+
 export function activateSkill(skill: Skill): string | null {
   if (!gatedSkillsEnabled()) {
     return null
@@ -48,7 +56,7 @@ export function activateSkill(skill: Skill): string | null {
   installTask(`skill:${skill.name}`, ledger, verificationSource)
 
   const notes = [
-    ledger ? `[harness] This skill is gated: its ${steps.length} step(s) are now tracked as a ledger. Work through them in order and mark each with ledger_update.` : '',
+    ledger ? ledgerNote(steps) : '',
     verificationSource ? '[harness] Before you finish, the harness will run this skill\'s Verification checks; you cannot finish until they pass.' : '',
   ].filter(Boolean)
   return ['', ...notes].join('\n')

@@ -7,6 +7,7 @@ const MARKDOWN_HEADING = /^(#{1,6})[ \t]+(\S.*)$/
 const BOLD_MARKERS = ['**', '__'] as const
 const BOLD_HEADING_LEVEL = 7
 const LIST_ITEM = /^(?:\d+[.)]|[-*])[ \t]+(\S.*)$/
+const CHECKBOX_MARKER = /^\[([ x~*/-])?\][ \t]*/i
 const INLINE_CODE_SPANS = /`([^`]+)`/g
 
 const RUNNER_COMMAND = /^(?:\$\s*)?(?:npm|pnpm|yarn|bun|npx|node|deno|tsc|eslint|prettier|biome|jest|vitest|mocha|playwright|pytest|python3?|ruff|mypy|go|cargo|make|gradle|mvn|dotnet|rspec|rake|git)\b/
@@ -77,8 +78,13 @@ export function findSection(markdown: string, names: readonly string[]): string 
   return body || null
 }
 
-export function extractSteps(stepsSection: string): string[] {
-  const steps: string[] = []
+export interface ParsedStep {
+  text: string
+  done: boolean
+}
+
+export function extractSteps(stepsSection: string): ParsedStep[] {
+  const steps: ParsedStep[] = []
   let inFence = false
   for (const raw of stepsSection.split('\n')) {
     const line = raw.trim()
@@ -91,9 +97,10 @@ export function extractSteps(stepsSection: string): string[] {
     }
     const match = LIST_ITEM.exec(line)
     if (match) {
-      const text = match[1]!.trim()
+      const checkbox = CHECKBOX_MARKER.exec(match[1]!)
+      const text = match[1]!.slice(checkbox?.[0].length ?? 0).trim()
       if (text) {
-        steps.push(text)
+        steps.push({ text, done: checkbox?.[1]?.toLowerCase() === 'x' })
       }
     }
   }

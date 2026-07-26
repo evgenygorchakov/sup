@@ -5,6 +5,13 @@ import { stdout } from 'node:process'
 import { gray } from '../../utils/colors.ts'
 import { ERASE_BELOW_CURSOR, paintBelowCursor } from './below-cursor.ts'
 
+const MAX_PANEL_ROWS = 10
+const PROMPT_ROWS = 4
+const DECORATION_WIDTH = 7
+const MIN_DESCRIPTION_ROOM = 10
+const DEFAULT_COLUMNS = 80
+const DEFAULT_ROWS = 24
+
 function isCommandPrefix(line: string): boolean {
   return line.startsWith('/') && !line.includes(' ')
 }
@@ -25,13 +32,25 @@ function commonPrefix(names: string[]): string {
 }
 
 function renderHintPanel(matches: readonly SlashCommand[]): string {
-  const nameWidth = Math.max(...matches.map(command => command.name.length + 1))
-  return matches
-    .map((command) => {
-      const name = `/${command.name}`.padEnd(nameWidth)
-      return `\r\n  ${name}  ${gray(`— ${command.description}`)}`
-    })
-    .join('')
+  const columns = stdout.columns ?? DEFAULT_COLUMNS
+  const limit = Math.min(MAX_PANEL_ROWS, Math.max(1, (stdout.rows ?? DEFAULT_ROWS) - PROMPT_ROWS))
+  const shown = matches.slice(0, limit)
+  const nameWidth = Math.max(...shown.map(command => command.name.length + 1))
+  const room = Math.max(MIN_DESCRIPTION_ROOM, columns - nameWidth - DECORATION_WIDTH)
+
+  const lines = shown.map((command) => {
+    const name = `/${command.name}`.padEnd(nameWidth)
+    const description = command.description.length > room
+      ? `${command.description.slice(0, room - 1)}…`
+      : command.description
+    return `\r\n  ${name}  ${gray(`— ${description}`)}`
+  })
+
+  if (matches.length > shown.length) {
+    lines.push(`\r\n  ${gray(`… ${matches.length - shown.length} more`)}`)
+  }
+
+  return lines.join('')
 }
 
 export function createSlashCompleter(commands: readonly SlashCommand[]): (line: string) => [string[], string] {

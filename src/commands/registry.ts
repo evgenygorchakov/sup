@@ -1,4 +1,5 @@
 import type { CommandEnv, CommandResult, SlashCommand } from './types.ts'
+import { skills } from '../skills/registry.ts'
 import { red } from '../utils/colors.ts'
 import { autoModeCommand } from './list/auto-mode.ts'
 import { babysitterCommand } from './list/babysitter.ts'
@@ -10,10 +11,12 @@ import { planModeCommand } from './list/plan-mode.ts'
 import { runPlanCommand } from './list/run-plan.ts'
 import { showThinkingCommand } from './list/show-thinking.ts'
 import { skillsCommand } from './list/skills.ts'
+import { sttCommand } from './list/stt.ts'
 import { thinkingCommand } from './list/thinking.ts'
+import { ttsCommand } from './list/tts.ts'
 import { verboseCommand } from './list/verbose.ts'
 
-export const commands: SlashCommand[] = [
+const builtinCommands: SlashCommand[] = [
   exitCommand,
   helpCommand,
   clearCommand,
@@ -24,9 +27,24 @@ export const commands: SlashCommand[] = [
   thinkingCommand,
   showThinkingCommand,
   verboseCommand,
+  ttsCommand,
+  sttCommand,
   skillsCommand,
   babysitterCommand,
 ]
+
+const builtinNames = new Set(builtinCommands.map(command => command.name))
+
+const skillCommands: SlashCommand[] = skills
+  .filter(skill => !builtinNames.has(skill.name.toLowerCase()))
+  .map(skill => ({
+    name: skill.name.toLowerCase(),
+    description: skill.description,
+    isSkill: true,
+    run: context => skillsCommand.run({ ...context, args: [skill.name, ...context.args] }),
+  }))
+
+export const commands: SlashCommand[] = [...builtinCommands, ...skillCommands]
 
 const commandsByName = new Map(commands.map(command => [command.name, command]))
 

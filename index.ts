@@ -2,9 +2,10 @@
 import type { Interface as ReadlineInterface } from 'node:readline/promises'
 import type { ChatProvider } from './src/providers/types.ts'
 import type { Message } from './src/types.ts'
+import type { PromptLineBuffer } from './src/ui/interactive/below-cursor.ts'
 
 import { readFile } from 'node:fs/promises'
-import { resolve } from 'node:path'
+import { basename, resolve } from 'node:path'
 import process, { stdin, stdout } from 'node:process'
 import { createInterface } from 'node:readline/promises'
 import { run } from './src/agent.ts'
@@ -15,17 +16,22 @@ import { Config } from './src/config.ts'
 import { buildUserMessage } from './src/images/build-message.ts'
 import { restorePendingImages } from './src/images/pending.ts'
 import { recordUserMessage } from './src/journal/index.ts'
+import { loadPersona, personaLanguageWarning } from './src/persona.ts'
 import { getMode } from './src/plan/mode-state.ts'
 import { RequestCancelledError } from './src/providers/cancel.ts'
 import { getLastContextUsage } from './src/providers/context-usage.ts'
 import { getProvider, providerNames } from './src/providers/index.ts'
 import { buildSkillsPromptSection, skills } from './src/skills/registry.ts'
-import { SYSTEM_PROMPT } from './src/system-prompt.ts'
+import { buildSystemPrompt } from './src/system-prompt.ts'
 import { isSkipPermissionsActive, setSkipPermissions } from './src/tools/skip-permissions.ts'
+import { loadPronunciations } from './src/tts/lexicon.ts'
 import { createSlashCompleter, installCommandHints } from './src/ui/interactive/command-hints.ts'
 import { installImagePasteHandler } from './src/ui/interactive/image-paste.ts'
 import { installModeToggle } from './src/ui/interactive/mode-toggle.ts'
 import { DISABLE_BRACKETED_PASTE, ENABLE_BRACKETED_PASTE, getInputStream, readUserInput } from './src/ui/interactive/multiline-input.ts'
+import { createNoticeArea } from './src/ui/interactive/notice-area.ts'
+import { installSpeechEscape } from './src/ui/interactive/speech-escape.ts'
+import { installVoiceInput } from './src/ui/interactive/voice-input.ts'
 import { bold, brightGreen, cyan, gray, red, yellow } from './src/utils/colors.ts'
 
 const PROMPT_MARKER = bold(brightGreen('> '))
@@ -134,15 +140,23 @@ async function main() {
     stdout.write(ENABLE_BRACKETED_PASTE)
   }
 
+  const notices = createNoticeArea(inputStream, readline as unknown as PromptLineBuffer)
   const imagePaste = interactive
-    ? installImagePasteHandler(inputStream, readline)
+    ? installImagePasteHandler(inputStream, readline, notices)
     : null
   const commandHints = interactive
-    ? installCommandHints(inputStream, readline as unknown as { line?: string, cursor?: number }, commands)
+    ? installCommandHints(inputStream, readline as unknown as PromptLineBuffer, commands)
     : null
   const modeToggle = interactive
     ? installModeToggle(inputStream, readline, buildPrompt)
     : null
+  const voiceInput = interactive
+    ? installVoiceInput(inputStream, readline, notices)
+    : null
+
+  if (interactive) {
+    installSpeechEscape(inputStream)
+  }
 
   let cleanedUp = false
   function cleanup(): void {
@@ -168,29 +182,45 @@ async function main() {
     process.exit(130)
   })
 
-  const projectInstructions = await loadProjectInstructions()
+  const projectInstructions = args.noSystemPrompt ? null : await loadProjectInstructions()
+  const persona = args.noSystemPrompt ? null : await loadPersona()
+  const pronunciations = await loadPronunciations()
   const systemContent = [
-    SYSTEM_PROMPT,
+    buildSystemPrompt(persona !== null),
     buildSkillsPromptSection(),
     projectInstructions ? `# Project instructions (from AGENTS.md)\n${projectInstructions}` : '',
+    persona ? `# Persona\nThis is who you are for the whole session — every reply, technical ones included. It decides your voice, your length, and how you address the user, over anything above. Everything else — tools, modes, permissions — stays exactly as described: you still call tools normally and never invent their output.\n\n${persona}` : '',
   ]
     .filter(Boolean)
     .join('\n\n')
 
-  const messages: Message[] = [{ role: 'system', content: systemContent }]
+  const messages: Message[] = args.noSystemPrompt ? [] : [{ role: 'system', content: systemContent }]
 
   console.warn(gray(`Provider: ${Config.PROVIDER}${Config.PROVIDER === 'llamacpp' ? '' : ` · Model: ${Config.MODEL}`}`))
+  if (args.noSystemPrompt) {
+    console.warn(yellow('⚠  --no-system-prompt: running without a system prompt (tools stay available).'))
+  }
   if (Config.USE_READ_ONLY_MODE) {
     console.warn(gray('Read-only session: write, edit, and shell tools are disabled.'))
   }
   if (isSkipPermissionsActive()) {
     console.warn(red('⚠  --dangerously-skip-permissions: all tool calls auto-approved without asking.'))
   }
-  if (skills.length > 0) {
+  if (!args.noSystemPrompt && skills.length > 0) {
     console.warn(gray(`Loaded ${skills.length} ${skills.length === 1 ? 'skill' : 'skills'}`))
   }
   if (projectInstructions) {
     console.warn(gray('Loaded AGENTS.md'))
+  }
+  if (persona) {
+    console.warn(gray(`Loaded persona from ${basename(Config.PERSONA_FILE)}`))
+    const languageWarning = personaLanguageWarning()
+    if (languageWarning) {
+      console.warn(yellow(`⚠  ${languageWarning}`))
+    }
+  }
+  if (pronunciations > 0) {
+    console.warn(gray(`Loaded ${pronunciations} ${pronunciations === 1 ? 'pronunciation' : 'pronunciations'} from ${basename(Config.TTS_LEXICON_FILE)}`))
   }
 
   if (args.resumeRequested) {
@@ -220,6 +250,7 @@ async function main() {
 
       commandHints?.setActive(true)
       imagePaste?.setActive(true)
+      voiceInput?.setActive(true)
       modeToggle?.setActive(true)
       try {
         userInput = (await readUserInput(readline, buildPrompt())).trim()
@@ -230,6 +261,7 @@ async function main() {
       finally {
         commandHints?.setActive(false)
         imagePaste?.setActive(false)
+        voiceInput?.setActive(false)
         modeToggle?.setActive(false)
       }
 

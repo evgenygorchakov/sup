@@ -1,0 +1,4 @@
+# qwen-tts пинит transformers и accelerate и тянет torch/torchaudio с CUDA-колёсами
+# с PyPI — синтез идёт на GPU, отдельный индекс не нужен.
+qwen-tts
+flask

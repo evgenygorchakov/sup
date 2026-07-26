@@ -3,7 +3,13 @@ import process from 'node:process'
 import { fileURLToPath } from 'node:url'
 import { getEnvBoolean, getEnvNumber, getEnvString, loadEnvFile } from './utils/env.ts'
 
-loadEnvFile(resolve(dirname(fileURLToPath(import.meta.url)), '..', '.env'))
+const installDir = resolve(dirname(fileURLToPath(import.meta.url)), '..')
+
+loadEnvFile(resolve(installDir, '.env'))
+
+export function resolveFromInstallDir(path: string): string {
+  return resolve(installDir, path)
+}
 
 export interface ConfigShape {
   PROVIDER: string
@@ -12,6 +18,8 @@ export interface ConfigShape {
   LLAMACPP_HOST: string
   MODEL: string
   LANGUAGE: string
+  PERSONA_FILE: string
+  USE_CLAUDE_SKILLS: boolean
   USE_PLAN_MODE: boolean
   USE_AUTO_MODE: boolean
   USE_READ_ONLY_MODE: boolean
@@ -28,6 +36,17 @@ export interface ConfigShape {
   THINKING_CHAR_LIMIT: number
   SHOW_THINKING: boolean
   USE_STREAMING: boolean
+  USE_TTS: boolean
+  TTS_HOST: string
+  TTS_VOICE: string
+  TTS_LANGUAGE: string
+  TTS_LEXICON_FILE: string
+  VOICE_MODE_SHORT: boolean
+  TTS_TIMEOUT_MS: number
+  USE_STT: boolean
+  STT_HOST: string
+  STT_DEVICE: string
+  STT_TIMEOUT_MS: number
   VERBOSE_TOOL_OUTPUT: boolean
   WEB_SEARCH_MAX_RESULTS: number
   FETCH_URL_MAX_BYTES: number
@@ -54,8 +73,10 @@ export const Config: ConfigShape = {
   LLAMACPP_HOST: getEnvString('LLAMACPP_HOST', 'http://localhost:8080'),
   MODEL: getEnvString('MODEL', 'qwen3.6'),
   LANGUAGE: getEnvString('LANGUAGE', 'russian'),
+  PERSONA_FILE: getEnvString('PERSONA_FILE', ''),
+  USE_CLAUDE_SKILLS: getEnvBoolean('USE_CLAUDE_SKILLS', false),
   USE_PLAN_MODE: getEnvBoolean('USE_PLAN_MODE', false),
-  USE_AUTO_MODE: getEnvBoolean('USE_AUTO_MODE', false),
+  USE_AUTO_MODE: getEnvBoolean('USE_AUTO_MODE', true),
   USE_READ_ONLY_MODE: process.argv.includes('--read-only') || getEnvBoolean('USE_READ_ONLY_MODE', false),
   USE_JOURNAL: getEnvBoolean('USE_JOURNAL', true),
   USE_SHELL_TOOL: getEnvBoolean('USE_SHELL_TOOL', true),
@@ -70,6 +91,17 @@ export const Config: ConfigShape = {
   THINKING_CHAR_LIMIT: getEnvNumber('THINKING_CHAR_LIMIT', 30_000),
   SHOW_THINKING: getEnvBoolean('SHOW_THINKING', true),
   USE_STREAMING: getEnvBoolean('USE_STREAMING', true),
+  USE_TTS: getEnvBoolean('USE_TTS', false),
+  TTS_HOST: getEnvString('TTS_HOST', 'http://127.0.0.1:5011'),
+  TTS_VOICE: getEnvString('TTS_VOICE', ''),
+  TTS_LANGUAGE: getEnvString('TTS_LANGUAGE', ''),
+  TTS_LEXICON_FILE: getEnvString('TTS_LEXICON_FILE', ''),
+  VOICE_MODE_SHORT: getEnvBoolean('VOICE_MODE_SHORT', false),
+  TTS_TIMEOUT_MS: getEnvNumber('TTS_TIMEOUT_MS', 30_000),
+  USE_STT: getEnvBoolean('USE_STT', true),
+  STT_HOST: getEnvString('STT_HOST', 'http://127.0.0.1:5001'),
+  STT_DEVICE: getEnvString('STT_DEVICE', ''),
+  STT_TIMEOUT_MS: getEnvNumber('STT_TIMEOUT_MS', 120_000),
   VERBOSE_TOOL_OUTPUT: getEnvBoolean('VERBOSE_TOOL_OUTPUT', false),
   WEB_SEARCH_MAX_RESULTS: getEnvNumber('WEB_SEARCH_MAX_RESULTS', 5),
   FETCH_URL_MAX_BYTES: getEnvNumber('FETCH_URL_MAX_BYTES', 50_000),

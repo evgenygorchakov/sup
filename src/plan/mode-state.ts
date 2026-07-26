@@ -1,19 +1,23 @@
 import { Config } from '../config.ts'
 import { yellow } from '../utils/colors.ts'
+import { isEnvSet } from '../utils/env.ts'
 
 export type AgentMode = 'normal' | 'auto' | 'plan'
 
 const CYCLE: readonly AgentMode[] = ['normal', 'auto', 'plan']
 
 function initialMode(): AgentMode {
+  // Auto is the default, so only an explicit USE_AUTO_MODE is worth warning about.
+  const autoRequested = Config.USE_AUTO_MODE && isEnvSet('USE_AUTO_MODE')
+
   if (Config.USE_READ_ONLY_MODE) {
-    if (Config.USE_PLAN_MODE || Config.USE_AUTO_MODE) {
+    if (Config.USE_PLAN_MODE || autoRequested) {
       console.warn(yellow('Read-only mode: USE_PLAN_MODE and USE_AUTO_MODE are ignored.'))
     }
     return 'normal'
   }
   if (Config.USE_PLAN_MODE) {
-    if (Config.USE_AUTO_MODE) {
+    if (autoRequested) {
       console.warn(yellow('Both USE_PLAN_MODE and USE_AUTO_MODE are set; starting in plan mode.'))
     }
     return 'plan'

@@ -43,7 +43,7 @@ const PLAN_REQUEST_MESSAGE = [
 ].join('\n')
 
 async function streamPlanReply(provider: ChatProvider, messages: Message[], tools: ToolDefinition[]): Promise<Message> {
-  const { onStreamPart, didPrintAnything } = createStreamPrinter(yellow)
+  const { onStreamPart, didPrintAnything } = createStreamPrinter({ colorize: yellow })
 
   const spinner = startSpinner('Planning…')
   const handleStreamPart: OnStreamPart = (part) => {
