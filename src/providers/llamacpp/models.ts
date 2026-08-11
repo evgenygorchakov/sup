@@ -29,3 +29,9 @@ export async function listInstalledModels(): Promise<ModelListResult> {
     return { ok: false, error: error instanceof Error ? error.message : String(error) }
   }
 }
+
+/** llama-server serves the single model it was started with, so that one is the default. */
+export async function resolveDefaultModel(): Promise<string | null> {
+  const result = await listInstalledModels()
+  return result.ok ? result.models[0] ?? null : null
+}

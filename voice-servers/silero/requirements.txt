@@ -1,5 +1,3 @@
-# torch ставится отдельно из CPU-индекса (см. README): silero быстрее реального
-# времени на CPU, тянуть CUDA-колесо на 3 ГБ незачем.
 silero
 silero-stress
 soundfile

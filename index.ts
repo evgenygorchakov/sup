@@ -5,7 +5,7 @@ import type { Message } from './src/types.ts'
 import type { PromptLineBuffer } from './src/ui/interactive/below-cursor.ts'
 
 import { readFile } from 'node:fs/promises'
-import { basename, resolve } from 'node:path'
+import { resolve } from 'node:path'
 import process, { stdin, stdout } from 'node:process'
 import { createInterface } from 'node:readline/promises'
 import { run } from './src/agent.ts'
@@ -16,7 +16,6 @@ import { Config } from './src/config.ts'
 import { buildUserMessage } from './src/images/build-message.ts'
 import { restorePendingImages } from './src/images/pending.ts'
 import { recordUserMessage } from './src/journal/index.ts'
-import { loadPersona, personaLanguageWarning } from './src/persona.ts'
 import { getMode } from './src/plan/mode-state.ts'
 import { RequestCancelledError } from './src/providers/cancel.ts'
 import { getLastContextUsage } from './src/providers/context-usage.ts'
@@ -24,7 +23,6 @@ import { getProvider, providerNames } from './src/providers/index.ts'
 import { buildSkillsPromptSection, skills } from './src/skills/registry.ts'
 import { buildSystemPrompt } from './src/system-prompt.ts'
 import { isSkipPermissionsActive, setSkipPermissions } from './src/tools/skip-permissions.ts'
-import { loadPronunciations } from './src/tts/lexicon.ts'
 import { createSlashCompleter, installCommandHints } from './src/ui/interactive/command-hints.ts'
 import { installImagePasteHandler } from './src/ui/interactive/image-paste.ts'
 import { installModeToggle } from './src/ui/interactive/mode-toggle.ts'
@@ -119,6 +117,22 @@ async function handleUserTurn(provider: ChatProvider, messages: Message[], readl
   }
 }
 
+/** With no MODEL in .env, ask the provider which model to use. */
+async function resolveStartupModel(provider: ChatProvider): Promise<'configured' | 'auto' | null> {
+  if (Config.MODEL) {
+    return 'configured'
+  }
+
+  const model = await provider.resolveDefaultModel()
+  if (!model) {
+    console.error(red(`No MODEL configured and ${Config.PROVIDER} at ${provider.host} did not report one. Set MODEL in your .env or make sure the server is running with a model available.`))
+    return null
+  }
+
+  Config.MODEL = model
+  return 'auto'
+}
+
 async function main() {
   const args = parseArgs(process.argv.slice(2))
   setSkipPermissions(args.skipPermissions)
@@ -128,6 +142,10 @@ async function main() {
   }
   Config.PROVIDER = args.provider ?? Config.PROVIDER
   const provider = getProvider()
+  const modelSource = await resolveStartupModel(provider)
+  if (!modelSource) {
+    process.exit(1)
+  }
   await provider.initializeContextWindow()
 
   const interactive = Boolean(stdin.isTTY)
@@ -183,20 +201,17 @@ async function main() {
   })
 
   const projectInstructions = args.noSystemPrompt ? null : await loadProjectInstructions()
-  const persona = args.noSystemPrompt ? null : await loadPersona()
-  const pronunciations = await loadPronunciations()
   const systemContent = [
-    buildSystemPrompt(persona !== null),
+    buildSystemPrompt(),
     buildSkillsPromptSection(),
     projectInstructions ? `# Project instructions (from AGENTS.md)\n${projectInstructions}` : '',
-    persona ? `# Persona\nThis is who you are for the whole session — every reply, technical ones included. It decides your voice, your length, and how you address the user, over anything above. Everything else — tools, modes, permissions — stays exactly as described: you still call tools normally and never invent their output.\n\n${persona}` : '',
   ]
     .filter(Boolean)
     .join('\n\n')
 
   const messages: Message[] = args.noSystemPrompt ? [] : [{ role: 'system', content: systemContent }]
 
-  console.warn(gray(`Provider: ${Config.PROVIDER}${Config.PROVIDER === 'llamacpp' ? '' : ` · Model: ${Config.MODEL}`}`))
+  console.warn(gray(`Provider: ${Config.PROVIDER}${Config.PROVIDER === 'llamacpp' ? '' : ` · Model: ${Config.MODEL}${modelSource === 'auto' ? ' (auto)' : ''}`}`))
   if (args.noSystemPrompt) {
     console.warn(yellow('⚠  --no-system-prompt: running without a system prompt (tools stay available).'))
   }
@@ -211,16 +226,6 @@ async function main() {
   }
   if (projectInstructions) {
     console.warn(gray('Loaded AGENTS.md'))
-  }
-  if (persona) {
-    console.warn(gray(`Loaded persona from ${basename(Config.PERSONA_FILE)}`))
-    const languageWarning = personaLanguageWarning()
-    if (languageWarning) {
-      console.warn(yellow(`⚠  ${languageWarning}`))
-    }
-  }
-  if (pronunciations > 0) {
-    console.warn(gray(`Loaded ${pronunciations} ${pronunciations === 1 ? 'pronunciation' : 'pronunciations'} from ${basename(Config.TTS_LEXICON_FILE)}`))
   }
 
   if (args.resumeRequested) {

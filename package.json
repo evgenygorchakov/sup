@@ -6,13 +6,9 @@
     "sup": "./index.ts"
   },
   "scripts": {
-    "start": "node index.ts",
-    "lint": "eslint",
-    "lint:fix": "eslint --fix"
+    "start": "node index.ts"
   },
   "devDependencies": {
-    "@antfu/eslint-config": "8.2.0",
-    "@types/node": "^25.6.0",
-    "eslint": "10.2.1"
+    "@types/node": "^25.6.0"
   }
 }

@@ -8,7 +8,6 @@ import { beginTurn, buildHarnessReminder, finishTask, noteToolCall, recordLedger
 import { Config } from './config.ts'
 import { collapseOldToolResults } from './context/collapse.ts'
 import { recordAssistant, recordFinish, recordToolCall, recordToolResult, recordUserMessage, startRun } from './journal/index.ts'
-import { buildPersonaReminder } from './persona.ts'
 import { clearActivePlan } from './plan/active-plan.ts'
 import { isPlanModeActive, setMode } from './plan/mode-state.ts'
 import { shouldAutoApprove } from './tools/auto-approve.ts'
@@ -94,11 +93,6 @@ function withReminders(messages: Message[], willBeSpoken: boolean): Message[] {
   const voiceReminder = willBeSpoken ? buildVoiceStyleReminder() : null
   if (voiceReminder) {
     reminders.push(voiceReminder)
-  }
-
-  const personaReminder = buildPersonaReminder()
-  if (personaReminder) {
-    reminders.push(personaReminder)
   }
 
   if (reminders.length === 0) {

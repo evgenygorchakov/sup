@@ -11,4 +11,6 @@ export interface ChatProvider {
   initializeContextWindow: () => Promise<void>
   getContextWindowTokenLimit: () => number
   listInstalledModels: () => Promise<ModelListResult>
+  /** Model to use when MODEL is not configured; null when the server cannot be asked. */
+  resolveDefaultModel: () => Promise<string | null>
 }

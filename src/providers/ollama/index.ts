@@ -6,7 +6,7 @@ import { Config } from '../../config.ts'
 import { buildReplyFormat, runPromptToolsChat } from '../prompt-tools.ts'
 import { chat as rawChat } from './chat.ts'
 import { getContextWindowTokenLimit, initializeContextWindow } from './context-window.ts'
-import { listInstalledModels } from './models.ts'
+import { listInstalledModels, resolveDefaultModel } from './models.ts'
 
 async function chat(messages: Message[], tools: ToolDefinition[], onStreamPart?: OnStreamPart, signal?: AbortSignal): Promise<Message> {
   if (!tools.length) {
@@ -27,4 +27,4 @@ async function chat(messages: Message[], tools: ToolDefinition[], onStreamPart?:
   )
 }
 
-export const ollama: ChatProvider = { host: Config.OLLAMA_HOST, chat, initializeContextWindow, getContextWindowTokenLimit, listInstalledModels }
+export const ollama: ChatProvider = { host: Config.OLLAMA_HOST, chat, initializeContextWindow, getContextWindowTokenLimit, listInstalledModels, resolveDefaultModel }

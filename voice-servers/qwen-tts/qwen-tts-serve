@@ -1,4 +1,0 @@
-#!/bin/sh
-cd "$HOME/.local/share/qwen-tts" || exit 1
-export HF_HOME="${HF_HOME:-$HOME/.local/share/qwen-tts/models}"
-exec "$HOME/.local/share/qwen-tts/venv/bin/python" "$HOME/.local/share/qwen-tts/server.py"

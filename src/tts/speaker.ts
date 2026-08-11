@@ -5,7 +5,6 @@ import process from 'node:process'
 import { Config } from '../config.ts'
 import { gray } from '../utils/colors.ts'
 import { isTimeout } from '../utils/timeout.ts'
-import { applyPronunciations } from './lexicon.ts'
 
 const FENCE = '```'
 const SENTENCE_END = /[.!?…][*_`~"'»)\]]*(?=\s|$)/
@@ -106,9 +105,8 @@ function createSpeaker(): Speaker {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          text: applyPronunciations(text),
+          text,
           ...Config.TTS_VOICE ? { voice: Config.TTS_VOICE } : {},
-          ...Config.TTS_LANGUAGE ? { language: Config.TTS_LANGUAGE } : {},
         }),
         signal: AbortSignal.any([request.signal, AbortSignal.timeout(Config.TTS_TIMEOUT_MS)]),
       })

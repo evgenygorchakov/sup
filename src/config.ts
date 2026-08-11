@@ -7,10 +7,6 @@ const installDir = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 
 loadEnvFile(resolve(installDir, '.env'))
 
-export function resolveFromInstallDir(path: string): string {
-  return resolve(installDir, path)
-}
-
 export interface ConfigShape {
   PROVIDER: string
   OLLAMA_HOST: string
@@ -18,7 +14,7 @@ export interface ConfigShape {
   LLAMACPP_HOST: string
   MODEL: string
   LANGUAGE: string
-  PERSONA_FILE: string
+  REPLY_STYLE_SHORT: boolean
   USE_CLAUDE_SKILLS: boolean
   USE_PLAN_MODE: boolean
   USE_AUTO_MODE: boolean
@@ -39,9 +35,6 @@ export interface ConfigShape {
   USE_TTS: boolean
   TTS_HOST: string
   TTS_VOICE: string
-  TTS_LANGUAGE: string
-  TTS_LEXICON_FILE: string
-  VOICE_MODE_SHORT: boolean
   TTS_TIMEOUT_MS: number
   USE_STT: boolean
   STT_HOST: string
@@ -71,9 +64,10 @@ export const Config: ConfigShape = {
   OLLAMA_HOST: getEnvString('OLLAMA_HOST', 'http://host.docker.internal:11434'),
   OLLAMA_USE_THINKING: getEnvBoolean('OLLAMA_USE_THINKING', true),
   LLAMACPP_HOST: getEnvString('LLAMACPP_HOST', 'http://localhost:8080'),
-  MODEL: getEnvString('MODEL', 'qwen3.6'),
+  // Empty means: ask the provider at startup (see resolveStartupModel in index.ts).
+  MODEL: getEnvString('MODEL', ''),
   LANGUAGE: getEnvString('LANGUAGE', 'russian'),
-  PERSONA_FILE: getEnvString('PERSONA_FILE', ''),
+  REPLY_STYLE_SHORT: getEnvBoolean('REPLY_STYLE_SHORT', true),
   USE_CLAUDE_SKILLS: getEnvBoolean('USE_CLAUDE_SKILLS', false),
   USE_PLAN_MODE: getEnvBoolean('USE_PLAN_MODE', false),
   USE_AUTO_MODE: getEnvBoolean('USE_AUTO_MODE', true),
@@ -94,9 +88,6 @@ export const Config: ConfigShape = {
   USE_TTS: getEnvBoolean('USE_TTS', false),
   TTS_HOST: getEnvString('TTS_HOST', 'http://127.0.0.1:5011'),
   TTS_VOICE: getEnvString('TTS_VOICE', ''),
-  TTS_LANGUAGE: getEnvString('TTS_LANGUAGE', ''),
-  TTS_LEXICON_FILE: getEnvString('TTS_LEXICON_FILE', ''),
-  VOICE_MODE_SHORT: getEnvBoolean('VOICE_MODE_SHORT', false),
   TTS_TIMEOUT_MS: getEnvNumber('TTS_TIMEOUT_MS', 30_000),
   USE_STT: getEnvBoolean('USE_STT', true),
   STT_HOST: getEnvString('STT_HOST', 'http://127.0.0.1:5001'),

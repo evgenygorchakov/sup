@@ -6,7 +6,7 @@ import { Config } from '../../config.ts'
 import { buildReplyFormat, runPromptToolsChat } from '../prompt-tools.ts'
 import { chat as rawChat } from './chat.ts'
 import { getContextWindowTokenLimit, initializeContextWindow } from './context-window.ts'
-import { listInstalledModels } from './models.ts'
+import { listInstalledModels, resolveDefaultModel } from './models.ts'
 
 function toResponseFormat(tools: ToolDefinition[]): object {
   return {
@@ -34,4 +34,4 @@ async function chat(messages: Message[], tools: ToolDefinition[], onStreamPart?:
   )
 }
 
-export const llamacpp: ChatProvider = { host: Config.LLAMACPP_HOST, chat, initializeContextWindow, getContextWindowTokenLimit, listInstalledModels }
+export const llamacpp: ChatProvider = { host: Config.LLAMACPP_HOST, chat, initializeContextWindow, getContextWindowTokenLimit, listInstalledModels, resolveDefaultModel }

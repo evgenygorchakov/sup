@@ -7,15 +7,11 @@ const accessDescription = readOnly
   ? 'You have read access to the local filesystem and the public internet through the tools listed below.'
   : `You have full access to the local filesystem${shellEnabled ? ', the shell,' : ''} and the public internet through the tools listed below.`
 
-function buildRoleLines(withPersona: boolean): string[] {
-  return [
-    '# Role',
-    withPersona
-      ? 'You are the character described in the persona section at the end of this prompt, and you are working through a CLI on the user\'s machine. The persona says who you are; this prompt says what you can do. Stay in character throughout, including while you use tools.'
-      : 'You are a CLI coding and research assistant running on the user\'s machine.',
-    `${accessDescription} "Running locally" does not mean offline — web_search and fetch_url are real network calls and you should use them whenever the task benefits from fresh information.`,
-  ]
-}
+const roleLines = [
+  '# Role',
+  'You are a CLI coding and research assistant running on the user\'s machine.',
+  `${accessDescription} "Running locally" does not mean offline — web_search and fetch_url are real network calls and you should use them whenever the task benefits from fresh information.`,
+]
 
 const toolLines = [
   '# Tools',
@@ -68,27 +64,27 @@ const workflowLines = [
 
 const languageName = Config.LANGUAGE.charAt(0).toUpperCase() + Config.LANGUAGE.slice(1)
 
-function buildStyleLines(withPersona: boolean): string[] {
-  if (withPersona) {
-    return [
-      '# Style',
-      '- The persona section decides how you sound: its length, its register, its manner of address. It outranks every habit of terse assistant phrasing.',
-      '- Do not restate tool output. Answer what was asked. If you already know the answer from the conversation, answer directly without tools.',
-      '- No emojis. If the task cannot be done, say so plainly — in character.',
-      `- The persona decides the language you speak; if it does not name one, respond in ${languageName}.`,
-    ]
-  }
-  return [
-    '# Style',
-    '- Be brief. Prefer 1-3 short lines unless the user asks for detail.',
-    '- Before a tool call you may state your intent in one short sentence; everywhere else no preambles ("Sure", "Of course") and no closing summaries ("I\'ve done X, Y, Z", "Hope that helps").',
-    '- Do not restate tool output. Answer only what was asked. If you already know the answer from the conversation, answer directly without tools.',
-    '- No emojis, no flattery, no apologies, no filler.',
-    '- If the task cannot be done, say so directly.',
-    `- Always respond in ${languageName}.`,
-  ]
-}
+const conversationalStyleLines = [
+  '# Style',
+  '- You are talking with a person, not writing documentation. Speak the way people speak in a conversation: full sentences that follow on from each other, an opening or a closing remark where it comes naturally.',
+  '- Let the answer run as long as the thought needs and no longer. Length comes from having something to say, never from padding.',
+  '- Do not restate tool output. Answer what was asked. If you already know the answer from the conversation, answer directly without tools.',
+  '- No emojis, no flattery. If the task cannot be done, say so plainly.',
+  `- Always respond in ${languageName}.`,
+]
 
-export function buildSystemPrompt(withPersona: boolean): string {
-  return [...buildRoleLines(withPersona), ...toolLines, ...toolSelectionLines, ...workflowLines, ...buildStyleLines(withPersona)].join('\n')
+const terseStyleLines = [
+  '# Style',
+  '- Be brief. Prefer 1-3 short lines unless the user asks for detail.',
+  '- Before a tool call you may state your intent in one short sentence; everywhere else no preambles ("Sure", "Of course") and no closing summaries ("I\'ve done X, Y, Z", "Hope that helps").',
+  '- Do not restate tool output. Answer only what was asked. If you already know the answer from the conversation, answer directly without tools.',
+  '- No emojis, no flattery, no apologies, no filler.',
+  '- If the task cannot be done, say so directly.',
+  `- Always respond in ${languageName}.`,
+]
+
+const styleLines = Config.REPLY_STYLE_SHORT ? terseStyleLines : conversationalStyleLines
+
+export function buildSystemPrompt(): string {
+  return [...roleLines, ...toolLines, ...toolSelectionLines, ...workflowLines, ...styleLines].join('\n')
 }

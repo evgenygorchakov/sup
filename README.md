@@ -9,18 +9,20 @@ I've only tested it with models in the 27–35B range — nothing larger.
 Requires Node.js 24+ (the CLI runs its TypeScript sources directly, no build step).
 
 1. Run a backend: [Ollama](https://ollama.com) (`ollama pull <model>`) or [llama.cpp](https://github.com/ggml-org/llama.cpp) (`llama-server --jinja`).
-2. Copy `.env.example` to `.env`, set `PROVIDER` and the matching host (`OLLAMA_HOST` or `LLAMACPP_HOST`)/`MODEL`.
+2. Copy `.env.example` to `.env`, set `PROVIDER` and the matching host (`OLLAMA_HOST` or `LLAMACPP_HOST`). Leave `MODEL` empty and it is taken from the server at startup — the most recently pulled Ollama model; llama.cpp always serves the single model it was started with.
 3. `npm link`, then run `sup` in any directory.
 
 ## Usage
 
 - Type `/` to see commands (`Tab` completes): switch model, toggle plan / auto / thinking / verbose output, list saved plans, clear history; `Shift+Tab` cycles the mode in place.
 - Tuned for small local models: low default temperature, tool arguments validated against the schema with precise repair errors, the approved plan re-injected near the end of the context every turn, old tool outputs collapsed to keep the context short.
+- A response that degenerates into repeating itself is cut mid-stream, trimmed to a single cycle, and the model is told why (`USE_LOOP_DETECTION`); thinking longer than `THINKING_CHAR_LIMIT` characters is stopped the same way.
+- The `web_search` tool needs `OLLAMA_API_KEY` from [ollama.com/settings/keys](https://ollama.com/settings/keys); everything else works without it.
 - Models without native tool calling fall back to prompt-engineered tools (`USE_NATIVE_TOOLS=false`).
 - Every setting is an `.env` variable with a sane default — see `.env.example`.
 - Defaults to Ollama; `sup --llama` (or `sup --provider <name>`) switches for a single run without touching `.env`.
 - `AGENTS.md` in the working directory is appended to the system prompt, and `sup --no-system-prompt` drops the system prompt entirely (role, workflow, skills, `AGENTS.md`) for probing a research model's raw behavior.
-- Optional persona (`PERSONA_FILE`): a markdown character that replaces the assistant voice — role line, style rules, and a per-request reminder all hand over to it, while tools and permissions stay untouched.
+- `REPLY_STYLE_SHORT` sets the style, with or without speech: `true` (default) is terse, 1-3 lines; `false` is conversational.
 - Skills: Claude Code ones load as-is, from `.sup/skills` and callable as `/<skill-name>`; see [Skills](#skills).
 - Paste an image from the clipboard.
 - Talk to it instead of typing — see [Voice](#voice).
@@ -63,11 +65,10 @@ Speech in and out, both through local servers, so nothing leaves the machine. Th
 
 - Dictation is on by default: `Ctrl+G` records, then `Enter` sends what you said, `Ctrl+G` inserts it without sending, `Esc` drops it — `/stt` mid-session or `USE_STT=false` at startup turns it off.
 - Audio is captured with `parecord` and transcribed by a local [faster-whisper](https://github.com/SYSTRAN/faster-whisper) server; how it is wired is in [`src/stt/README.md`](src/stt/README.md) (in Russian).
-- Text to speech is off by default (`/tts` mid-session, or `USE_TTS=true` at startup) and speaks the final answer through [Silero v5](https://github.com/snakers4/silero-models), with [Chatterbox](https://huggingface.co/ResembleAI/chatterbox) and [Qwen3-TTS](https://huggingface.co/Qwen/Qwen3-TTS-12Hz-1.7B-Base) as cloned-voice alternatives.
+- Text to speech is off by default (`/tts` mid-session, or `USE_TTS=true` at startup) and speaks the final answer through [Silero v5](https://github.com/snakers4/silero-models).
 - Thinking, tool output, proposed plans, and the report after an interrupted turn stay silent — they are written for the screen, paths and identifiers included — as do code blocks and tables.
-- While speech is on, each request carries a spoken-style reminder (conversational sentences, no markdown, no dictated paths) that also makes answers a little roomier; `VOICE_MODE_SHORT=true` keeps them as short as they are with speech off.
+- While speech is on, each request carries a spoken-style reminder: no markdown, no dictated paths, numbers as words. Length is `REPLY_STYLE_SHORT`, not a speech setting.
 - `Esc` cuts the voice, during the request or at the prompt afterwards, as does sending the next one; a TTS server that stops answering turns speech off by itself.
-- `TTS_LEXICON_FILE` points at an optional pronunciation lexicon — `written = spoken` lines applied on the way to the synthesizer only, for names it stresses or transliterates wrong.
 
 ## Run journal
 

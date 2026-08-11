@@ -10,7 +10,6 @@ const SKILL_FILE = 'SKILL.md'
 const SUP_SKILLS_DIR = '.sup/skills'
 const CLAUDE_SKILLS_DIR = '.claude/skills'
 
-/** Own skills first, so a name in `.sup/skills` wins over the same one in `.claude/skills`. */
 export const skillDirs: readonly string[] = Config.USE_CLAUDE_SKILLS
   ? [SUP_SKILLS_DIR, CLAUDE_SKILLS_DIR]
   : [SUP_SKILLS_DIR]

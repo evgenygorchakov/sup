@@ -7,7 +7,6 @@ export type AgentMode = 'normal' | 'auto' | 'plan'
 const CYCLE: readonly AgentMode[] = ['normal', 'auto', 'plan']
 
 function initialMode(): AgentMode {
-  // Auto is the default, so only an explicit USE_AUTO_MODE is worth warning about.
   const autoRequested = Config.USE_AUTO_MODE && isEnvSet('USE_AUTO_MODE')
 
   if (Config.USE_READ_ONLY_MODE) {
