@@ -7,8 +7,6 @@ export interface CliArgs {
   promptArgs: string[]
 }
 
-const FLAGS_APPLIED_BY_CONFIG_AT_IMPORT = new Set(['--read-only'])
-
 export function parseArgs(argv: string[]): CliArgs {
   let provider: string | undefined
   let resumeRequested = false
@@ -19,9 +17,6 @@ export function parseArgs(argv: string[]): CliArgs {
 
   for (let index = 0; index < argv.length; index++) {
     const arg = argv[index]!
-    if (FLAGS_APPLIED_BY_CONFIG_AT_IMPORT.has(arg)) {
-      continue
-    }
     if (arg === '--llama') {
       provider = 'llamacpp'
     }

@@ -1,8 +1,7 @@
+import type { Buffer } from 'node:buffer'
 import type { ImageAttachment } from '../types.ts'
-import { Buffer } from 'node:buffer'
-import { spawn } from 'node:child_process'
-import { readFileSync } from 'node:fs'
 import process from 'node:process'
+import { capture, captureText, isWsl } from '../clipboard/capture.ts'
 import { loadImageFile, looksLikeImagePath } from './load.ts'
 
 const POWERSHELL_IMAGE_SCRIPT = [
@@ -23,52 +22,6 @@ const POWERSHELL_FILES_SCRIPT = [
 ].join(' ')
 
 const MACOS_FILE_SCRIPT = 'POSIX path of (the clipboard as «class furl»)'
-
-const CAPTURE_TIMEOUT_MS = 10_000
-
-let cachedIsWsl: boolean | null = null
-
-function isWsl(): boolean {
-  if (cachedIsWsl !== null) {
-    return cachedIsWsl
-  }
-  if (process.platform !== 'linux') {
-    cachedIsWsl = false
-    return cachedIsWsl
-  }
-  try {
-    cachedIsWsl = /microsoft/i.test(readFileSync('/proc/version', 'utf8'))
-  }
-  catch {
-    cachedIsWsl = false
-  }
-  return cachedIsWsl
-}
-
-function capture(command: string, args: string[]): Promise<Buffer | null> {
-  return new Promise((resolvePromise) => {
-    let child
-    try {
-      child = spawn(command, args, { stdio: ['ignore', 'pipe', 'ignore'], timeout: CAPTURE_TIMEOUT_MS })
-    }
-    catch {
-      resolvePromise(null)
-      return
-    }
-
-    const chunks: Buffer[] = []
-    child.stdout?.on('data', (chunk: Buffer) => chunks.push(chunk))
-    child.on('error', () => resolvePromise(null))
-    child.on('close', (code) => {
-      resolvePromise(code === 0 && chunks.length > 0 ? Buffer.concat(chunks) : null)
-    })
-  })
-}
-
-async function captureText(command: string, args: string[]): Promise<string | null> {
-  const out = await capture(command, args)
-  return out ? out.toString('utf8') : null
-}
 
 function mimeFromBytes(bytes: Buffer): string {
   if (bytes.length >= 3 && bytes[0] === 0xFF && bytes[1] === 0xD8 && bytes[2] === 0xFF) {

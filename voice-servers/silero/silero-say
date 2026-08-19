@@ -1,28 +1,35 @@
 #!/bin/sh
+# silero-say [-s <голос>] [-r <темп>] <текст...>   — синтезирует фразу и играет её
 set -e
 
 host="${SILERO_HOST:-http://127.0.0.1:5011}"
 voice=""
+rate=""
 
-if [ "$1" = "-s" ]; then
-    voice="$2"
-    shift 2
-fi
+while true; do
+    case "$1" in
+        -s) voice="$2"; shift 2 ;;
+        -r) rate="$2";  shift 2 ;;
+        *)  break ;;
+    esac
+done
 
 if [ $# -lt 1 ]; then
-    echo "использование: silero-say [-s <голос>] <текст...>" >&2
-    echo "голоса:" >&2
+    echo "использование: silero-say [-s <голос>] [-r <темп>] <текст...>" >&2
+    echo "голоса и темпы:" >&2
     curl -s "$host/voices" >&2
     echo >&2
     exit 2
 fi
 
 body=$(python3 -c 'import json,sys
-voice, *words = sys.argv[1:]
+voice, rate, *words = sys.argv[1:]
 payload = {"text": " ".join(words)}
 if voice:
     payload["voice"] = voice
-print(json.dumps(payload))' "$voice" "$@")
+if rate:
+    payload["rate"] = rate
+print(json.dumps(payload))' "$voice" "$rate" "$@")
 out="${TMPDIR:-/tmp}/silero-say.wav"
 
 code=$(curl -s -o "$out" -w '%{http_code}' -X POST "$host/synthesize" \

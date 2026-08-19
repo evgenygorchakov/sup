@@ -32,7 +32,7 @@ function gateEnabled(): boolean {
 }
 
 function shellAvailable(): boolean {
-  return Config.USE_SHELL_TOOL && !Config.USE_READ_ONLY_MODE
+  return Config.USE_SHELL_TOOL
 }
 
 function parseExitCode(shellResult: string): number | null {

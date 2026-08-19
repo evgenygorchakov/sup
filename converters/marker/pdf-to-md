@@ -1,0 +1,8 @@
+#!/bin/sh
+# pdf-to-md <input.pdf> <output.md> [--images <каталог>] [--force-ocr] — конвертирует PDF в markdown
+set -e
+
+home="${MARKER_HOME:-$HOME/.local/share/marker}"
+export TORCH_DEVICE="${TORCH_DEVICE:-cpu}"
+
+exec "$home/venv/bin/python" "$home/convert.py" "$@"

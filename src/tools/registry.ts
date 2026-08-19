@@ -30,18 +30,14 @@ const allTools: Tool[] = [
   ...(ledgerToolRegistered ? [ledgerUpdate] : []),
 ]
 
-const availableTools: Tool[] = Config.USE_READ_ONLY_MODE
-  ? allTools.filter(tool => !tool.mutates)
-  : allTools
+export const toolDefinitions: ToolDefinition[] = allTools.map(tool => tool.definition)
 
-export const toolDefinitions: ToolDefinition[] = availableTools.map(tool => tool.definition)
-
-export const autoApprovedToolDefinitions: ToolDefinition[] = availableTools
+export const autoApprovedToolDefinitions: ToolDefinition[] = allTools
   .filter(tool => tool.autoApprove === true)
   .map(tool => tool.definition)
 
 export const toolsByName: Record<string, Tool> = Object.fromEntries(
-  availableTools.map(tool => [tool.definition.function.name, tool]),
+  allTools.map(tool => [tool.definition.function.name, tool]),
 )
 
 export async function runTool(call: ToolCall): Promise<string> {

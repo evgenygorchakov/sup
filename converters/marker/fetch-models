@@ -1,0 +1,31 @@
+#!/bin/sh
+# fetch-models [модель...] — качает модели surya в ~/.cache/datalab/models с докачкой.
+# Сам marker качает во временный каталог и переносит файлы только после полного успеха,
+# поэтому любой обрыв связи стоит всей модели целиком. curl -C - продолжает с места обрыва,
+# так что скрипт можно прерывать и запускать сколько угодно раз.
+set -e
+
+base="${SURYA_S3_BASE:-https://models.datalab.to}"
+cache="${DATALAB_CACHE:-$HOME/.cache/datalab/models}"
+python="${MARKER_HOME:-$HOME/.local/share/marker}/venv/bin/python"
+
+# Версии из surya/settings.py той surya, что стоит в venv (сейчас 0.17.1).
+all_models="text_detection/2025_05_07
+text_recognition/2025_09_23
+layout/2025_09_23
+table_recognition/2025_02_18
+ocr_error_detection/2025_02_18"
+
+models="${*:-$all_models}"
+
+for model in $models; do
+    dir="$cache/$model"
+    mkdir -p "$dir"
+    curl -fsSL --retry 5 --retry-delay 3 -o "$dir/manifest.json" "$base/$model/manifest.json"
+    echo "[$model]"
+    for file in $("$python" -c "import json,sys; print('\n'.join(json.load(open(sys.argv[1]))['files']))" "$dir/manifest.json"); do
+        curl -fL -C - --retry 10 --retry-delay 5 --progress-bar -o "$dir/$file" "$base/$model/$file"
+    done
+done
+
+echo "готово: $cache"

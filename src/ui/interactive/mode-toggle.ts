@@ -1,6 +1,5 @@
 import type { EventEmitter } from 'node:events'
 import type { Interface as ReadlineInterface } from 'node:readline/promises'
-import { Config } from '../../config.ts'
 import { cycleMode } from '../../plan/mode-state.ts'
 
 export function installModeToggle(
@@ -11,7 +10,7 @@ export function installModeToggle(
   let active = false
 
   inputStream.on('shift-tab', () => {
-    if (!active || Config.USE_READ_ONLY_MODE) {
+    if (!active) {
       return
     }
 

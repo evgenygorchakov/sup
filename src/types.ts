@@ -42,5 +42,4 @@ export interface Tool {
   accentColor?: (text: string) => string
   renderResult?: (args: Record<string, unknown>, result: string) => string
   autoApprove?: boolean
-  mutates?: boolean
 }

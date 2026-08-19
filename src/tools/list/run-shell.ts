@@ -179,7 +179,6 @@ export const runShell: Tool = {
   },
   primaryArgs: ['command'],
   accentColor: yellow,
-  mutates: true,
   renderResult: (_args, result) => {
     const parsed = parseResult(result)
     if (!parsed.ok) {

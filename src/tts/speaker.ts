@@ -107,6 +107,7 @@ function createSpeaker(): Speaker {
         body: JSON.stringify({
           text,
           ...Config.TTS_VOICE ? { voice: Config.TTS_VOICE } : {},
+          ...Config.TTS_RATE ? { rate: Config.TTS_RATE } : {},
         }),
         signal: AbortSignal.any([request.signal, AbortSignal.timeout(Config.TTS_TIMEOUT_MS)]),
       })

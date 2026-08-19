@@ -9,9 +9,9 @@
 | Сервер | Порт | Что делает | Автозапуск |
 |---|---|---|---|
 | **whisper** | 5001 | распознаёт речь: `POST /transcribe`, тело — wav 16 кГц моно, ответ `{"text": …}`. Модель `small`, язык русский | да |
-| **silero** | 5011 | синтез речи: `POST /synthesize`, тело `{"text": …}` + необязательное `voice`, ответ — wav. Silero v5, 29 русских голосов с ударениями, по умолчанию `ru_eduard` | да |
+| **silero** | 5011 | синтез речи: `POST /synthesize`, тело `{"text": …}` + необязательные `voice` и `rate`, ответ — wav. Silero `v5_5_ru`, 5 русских голосов со встроенными ударениями, по умолчанию `aidar` в темпе `medium` | да |
 
-Смена голоса — это только переменные окружения, без правок в коде; `sup` находит серверы
+Смена голоса и темпа — это только переменные окружения, без правок в коде; `sup` находит серверы
 через `STT_HOST` и `TTS_HOST`. Оба оформлены как systemd user-сервисы (`--user`, без `sudo`),
 оригиналы файлов лежат в `~/.local/share/<сервис>/`, `~/.local/bin/`
 и `~/.config/systemd/user/`.
@@ -68,7 +68,7 @@ cp             silero/silero.service ~/.config/systemd/user/silero.service
 systemctl --user daemon-reload
 systemctl --user enable --now whisper silero
 curl -s localhost:5001/health; echo    # {"model":"small","language":"ru"}
-curl -s localhost:5011/health; echo    # {"model":"v5_cis_base",…,"default_voice":"ru_eduard"}
+curl -s localhost:5011/health; echo    # {"model":"v5_5_ru",…,"default_voice":"aidar","default_rate":"medium"}
 ```
 
 Первый старт каждого сервера долгий — модели качаются сами.
@@ -76,7 +76,7 @@ curl -s localhost:5011/health; echo    # {"model":"v5_cis_base",…,"default_voi
 ## Грабли
 
 - **`torch` для silero — отдельной командой из CPU-индекса**: колесо с PyPI тянет ненужный CUDA-стек на ~3 ГБ, а silero и на процессоре быстрее реального времени.
-- **Моделей в репозитории нет**, качаются при первом старте: whisper `small` ~450 МБ, silero ~88 МБ.
+- **Моделей в репозитории нет**, качаются при первом старте: whisper `small` ~450 МБ, silero ~139 МБ.
 - **`WorkingDirectory` у silero задан не для красоты**: пакет кэширует `latest_silero_models.yml` в рабочем каталоге процесса. Сама модель ложится внутрь venv, поэтому переустановка пакета = повторная закачка.
 - **`Linger=no`**: сервисы живут, пока открыто хотя бы одно окно WSL; если нужно иначе — `loginctl enable-linger $USER`.
 - **`requirements.txt` без пинов** — таблица заведомо рабочих версий и команды отката в [REFERENCE.md](REFERENCE.md).

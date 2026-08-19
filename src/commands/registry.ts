@@ -4,9 +4,11 @@ import { red } from '../utils/colors.ts'
 import { autoModeCommand } from './list/auto-mode.ts'
 import { babysitterCommand } from './list/babysitter.ts'
 import { clearCommand } from './list/clear.ts'
+import { clipboardCommand } from './list/clipboard.ts'
 import { exitCommand } from './list/exit.ts'
 import { helpCommand } from './list/help.ts'
 import { modelCommand } from './list/model.ts'
+import { pdfCommand } from './list/pdf.ts'
 import { planModeCommand } from './list/plan-mode.ts'
 import { runPlanCommand } from './list/run-plan.ts'
 import { showThinkingCommand } from './list/show-thinking.ts'
@@ -29,6 +31,8 @@ const builtinCommands: SlashCommand[] = [
   verboseCommand,
   ttsCommand,
   sttCommand,
+  clipboardCommand,
+  pdfCommand,
   skillsCommand,
   babysitterCommand,
 ]

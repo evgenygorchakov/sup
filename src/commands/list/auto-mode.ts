@@ -1,4 +1,3 @@
-import { Config } from '../../config.ts'
 import { isAutoModeActive, setMode } from '../../plan/mode-state.ts'
 import { createToggleCommand } from '../toggle.ts'
 
@@ -14,7 +13,4 @@ export const autoModeCommand = createToggleCommand({
       setMode('normal')
     }
   },
-  unavailableReason: () => Config.USE_READ_ONLY_MODE
-    ? 'Auto mode is unavailable in read-only mode: there are no mutating tools to auto-approve.'
-    : undefined,
 })

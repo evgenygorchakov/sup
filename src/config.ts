@@ -18,7 +18,6 @@ export interface ConfigShape {
   USE_CLAUDE_SKILLS: boolean
   USE_PLAN_MODE: boolean
   USE_AUTO_MODE: boolean
-  USE_READ_ONLY_MODE: boolean
   USE_JOURNAL: boolean
   USE_SHELL_TOOL: boolean
   USE_NATIVE_TOOLS: boolean
@@ -35,11 +34,18 @@ export interface ConfigShape {
   USE_TTS: boolean
   TTS_HOST: string
   TTS_VOICE: string
+  TTS_RATE: string
   TTS_TIMEOUT_MS: number
   USE_STT: boolean
   STT_HOST: string
   STT_DEVICE: string
   STT_TIMEOUT_MS: number
+  USE_DICTATION_CLIPBOARD: boolean
+  CLIPBOARD_MAX_CHARS: number
+  USE_PDF_CONVERT: boolean
+  PDF_CONVERTER: string
+  PDF_TIMEOUT_MS: number
+  PDF_EXTRACT_IMAGES: boolean
   VERBOSE_TOOL_OUTPUT: boolean
   WEB_SEARCH_MAX_RESULTS: number
   FETCH_URL_MAX_BYTES: number
@@ -71,7 +77,6 @@ export const Config: ConfigShape = {
   USE_CLAUDE_SKILLS: getEnvBoolean('USE_CLAUDE_SKILLS', false),
   USE_PLAN_MODE: getEnvBoolean('USE_PLAN_MODE', false),
   USE_AUTO_MODE: getEnvBoolean('USE_AUTO_MODE', true),
-  USE_READ_ONLY_MODE: process.argv.includes('--read-only') || getEnvBoolean('USE_READ_ONLY_MODE', false),
   USE_JOURNAL: getEnvBoolean('USE_JOURNAL', true),
   USE_SHELL_TOOL: getEnvBoolean('USE_SHELL_TOOL', true),
   USE_NATIVE_TOOLS: getEnvBoolean('USE_NATIVE_TOOLS', true),
@@ -88,11 +93,19 @@ export const Config: ConfigShape = {
   USE_TTS: getEnvBoolean('USE_TTS', false),
   TTS_HOST: getEnvString('TTS_HOST', 'http://127.0.0.1:5011'),
   TTS_VOICE: getEnvString('TTS_VOICE', ''),
+  TTS_RATE: getEnvString('TTS_RATE', 'medium'),
   TTS_TIMEOUT_MS: getEnvNumber('TTS_TIMEOUT_MS', 30_000),
   USE_STT: getEnvBoolean('USE_STT', true),
   STT_HOST: getEnvString('STT_HOST', 'http://127.0.0.1:5001'),
   STT_DEVICE: getEnvString('STT_DEVICE', ''),
   STT_TIMEOUT_MS: getEnvNumber('STT_TIMEOUT_MS', 120_000),
+  USE_DICTATION_CLIPBOARD: getEnvBoolean('USE_DICTATION_CLIPBOARD', true),
+  CLIPBOARD_MAX_CHARS: getEnvNumber('CLIPBOARD_MAX_CHARS', 20_000),
+  USE_PDF_CONVERT: getEnvBoolean('USE_PDF_CONVERT', true),
+  PDF_CONVERTER: getEnvString('PDF_CONVERTER', 'pdf-to-md'),
+  // Generous: the converter has no daemon, so every file pays for loading the models again.
+  PDF_TIMEOUT_MS: getEnvNumber('PDF_TIMEOUT_MS', 900_000),
+  PDF_EXTRACT_IMAGES: getEnvBoolean('PDF_EXTRACT_IMAGES', false),
   VERBOSE_TOOL_OUTPUT: getEnvBoolean('VERBOSE_TOOL_OUTPUT', false),
   WEB_SEARCH_MAX_RESULTS: getEnvNumber('WEB_SEARCH_MAX_RESULTS', 5),
   FETCH_URL_MAX_BYTES: getEnvNumber('FETCH_URL_MAX_BYTES', 50_000),

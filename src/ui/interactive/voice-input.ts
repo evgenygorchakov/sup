@@ -3,6 +3,8 @@ import type { Interface as ReadlineInterface } from 'node:readline/promises'
 import type { Dictation, Recording } from '../../stt/listener.ts'
 import type { VoiceKeys } from './multiline-input.ts'
 import type { NoticeArea } from './notice-area.ts'
+import { addClipboardSnippet, markerFor } from '../../clipboard/pending.ts'
+import { readClipboardText } from '../../clipboard/text.ts'
 import { Config } from '../../config.ts'
 import { startRecording } from '../../stt/listener.ts'
 import { getSpeaker } from '../../tts/speaker.ts'
@@ -31,11 +33,32 @@ export function installVoiceInput(
     }
   }
 
+  /** What is in the clipboard while you dictate is usually what you are talking about. */
+  async function readClipboardWhileTranscribing(): Promise<string | null> {
+    if (!Config.USE_DICTATION_CLIPBOARD) {
+      return null
+    }
+    try {
+      return await readClipboardText()
+    }
+    catch {
+      return null
+    }
+  }
+
+  function clipboardMarker(clipboard: string | null): string {
+    if (!clipboard) {
+      return ''
+    }
+    const snippet = addClipboardSnippet(clipboard)
+    return snippet ? ` ${markerFor(snippet)}` : ''
+  }
+
   async function transcribeInto(current: Recording, token: number, send: boolean): Promise<void> {
     busy = true
     try {
       notices.pin(gray('Transcribing…'))
-      const dictation = await current.finish()
+      const [dictation, clipboard] = await Promise.all([current.finish(), readClipboardWhileTranscribing()])
       if (token !== prompt) {
         reportAfterPrompt(dictation)
         return
@@ -49,7 +72,8 @@ export function installVoiceInput(
         notices.flash(gray('Nothing was picked up.'))
         return
       }
-      readline.write(dictation.text.replace(/\r\n|\r|\n/g, PASTE_PLACEHOLDER))
+      const text = `${dictation.text}${clipboardMarker(clipboard)}`
+      readline.write(text.replace(/\r\n|\r|\n/g, PASTE_PLACEHOLDER))
       if (send) {
         inputStream.submitLine()
       }

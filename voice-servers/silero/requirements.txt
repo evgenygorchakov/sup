@@ -1,5 +1,4 @@
 silero
-silero-stress
 soundfile
 numpy
 flask

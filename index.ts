@@ -11,10 +11,11 @@ import { createInterface } from 'node:readline/promises'
 import { run } from './src/agent.ts'
 import { resumeIntoMessages } from './src/babysitter/index.ts'
 import { parseArgs } from './src/cli/args.ts'
+import { forgetLastClipboard } from './src/clipboard/pending.ts'
 import { commands, runSlashCommand } from './src/commands/registry.ts'
 import { Config } from './src/config.ts'
-import { buildUserMessage } from './src/images/build-message.ts'
 import { restorePendingImages } from './src/images/pending.ts'
+import { buildUserMessage } from './src/message/build-message.ts'
 import { recordUserMessage } from './src/journal/index.ts'
 import { getMode } from './src/plan/mode-state.ts'
 import { RequestCancelledError } from './src/providers/cancel.ts'
@@ -36,15 +37,12 @@ const PROMPT_MARKER = bold(brightGreen('> '))
 
 function modeIndicator(): string {
   const prefix = isSkipPermissionsActive() ? red('[skip-perms] ') : ''
-  if (Config.USE_READ_ONLY_MODE) {
-    return `${prefix}${gray('[read-only] ')}`
-  }
   const mode = getMode()
   if (mode === 'plan') {
-    return `${prefix}${yellow('[plan] ')}`
+    return `${prefix}${cyan('[plan] ')}`
   }
   if (mode === 'auto') {
-    return `${prefix}${cyan('[auto] ')}`
+    return `${prefix}${yellow('[auto] ')}`
   }
   return prefix
 }
@@ -91,6 +89,10 @@ function noteInterruptedTurn(messages: Message[]): void {
 async function handleUserTurn(provider: ChatProvider, messages: Message[], readline: ReadlineInterface, userInput: string): Promise<void> {
   const mark = messages.length
   const message = await buildUserMessage(userInput)
+  if (!message) {
+    return
+  }
+
   messages.push(message)
   const imageCount = message.images?.length ?? 0
   if (imageCount > 0) {
@@ -109,6 +111,7 @@ async function handleUserTurn(provider: ChatProvider, messages: Message[], readl
         if (message.images) {
           restorePendingImages(message.images)
         }
+        forgetLastClipboard()
         console.warn(CANCELLED_NOTICE)
       }
       return
@@ -215,9 +218,6 @@ async function main() {
   if (args.noSystemPrompt) {
     console.warn(yellow('⚠  --no-system-prompt: running without a system prompt (tools stay available).'))
   }
-  if (Config.USE_READ_ONLY_MODE) {
-    console.warn(gray('Read-only session: write, edit, and shell tools are disabled.'))
-  }
   if (isSkipPermissionsActive()) {
     console.warn(red('⚠  --dangerously-skip-permissions: all tool calls auto-approved without asking.'))
   }
@@ -246,8 +246,13 @@ async function main() {
     await handleUserTurn(provider, messages, readline, commandLinePrompt)
   }
 
-  const planModeHint = interactive && !Config.USE_READ_ONLY_MODE ? ' Shift+Tab cycles modes: normal → auto → plan.' : ''
-  console.warn(gray(`\nType /help for commands, /exit to quit.${planModeHint}`))
+  const hints = [
+    interactive ? 'Shift+Tab cycles modes.' : '',
+    interactive && Config.USE_STT ? '🎤 Ctrl+G to dictate.' : '',
+  ].filter(Boolean)
+  if (hints.length > 0) {
+    console.warn(gray(`\n${hints.join(' ')}`))
+  }
 
   try {
     while (true) {

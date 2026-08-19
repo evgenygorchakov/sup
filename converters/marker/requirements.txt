@@ -1,0 +1,3 @@
+# Пин обязателен: с 2.0 surya считает не локально, а ходит в VLM-сервер (vllm в docker / llama-server),
+# чего в WSL2 без Docker Desktop нет. TORCH_DEVICE=cpu на это уже не влияет.
+marker-pdf==1.10.2

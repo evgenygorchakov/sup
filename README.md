@@ -25,6 +25,7 @@ Requires Node.js 24+ (the CLI runs its TypeScript sources directly, no build ste
 - `REPLY_STYLE_SHORT` sets the style, with or without speech: `true` (default) is terse, 1-3 lines; `false` is conversational.
 - Skills: Claude Code ones load as-is, from `.sup/skills` and callable as `/<skill-name>`; see [Skills](#skills).
 - Paste an image from the clipboard.
+- Drag a PDF into the terminal and it becomes a markdown file — see [PDF](#pdf).
 - Talk to it instead of typing — see [Voice](#voice).
 
 ## Skills
@@ -64,11 +65,23 @@ Two headings mean more than prose to the [babysitter](src/babysitter/README.md) 
 Speech in and out, both through local servers, so nothing leaves the machine. The servers themselves live outside this app — their scripts, systemd units, and a from-scratch setup guide (in Russian) are in [`voice-servers/`](voice-servers/README.md).
 
 - Dictation is on by default: `Ctrl+G` records, then `Enter` sends what you said, `Ctrl+G` inserts it without sending, `Esc` drops it — `/stt` mid-session or `USE_STT=false` at startup turns it off.
+- Whatever text sits in the clipboard is glued to the end of what you dictate, so "let's read this article" carries the link you just copied — and a copied link arrives with the instruction to open it through `fetch_url` instead of inventing the page; anything else arrives as a quoted block, cut at `CLIPBOARD_MAX_CHARS`.
+- The attachment shows up in the line as `[clipboard #1: …]`, so deleting the marker before sending drops it; the same clipboard is never attached twice in a row, and `/clipboard` mid-session (or `USE_DICTATION_CLIPBOARD=false`) turns this off.
 - Audio is captured with `parecord` and transcribed by a local [faster-whisper](https://github.com/SYSTRAN/faster-whisper) server; how it is wired is in [`src/stt/README.md`](src/stt/README.md) (in Russian).
-- Text to speech is off by default (`/tts` mid-session, or `USE_TTS=true` at startup) and speaks the final answer through [Silero v5](https://github.com/snakers4/silero-models).
+- Text to speech is off by default (`/tts` mid-session, or `USE_TTS=true` at startup) and speaks the final answer through [Silero v5](https://github.com/snakers4/silero-models); `TTS_VOICE` picks one of the five Russian voices and `TTS_RATE` the pace (`x-slow` … `x-fast`, default `medium`).
 - Thinking, tool output, proposed plans, and the report after an interrupted turn stay silent — they are written for the screen, paths and identifiers included — as do code blocks and tables.
 - While speech is on, each request carries a spoken-style reminder: no markdown, no dictated paths, numbers as words. Length is `REPLY_STYLE_SHORT`, not a speech setting.
 - `Esc` cuts the voice, during the request or at the prompt afterwards, as does sending the next one; a TTS server that stops answering turns speech off by itself.
+
+## PDF
+
+Drag a PDF into the terminal, press `Enter`, and it is converted to markdown — and that is the whole effect: the `.md` lands in the directory you are working in and nothing goes to the model. The converter is [marker](https://github.com/datalab-to/marker) in its own venv, run on demand — no daemon, nothing leaves the machine. Setup is in [`converters/marker/`](converters/marker/README.md) (in Russian); until it is installed, a dropped PDF stays a plain path and `sup` says so once.
+
+- A drop of nothing but PDFs converts them and returns you to the prompt: no request is sent, the context stays as it was. Ask about the `.md` afterwards and the model reads it with `read_file` like any other file.
+- A path inside a sentence — "have a look at ~/Downloads/report.pdf" — keeps the sentence and becomes the path of the markdown, so the model knows what to read. Windows paths from a WSL drop are translated the same way image paths are.
+- Dropping the same PDF again is instant: an `.md` newer than its PDF is reused instead of running the converter. An older one is overwritten.
+- `/pdf <path>` converts without a drop, `/pdf off` turns the automatic conversion off, `PDF_EXTRACT_IMAGES=true` also writes the pictures next to the `.md`.
+- No daemon means every file reloads the models — tens of seconds on CPU before the pages even start, hence `PDF_TIMEOUT_MS` of 15 minutes.
 
 ## Run journal
 
@@ -86,5 +99,4 @@ Deterministic harness-side control that keeps the model on its checklist and ver
 - Starts in auto mode, so edits (`write_file`/`edit_file`) run unattended while non-allowlisted shell commands still ask `[y / n / type feedback]`; `USE_AUTO_MODE=false` starts in normal mode, where edits ask too.
 - Network tools (`fetch_url`/`web_search`) run without confirmation.
 - The shell tool is on by default (`USE_SHELL_TOOL=false` to disable).
-- `sup --read-only` (or `USE_READ_ONLY_MODE=true`) removes `write_file` / `edit_file` / `run_shell` from the toolset for the whole session.
 - `sup --dangerously-skip-permissions` bypasses every approval prompt for the whole session — only use it when you trust the model and the working directory.
