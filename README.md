@@ -18,11 +18,10 @@ Requires Node.js 24+ (the CLI runs its TypeScript sources directly, no build ste
 - Tuned for small local models: low default temperature, tool arguments validated against the schema with precise repair errors, the approved plan re-injected near the end of the context every turn, old tool outputs collapsed to keep the context short.
 - A response that degenerates into repeating itself is cut mid-stream, trimmed to a single cycle, and the model is told why (`USE_LOOP_DETECTION`); thinking longer than `THINKING_CHAR_LIMIT` characters is stopped the same way.
 - The `web_search` tool needs `OLLAMA_API_KEY` from [ollama.com/settings/keys](https://ollama.com/settings/keys); everything else works without it.
-- Models without native tool calling fall back to prompt-engineered tools (`USE_NATIVE_TOOLS=false`).
+- The model has to support native tool calling: sup only ever goes through the provider's tools API.
 - Every setting is an `.env` variable with a sane default — see `.env.example`.
 - Defaults to Ollama; `sup --llama` (or `sup --provider <name>`) switches for a single run without touching `.env`.
 - `AGENTS.md` in the working directory is appended to the system prompt, and `sup --no-system-prompt` drops the system prompt entirely (role, workflow, skills, `AGENTS.md`) for probing a research model's raw behavior.
-- `REPLY_STYLE_SHORT` sets the style, with or without speech: `true` (default) is terse, 1-3 lines; `false` is conversational.
 - Skills: Claude Code ones load as-is, from `.sup/skills` and callable as `/<skill-name>`; see [Skills](#skills).
 - Paste an image from the clipboard.
 - Drag a PDF into the terminal and it becomes a markdown file — see [PDF](#pdf).
@@ -70,7 +69,7 @@ Speech in and out, both through local servers, so nothing leaves the machine. Th
 - Audio is captured with `parecord` and transcribed by a local [faster-whisper](https://github.com/SYSTRAN/faster-whisper) server; how it is wired is in [`src/stt/README.md`](src/stt/README.md) (in Russian).
 - Text to speech is off by default (`/tts` mid-session, or `USE_TTS=true` at startup) and speaks the final answer through [Silero v5](https://github.com/snakers4/silero-models); `TTS_VOICE` picks one of the five Russian voices and `TTS_RATE` the pace (`x-slow` … `x-fast`, default `medium`).
 - Thinking, tool output, proposed plans, and the report after an interrupted turn stay silent — they are written for the screen, paths and identifiers included — as do code blocks and tables.
-- While speech is on, each request carries a spoken-style reminder: no markdown, no dictated paths, numbers as words. Length is `REPLY_STYLE_SHORT`, not a speech setting.
+- While speech is on, the system prompt swaps its terse `# Style` section for a conversational one — full sentences instead of 1-3 lines, an opening or closing remark where it fits — and each request carries a spoken-style reminder: no markdown, no dictated paths, numbers as words. Toggling `/tts` mid-session rewrites the system message, so the switch takes effect from the next request on.
 - `Esc` cuts the voice, during the request or at the prompt afterwards, as does sending the next one; a TTS server that stops answering turns speech off by itself.
 
 ## PDF
@@ -97,6 +96,6 @@ Deterministic harness-side control that keeps the model on its checklist and ver
 
 - All file tools are confined to the working directory; sensitive files (`.env`, keys, credentials) are refused for both reading and writing.
 - Starts in auto mode, so edits (`write_file`/`edit_file`) run unattended while non-allowlisted shell commands still ask `[y / n / type feedback]`; `USE_AUTO_MODE=false` starts in normal mode, where edits ask too.
-- Network tools (`fetch_url`/`web_search`) run without confirmation.
+- Read-only tools (`read_file`, `grep`, `glob`) never ask; `fetch_url` and `web_search` ask in normal mode and run unattended in auto mode, like edits.
 - The shell tool is on by default (`USE_SHELL_TOOL=false` to disable).
 - `sup --dangerously-skip-permissions` bypasses every approval prompt for the whole session — only use it when you trust the model and the working directory.

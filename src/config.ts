@@ -14,13 +14,11 @@ export interface ConfigShape {
   LLAMACPP_HOST: string
   MODEL: string
   LANGUAGE: string
-  REPLY_STYLE_SHORT: boolean
   USE_CLAUDE_SKILLS: boolean
   USE_PLAN_MODE: boolean
   USE_AUTO_MODE: boolean
   USE_JOURNAL: boolean
   USE_SHELL_TOOL: boolean
-  USE_NATIVE_TOOLS: boolean
   CONTEXT_WINDOW_TOKEN_LIMIT: number
   REQUEST_TIMEOUT_MS: number
   REQUEST_FIRST_TOKEN_TIMEOUT_MS: number
@@ -73,13 +71,11 @@ export const Config: ConfigShape = {
   // Empty means: ask the provider at startup (see resolveStartupModel in index.ts).
   MODEL: getEnvString('MODEL', ''),
   LANGUAGE: getEnvString('LANGUAGE', 'russian'),
-  REPLY_STYLE_SHORT: getEnvBoolean('REPLY_STYLE_SHORT', true),
   USE_CLAUDE_SKILLS: getEnvBoolean('USE_CLAUDE_SKILLS', false),
   USE_PLAN_MODE: getEnvBoolean('USE_PLAN_MODE', false),
   USE_AUTO_MODE: getEnvBoolean('USE_AUTO_MODE', true),
   USE_JOURNAL: getEnvBoolean('USE_JOURNAL', true),
   USE_SHELL_TOOL: getEnvBoolean('USE_SHELL_TOOL', true),
-  USE_NATIVE_TOOLS: getEnvBoolean('USE_NATIVE_TOOLS', true),
   CONTEXT_WINDOW_TOKEN_LIMIT: getEnvNumber('CONTEXT_WINDOW_TOKEN_LIMIT', 80_000),
   REQUEST_TIMEOUT_MS: getEnvNumber('REQUEST_TIMEOUT_MS', 300_000),
   REQUEST_FIRST_TOKEN_TIMEOUT_MS: getEnvNumber('REQUEST_FIRST_TOKEN_TIMEOUT_MS', 600_000),

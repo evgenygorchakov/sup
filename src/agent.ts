@@ -10,6 +10,7 @@ import { collapseOldToolResults } from './context/collapse.ts'
 import { recordAssistant, recordFinish, recordToolCall, recordToolResult, recordUserMessage, startRun } from './journal/index.ts'
 import { clearActivePlan } from './plan/active-plan.ts'
 import { isPlanModeActive, setMode } from './plan/mode-state.ts'
+import { refreshSystemPrompt } from './system-prompt.ts'
 import { shouldAutoApprove } from './tools/auto-approve.ts'
 import { runTool, toolDefinitions, toolsByName } from './tools/registry.ts'
 import { getSpeaker } from './tts/speaker.ts'
@@ -151,6 +152,7 @@ export interface RunOptions {
 
 export async function run(provider: ChatProvider, messages: Message[], readline: ReadlineInterface, options: RunOptions = {}): Promise<void> {
   getSpeaker().stop()
+  refreshSystemPrompt(messages)
   startRun(messages)
   beginTurn()
 

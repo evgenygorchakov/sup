@@ -18,13 +18,12 @@ const VALID_ROLES: readonly Role[] = ['system', 'user', 'assistant', 'tool']
 
 export interface ChatOptions {
   tools?: ToolDefinition[]
-  format?: object
   onStreamPart?: OnStreamPart
   signal?: AbortSignal
 }
 
 export async function chat(messages: Message[], options: ChatOptions = {}): Promise<Message> {
-  const { tools, format, onStreamPart, signal: userSignal } = options
+  const { tools, onStreamPart, signal: userSignal } = options
   const shouldStream = Boolean(onStreamPart) && Config.USE_STREAMING
 
   const idle = startIdleTimeout(REQUEST_IDLE_TIMEOUT_MS, REQUEST_FIRST_TOKEN_TIMEOUT_MS)
@@ -34,7 +33,7 @@ export async function chat(messages: Message[], options: ChatOptions = {}): Prom
     const response = await fetch(`${OLLAMA_HOST}/api/chat`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(buildRequestBody(messages, shouldStream, tools, format)),
+      body: JSON.stringify(buildRequestBody(messages, shouldStream, tools)),
       signal,
     })
 
@@ -76,7 +75,7 @@ function toOllamaMessages(messages: Message[]): object[] {
   })
 }
 
-function buildRequestBody(messages: Message[], shouldStream: boolean, tools?: ToolDefinition[], format?: object): Record<string, unknown> {
+function buildRequestBody(messages: Message[], shouldStream: boolean, tools?: ToolDefinition[]): Record<string, unknown> {
   const model = Config.MODEL
   const options: Record<string, unknown> = {
     num_ctx: getContextWindowTokenLimit(),
@@ -92,7 +91,6 @@ function buildRequestBody(messages: Message[], shouldStream: boolean, tools?: To
     model,
     messages: toOllamaMessages(messages),
     tools,
-    format,
     think: getThinkingModeFor(model),
     stream: shouldStream,
     options,

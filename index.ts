@@ -22,7 +22,7 @@ import { RequestCancelledError } from './src/providers/cancel.ts'
 import { getLastContextUsage } from './src/providers/context-usage.ts'
 import { getProvider, providerNames } from './src/providers/index.ts'
 import { buildSkillsPromptSection, skills } from './src/skills/registry.ts'
-import { buildSystemPrompt } from './src/system-prompt.ts'
+import { buildSystemMessageContent, setSystemPromptExtras } from './src/system-prompt.ts'
 import { isSkipPermissionsActive, setSkipPermissions } from './src/tools/skip-permissions.ts'
 import { createSlashCompleter, installCommandHints } from './src/ui/interactive/command-hints.ts'
 import { installImagePasteHandler } from './src/ui/interactive/image-paste.ts'
@@ -204,15 +204,14 @@ async function main() {
   })
 
   const projectInstructions = args.noSystemPrompt ? null : await loadProjectInstructions()
-  const systemContent = [
-    buildSystemPrompt(),
+  setSystemPromptExtras([
     buildSkillsPromptSection(),
     projectInstructions ? `# Project instructions (from AGENTS.md)\n${projectInstructions}` : '',
   ]
     .filter(Boolean)
-    .join('\n\n')
+    .join('\n\n'))
 
-  const messages: Message[] = args.noSystemPrompt ? [] : [{ role: 'system', content: systemContent }]
+  const messages: Message[] = args.noSystemPrompt ? [] : [{ role: 'system', content: buildSystemMessageContent() }]
 
   console.warn(gray(`Provider: ${Config.PROVIDER}${Config.PROVIDER === 'llamacpp' ? '' : ` · Model: ${Config.MODEL}${modelSource === 'auto' ? ' (auto)' : ''}`}`))
   if (args.noSystemPrompt) {

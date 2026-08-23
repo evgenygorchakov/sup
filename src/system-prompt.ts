@@ -1,7 +1,7 @@
+import type { Message } from './types.ts'
 import { Config } from './config.ts'
 
 const shellEnabled = Config.USE_SHELL_TOOL
-
 const accessDescription = `You have full access to the local filesystem${shellEnabled ? ', the shell,' : ''} and the public internet through the tools listed below.`
 
 const roleLines = [
@@ -62,7 +62,7 @@ const conversationalStyleLines = [
   `- Always respond in ${languageName}.`,
 ]
 
-const terseStyleLines = [
+const styleLines = [
   '# Style',
   '- Be brief. Prefer 1-3 short lines unless the user asks for detail.',
   '- Before a tool call you may state your intent in one short sentence; everywhere else no preambles ("Sure", "Of course") and no closing summaries ("I\'ve done X, Y, Z", "Hope that helps").',
@@ -72,8 +72,29 @@ const terseStyleLines = [
   `- Always respond in ${languageName}.`,
 ]
 
-const styleLines = Config.REPLY_STYLE_SHORT ? terseStyleLines : conversationalStyleLines
+let promptExtras = ''
+
+export function setSystemPromptExtras(extras: string): void {
+  promptExtras = extras
+}
 
 export function buildSystemPrompt(): string {
-  return [...roleLines, ...toolLines, ...toolSelectionLines, ...workflowLines, ...styleLines].join('\n')
+  return [
+    ...roleLines,
+    ...toolLines,
+    ...toolSelectionLines,
+    ...workflowLines,
+    ...(Config.USE_TTS ? conversationalStyleLines : styleLines)]
+    .join('\n')
+}
+
+export function buildSystemMessageContent(): string {
+  return [buildSystemPrompt(), promptExtras].filter(Boolean).join('\n\n')
+}
+
+export function refreshSystemPrompt(messages: Message[]): void {
+  const systemMessage = messages[0]
+  if (systemMessage?.role === 'system') {
+    systemMessage.content = buildSystemMessageContent()
+  }
 }

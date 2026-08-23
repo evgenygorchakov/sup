@@ -14,13 +14,12 @@ const REQUEST_FIRST_TOKEN_TIMEOUT_MS = Config.REQUEST_FIRST_TOKEN_TIMEOUT_MS
 
 export interface ChatOptions {
   tools?: ToolDefinition[]
-  responseFormat?: object
   onStreamPart?: OnStreamPart
   signal?: AbortSignal
 }
 
 export async function chat(messages: Message[], options: ChatOptions = {}): Promise<Message> {
-  const { tools, responseFormat, onStreamPart, signal: userSignal } = options
+  const { tools, onStreamPart, signal: userSignal } = options
   const shouldStream = Boolean(onStreamPart) && Config.USE_STREAMING
 
   const idle = startIdleTimeout(REQUEST_IDLE_TIMEOUT_MS, REQUEST_FIRST_TOKEN_TIMEOUT_MS)
@@ -30,7 +29,7 @@ export async function chat(messages: Message[], options: ChatOptions = {}): Prom
     const response = await fetch(`${LLAMACPP_HOST}/v1/chat/completions`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(buildRequestBody(messages, shouldStream, tools, responseFormat)),
+      body: JSON.stringify(buildRequestBody(messages, shouldStream, tools)),
       signal,
     })
 
@@ -56,7 +55,7 @@ export async function chat(messages: Message[], options: ChatOptions = {}): Prom
   }
 }
 
-function buildRequestBody(messages: Message[], shouldStream: boolean, tools?: ToolDefinition[], responseFormat?: object): Record<string, unknown> {
+function buildRequestBody(messages: Message[], shouldStream: boolean, tools?: ToolDefinition[]): Record<string, unknown> {
   const body: Record<string, unknown> = {
     model: Config.MODEL,
     messages: toOpenAiMessages(messages),
@@ -73,9 +72,6 @@ function buildRequestBody(messages: Message[], shouldStream: boolean, tools?: To
   if (tools?.length) {
     body.tools = tools
     body.tool_choice = 'auto'
-  }
-  if (responseFormat) {
-    body.response_format = responseFormat
   }
   if (shouldStream) {
     body.stream_options = { include_usage: true }
