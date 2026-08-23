@@ -14,6 +14,9 @@ const INLINE_PDF_PATH_PATTERN = /"[^"]+\.pdf"|'[^']+\.pdf'|(?:\\ |\S)+\.pdf\b/gi
 const UNESCAPED_SPACE_PATTERN = /(?<!\\)\s/
 const PDF_SIGNATURE = '%PDF-'
 
+/** The "conversion is off" hint is worth saying once per session, not on every dropped file. */
+let offNoticeShown = false
+
 export interface ConvertedDocument {
   /** Name of the file that was dropped, e.g. report.pdf. */
   sourceName: string
@@ -212,7 +215,7 @@ export async function convertPdfToMarkdown(rawPath: string): Promise<Conversion>
   if (!run.ok) {
     if (run.missing) {
       Config.USE_PDF_CONVERT = false
-      console.warn(yellow(`PDF converter "${Config.PDF_CONVERTER}" is not installed — see converters/marker/README.md. Turn it back on with /pdf on once it is there.`))
+      console.warn(yellow(`PDF converter "${Config.PDF_CONVERTER}" is not installed — see optional/pdf/README.md. Turn it back on with /pdf on once it is there.`))
     }
     else {
       console.warn(yellow(`${name} stayed a PDF: ${run.reason}`))
@@ -251,13 +254,18 @@ export async function convertDroppedPdfs(input: string): Promise<PdfDropResult> 
     return { text: input, converted: 0 }
   }
 
+  if (!Config.USE_PDF_CONVERT) {
+    if (!offNoticeShown) {
+      offNoticeShown = true
+      console.warn(gray('PDF conversion is off — /pdf on turns it on, /pdf <path> converts one file. It needs the marker converter: see optional/pdf/README.md.'))
+    }
+    return { text: input, converted: 0 }
+  }
+
   let converted = 0
   let text = input
 
   for (const token of tokens) {
-    if (!Config.USE_PDF_CONVERT) {
-      break
-    }
     const conversion = await convertPdfToMarkdown(unquote(token))
     if (!conversion.ok) {
       continue

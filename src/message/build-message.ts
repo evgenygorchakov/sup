@@ -1,6 +1,5 @@
 import type { ImageAttachment, Message } from '../types.ts'
 import { expandClipboardMarkers } from '../clipboard/pending.ts'
-import { Config } from '../config.ts'
 import { convertDroppedPdfs } from '../documents/pdf.ts'
 import { extractImagePaths } from '../images/load.ts'
 import { takePendingImages } from '../images/pending.ts'
@@ -9,9 +8,8 @@ import { takePendingImages } from '../images/pending.ts'
 export async function buildUserMessage(input: string): Promise<Message | null> {
   const pasted = takePendingImages()
   const { text: withoutImages, attachments } = await extractImagePaths(input)
-  const { text, converted } = Config.USE_PDF_CONVERT
-    ? await convertDroppedPdfs(withoutImages)
-    : { text: withoutImages, converted: 0 }
+  // convertDroppedPdfs checks USE_PDF_CONVERT itself, so a drop with conversion off still gets its notice.
+  const { text, converted } = await convertDroppedPdfs(withoutImages)
 
   const images: ImageAttachment[] = [...pasted, ...attachments]
   const stripped = images.length > 0 || converted > 0 ? text : input

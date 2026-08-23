@@ -28,4 +28,23 @@ Each part can be turned off on its own — `BABYSITTER_LEDGER` (the checklist), 
 
 ## Skills with steps
 
-A skill whose `SKILL.md` has a `## Steps` section with a numbered list is gated the same way — see [Skills](../../README.md#skills) in the main README.
+A skill whose `SKILL.md` has these two headings is gated the same way (`BABYSITTER_GATED_SKILLS`, on by default): they become an enforced checklist and a finish gate.
+
+```markdown
+## Steps
+
+1. [x] Bump the version in package.json.
+2. Commit, tag `v<version>`, and run `npm publish`.
+
+## Verification
+
+- `npm run lint`
+```
+
+- Every list item under `## Steps` becomes a ledger step the model ticks off with `ledger_update`, bullets included — keep notes and rules under their own heading.
+- `- [x]` marks a step as already done, so an interrupted run resumes where it stopped; tick them all and the skill only runs its verification.
+- `## Verification` commands have to pass before the model may finish, and are read from inline code, `$`-prefixed lines, or fenced blocks.
+- Such a command must start with a known runner (`npm`, `git`, `pytest`, `cargo`, … — `RUNNER_COMMAND` in [`parse-sections.ts`](parse-sections.ts)) and carry no shell metacharacters, so `&&` and pipes are skipped.
+- Russian headings (`## Шаги`, `## Проверка`) work, as does a bold `**Steps**` line instead of a real heading.
+
+See [Skills](../../README.md#skills) in the main README for how skills are loaded.

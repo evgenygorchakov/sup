@@ -1,4 +1,4 @@
-# voice-servers — локальные серверы речи для `sup`
+# optional/voice — локальные серверы речи для `sup`
 
 Копии двух сервисов, которые живут **вне** репозитория — в `~/.local/` и в systemd. `sup`
 общается с ними по HTTP и про их устройство ничего не знает. Папка нужна как резервная копия:
@@ -18,10 +18,11 @@
 
 ## Запустить
 
-Поднимать ничего не нужно, оба сервера на автозапуске:
+Поднимать ничего не нужно, оба сервера на автозапуске. Речь в `sup` по умолчанию выключена
+целиком, поэтому её включают переменными на один запуск или в `.env`:
 
 ```sh
-USE_TTS=true sup
+USE_STT=true USE_TTS=true sup
 ```
 
 Внутри сессии `/tts` переключает озвучку, `/stt` — диктовку.
@@ -31,7 +32,7 @@ USE_TTS=true sup
 Fedora 42 в WSL2 с включённым systemd. Все команды — от обычного пользователя, из этой папки:
 
 ```sh
-cd ~/dev/sup/voice-servers
+cd ~/dev/my-sup/optional/voice
 sudo dnf install -y pulseaudio-utils python3 ffmpeg-free
 mkdir -p ~/.local/bin ~/.config/systemd/user
 ```
