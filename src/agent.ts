@@ -49,9 +49,9 @@ const STOPPED_SUMMARY_REQUEST = [
 ].join(' ')
 
 const CUT_OFF_CONSOLE_MESSAGES: Record<CutOffReason, string> = {
-  'content-loop': 'Model got stuck repeating itself. Response truncated.',
-  'thinking-loop': 'Model got stuck repeating itself while thinking. Response stopped.',
-  'thinking-flood': 'Model exceeded the thinking length limit. Response stopped.',
+  'content-loop': 'Model got stuck repeating itself. Response truncated. Set USE_LOOP_DETECTION=false to disable this check.',
+  'thinking-loop': 'Model got stuck repeating itself while thinking. Response stopped. Set USE_LOOP_DETECTION=false to disable this check.',
+  'thinking-flood': `Model exceeded the thinking length limit (THINKING_CHAR_LIMIT=${Config.THINKING_CHAR_LIMIT}). Response stopped. Raise THINKING_CHAR_LIMIT if the model needs to think longer.`,
 }
 
 const CUT_OFF_NOTICES: Record<CutOffReason, string> = {
@@ -265,7 +265,7 @@ async function runTurn(provider: ChatProvider, messages: Message[], readline: Re
 
     iterations += 1
     if (iterations > stepBudget) {
-      console.error(red(`Reached max tool iterations (${stepBudget}). Stopping this turn.`))
+      console.error(red(`Reached max tool iterations (AUTONOMOUS_STEP_BUDGET=${stepBudget}). Stopping this turn. Raise AUTONOMOUS_STEP_BUDGET if the task needs more steps.`))
       await stopTurnWithSummary(provider, messages, reply.tool_calls, `Stopped by the harness: you exceeded ${stepBudget} tool calls in a single turn.`)
       return
     }
@@ -273,7 +273,7 @@ async function runTurn(provider: ChatProvider, messages: Message[], readline: Re
     recentBatchSignatures.push(buildBatchSignature(reply.tool_calls))
 
     if (lastBatchesAreIdentical(recentBatchSignatures, Config.AUTONOMOUS_REPEAT_THRESHOLD)) {
-      console.error(red(`Detected ${Config.AUTONOMOUS_REPEAT_THRESHOLD} identical tool batches in a row. Stopping autonomous loop.`))
+      console.error(red(`Detected ${Config.AUTONOMOUS_REPEAT_THRESHOLD} identical tool batches in a row (AUTONOMOUS_REPEAT_THRESHOLD). Stopping autonomous loop. Raise AUTONOMOUS_REPEAT_THRESHOLD to allow more repeats.`))
       await stopTurnWithSummary(provider, messages, reply.tool_calls, `Stopped by the harness: you repeated the same tool calls ${Config.AUTONOMOUS_REPEAT_THRESHOLD} times in a row.`)
       return
     }
