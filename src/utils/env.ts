@@ -93,6 +93,14 @@ export function getEnvNumber(name: string, defaultValue?: number): number {
   return parsed
 }
 
+export function getOptionalEnvNumber(name: string): number | null {
+  const raw = process.env[name]
+  if (raw === undefined || raw === '') {
+    return null
+  }
+  return getEnvNumber(name)
+}
+
 export function getEnvBoolean(name: string, defaultValue?: boolean): boolean {
   const raw = process.env[name]
   if (raw === undefined) {

@@ -44,5 +44,5 @@ async function probeModel(signal: AbortSignal): Promise<ContextWindowProbeResult
 
 export const { initializeContextWindow, getContextWindowTokenLimit } = createContextWindow(
   probeModel,
-  reason => `Could not detect context length for model ${Config.MODEL}: ${reason}. Using configured limit ${Config.CONTEXT_WINDOW_TOKEN_LIMIT}.`,
+  (reason, tokenLimit) => `Could not detect context length for model ${Config.MODEL}: ${reason}. Using ${tokenLimit} tokens.`,
 )

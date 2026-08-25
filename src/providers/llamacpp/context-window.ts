@@ -55,5 +55,5 @@ async function probeServer(signal: AbortSignal): Promise<ContextWindowProbeResul
 
 export const { initializeContextWindow, getContextWindowTokenLimit } = createContextWindow(
   probeServer,
-  reason => `Could not detect context length from llama.cpp server: ${reason}. Using configured limit ${Config.CONTEXT_WINDOW_TOKEN_LIMIT}.`,
+  (reason, tokenLimit) => `Could not detect context length from llama.cpp server: ${reason}. Using ${tokenLimit} tokens.`,
 )

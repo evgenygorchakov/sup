@@ -1,7 +1,7 @@
 import { dirname, resolve } from 'node:path'
 import process from 'node:process'
 import { fileURLToPath } from 'node:url'
-import { getEnvBoolean, getEnvNumber, getEnvString, loadEnvFile } from './utils/env.ts'
+import { getEnvBoolean, getEnvNumber, getEnvString, getOptionalEnvNumber, loadEnvFile } from './utils/env.ts'
 
 const installDir = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 
@@ -20,7 +20,7 @@ export interface ConfigShape {
   USE_JOURNAL: boolean
   USE_SHELL_TOOL: boolean
   USE_ASK_USER: boolean
-  CONTEXT_WINDOW_TOKEN_LIMIT: number
+  CONTEXT_WINDOW_TOKEN_LIMIT: number | null
   REQUEST_TIMEOUT_MS: number
   REQUEST_FIRST_TOKEN_TIMEOUT_MS: number
   TEMPERATURE: number
@@ -78,7 +78,7 @@ export const Config: ConfigShape = {
   USE_JOURNAL: getEnvBoolean('USE_JOURNAL', false),
   USE_SHELL_TOOL: getEnvBoolean('USE_SHELL_TOOL', true),
   USE_ASK_USER: getEnvBoolean('USE_ASK_USER', true),
-  CONTEXT_WINDOW_TOKEN_LIMIT: getEnvNumber('CONTEXT_WINDOW_TOKEN_LIMIT', 80_000),
+  CONTEXT_WINDOW_TOKEN_LIMIT: getOptionalEnvNumber('CONTEXT_WINDOW_TOKEN_LIMIT'),
   REQUEST_TIMEOUT_MS: getEnvNumber('REQUEST_TIMEOUT_MS', 300_000),
   REQUEST_FIRST_TOKEN_TIMEOUT_MS: getEnvNumber('REQUEST_FIRST_TOKEN_TIMEOUT_MS', 600_000),
   TEMPERATURE: getEnvNumber('TEMPERATURE', 0.2),
