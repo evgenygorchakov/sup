@@ -1,0 +1,50 @@
+# plan/05-resume · 2026-08-24 21:13 · qwen3.8:27b-q8_0 · PASS · 1s
+
+Loaded model qwen3.8:27b-q8_0 (context: 80000 of 262144 tokens)
+Provider: ollama · Model: qwen3.8:27b-q8_0
+Resumed run 20260824-210625 (0 messages restored)
+
+Shift+Tab cycles modes.
+
+> /
+
+
+  /exit           — Quit the session.
+
+  /help           — Show available commands.
+
+  /clear          — Clear the conversation history.
+
+  /model          — Switch model: /model opens a menu, or /model <number|name>.
+
+  /run-plan       — List saved plans, or load one into the session: /run-plan [number].
+
+  /plan-mode      — Toggle plan mode: /plan-mode opens a menu, or /plan-mode [on|off].
+
+  /auto-mode      — Toggle auto mode (auto-approve edits): /auto-mode opens a menu, or /auto-mode …
+
+  /thinking       — Toggle model thinking (Ollama only): /thinking opens a menu, or /thinking [on|…
+
+  /show-thinking  — Toggle streaming of the thinking text: /show-thinking opens a menu, or /show-t…
+
+  /verbose        — Toggle full, untruncated tool output: /verbose opens a menu, or /verbose [on|o…
+
+  … 6 more
+e
+
+
+  /exit  — Quit the session.
+x
+
+
+  /exit  — Quit the session.
+i
+
+
+  /exit  — Quit the session.
+t
+
+
+  /exit  — Quit the session.
+
+

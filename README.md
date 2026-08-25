@@ -15,6 +15,8 @@ Every setting is an `.env` variable with a sane default — see [`.env.example`]
 ## Usage
 
 - Type `/` to see commands (`Tab` completes): switch model, toggle plan / auto / thinking / verbose output, list saved plans, clear history; `Shift+Tab` cycles the mode in place.
+- Plan mode investigates first and shows the plan for approval: `y` executes it in whatever mode the session was in before planning, `a` additionally auto-approves the edits of that one task without switching the session to auto, `n` drops the plan.
+- `ask_user` (on by default, `USE_ASK_USER=false` turns it off) is how the model stops mid-task and puts one multiple-choice question to you, answered with the arrow keys; `Esc` dismisses it and the model decides for itself. When a question is allowed is decided by the harness, not the prompt: at least two investigation calls first, one question per turn, and none at all while planning. A refusal comes back as the tool result and says what to do instead — read the code, or state the assumption and carry on. Every question ships 2–4 concrete options, which is the real filter: a model that cannot name two alternatives does not have a question.
 - The model has to support native tool calling — sup only ever goes through the provider's tools API. `web_search` additionally needs `OLLAMA_API_KEY` from [ollama.com/settings/keys](https://ollama.com/settings/keys).
 - Tuned for small local models: low default temperature, tool arguments validated against the schema with precise repair errors, the approved plan re-injected near the end of the context every turn, old tool outputs collapsed.
 - A response that degenerates into repeating itself is cut mid-stream, trimmed to a single cycle, and the model is told why (`USE_LOOP_DETECTION`); overlong thinking is stopped the same way (`THINKING_CHAR_LIMIT`).
@@ -55,9 +57,15 @@ Drag a PDF into the terminal, press `Enter`, and it is converted to markdown —
 
 ## Run journal
 
-Every run is journaled as an event log at `.sup/runs/<id>/journal.jsonl` — the user requests, the model's replies, and every tool call and result (`USE_JOURNAL=true`, on by default). A failed write never interrupts the work.
+Off by default (`USE_JOURNAL=false`): the journal lives in the working directory, so unless `.sup/` is
+gitignored, `grep` and `glob` find it and the model reads its own past dialogs as if they were project files.
 
-This is what powers `sup --resume` (or `sup --resume=<run-id>` for a specific run): it loads the journal from the current directory, restores the dialog, and continues where you left off — with the babysitter's step ledger, if it was active.
+With `USE_JOURNAL=true` every run is journaled as an event log at `.sup/runs/<id>/journal.jsonl` — the user
+requests, the model's replies, and every tool call and result. A failed write never interrupts the work.
+
+The journal is what powers `sup --resume` (or `sup --resume=<run-id>` for a specific run): it loads the journal from the current directory, restores the dialog, and continues where you left off — with the babysitter's step ledger, if it was active.
+
+A request waiting for plan approval is journaled only once you approve the plan, together with the plan itself: reject it and nothing of that turn is left for `--resume` to bring back.
 
 ## Babysitter mode
 

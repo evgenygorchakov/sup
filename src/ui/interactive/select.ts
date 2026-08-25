@@ -14,6 +14,94 @@ const CANCEL_KEYS = ['\x03', 'q', 'Q']
 const ESCAPE_KEY = '\x1B'
 const LONE_ESCAPE_CANCEL_MS = 50
 
+const SEQUENCE_INTRODUCERS = ['[', 'O']
+
+function isSequenceFinal(character: string): boolean {
+  const code = character.charCodeAt(0)
+  return code >= 0x40 && code <= 0x7E
+}
+
+function findSequenceEnd(buffer: string, start: number): number | null {
+  if (start + 1 >= buffer.length) {
+    return null
+  }
+
+  if (!SEQUENCE_INTRODUCERS.includes(buffer[start + 1]!)) {
+    return start + 2
+  }
+
+  for (let index = start + 2; index < buffer.length; index += 1) {
+    if (isSequenceFinal(buffer[index]!)) {
+      return index + 1
+    }
+  }
+
+  return null
+}
+
+export interface KeyStream {
+  keys: string[]
+  rest: string
+}
+
+export function readKeys(buffer: string): KeyStream {
+  const keys: string[] = []
+  let index = 0
+
+  while (index < buffer.length) {
+    if (buffer[index] !== ESCAPE_KEY) {
+      const key = String.fromCodePoint(buffer.codePointAt(index)!)
+      keys.push(key)
+      index += key.length
+      continue
+    }
+
+    const end = findSequenceEnd(buffer, index)
+    if (end === null) {
+      return { keys, rest: buffer.slice(index) }
+    }
+
+    if (SEQUENCE_INTRODUCERS.includes(buffer[index + 1]!)) {
+      keys.push(buffer.slice(index, end))
+    }
+    index = end
+  }
+
+  return { keys, rest: '' }
+}
+
+export type MenuOutcome
+  = | { kind: 'open', index: number }
+    | { kind: 'confirmed', index: number }
+    | { kind: 'cancelled' }
+
+export function applyKeys(keys: readonly string[], index: number, count: number): MenuOutcome {
+  if (count <= 0) {
+    return { kind: 'cancelled' }
+  }
+
+  let current = Math.min(Math.max(index, 0), count - 1)
+
+  for (const key of keys) {
+    if (CONFIRM_KEYS.includes(key)) {
+      return { kind: 'confirmed', index: current }
+    }
+
+    if (CANCEL_KEYS.includes(key)) {
+      return { kind: 'cancelled' }
+    }
+
+    if (MOVE_UP_KEYS.includes(key)) {
+      current = (current - 1 + count) % count
+    }
+    else if (MOVE_DOWN_KEYS.includes(key)) {
+      current = (current + 1) % count
+    }
+  }
+
+  return { kind: 'open', index: current }
+}
+
 export interface SelectChoice {
   label: string
   hint?: string
@@ -38,7 +126,7 @@ function renderMenu(title: string, choices: SelectChoice[], selectedIndex: numbe
 }
 
 export function selectFromList(title: string, choices: SelectChoice[], initialIndex = 0): Promise<number | null> {
-  if (!stdin.isTTY || choices.length === 0) {
+  if (!stdin.isTTY || !stdout.isTTY || choices.length === 0) {
     return Promise.resolve(null)
   }
 
@@ -46,7 +134,7 @@ export function selectFromList(title: string, choices: SelectChoice[], initialIn
     const inputStream = getInputStream()
     const menuHeight = choices.length + 2
     let selectedIndex = Math.min(Math.max(initialIndex, 0), choices.length - 1)
-    let pendingEscape = ''
+    let pending = ''
     let escapeTimer: NodeJS.Timeout | null = null
 
     function clearEscapeTimer(): void {
@@ -62,6 +150,7 @@ export function selectFromList(title: string, choices: SelectChoice[], initialIn
 
     function closeMenu(chosenIndex: number | null): void {
       clearEscapeTimer()
+      pending = ''
       stdin.removeListener('data', handleKeypress)
       eraseMenu()
       stdout.write(SHOW_CURSOR)
@@ -69,42 +158,43 @@ export function selectFromList(title: string, choices: SelectChoice[], initialIn
       resolve(chosenIndex)
     }
 
+    function scheduleEscapeFlush(): void {
+      escapeTimer = setTimeout(() => {
+        escapeTimer = null
+        const loneEscape = pending === ESCAPE_KEY
+        pending = ''
+        if (loneEscape) {
+          closeMenu(null)
+        }
+      }, LONE_ESCAPE_CANCEL_MS)
+    }
+
     function handleKeypress(chunk: Buffer): void {
-      const key = pendingEscape + chunk.toString('utf8')
-      pendingEscape = ''
       clearEscapeTimer()
 
-      if (key === ESCAPE_KEY) {
-        pendingEscape = key
-        escapeTimer = setTimeout(closeMenu, LONE_ESCAPE_CANCEL_MS, null)
+      const { keys, rest } = readKeys(pending + chunk.toString('utf8'))
+      pending = rest
+
+      const outcome = applyKeys(keys, selectedIndex, choices.length)
+
+      if (outcome.kind === 'confirmed') {
+        closeMenu(outcome.index)
         return
       }
 
-      if (CONFIRM_KEYS.includes(key)) {
-        closeMenu(selectedIndex)
-        return
-      }
-
-      if (CANCEL_KEYS.includes(key)) {
+      if (outcome.kind === 'cancelled') {
         closeMenu(null)
         return
       }
 
-      let nextIndex = selectedIndex
-      if (MOVE_UP_KEYS.includes(key)) {
-        nextIndex = (selectedIndex - 1 + choices.length) % choices.length
-      }
-      else if (MOVE_DOWN_KEYS.includes(key)) {
-        nextIndex = (selectedIndex + 1) % choices.length
-      }
-      else {
-        return
-      }
-
-      if (nextIndex !== selectedIndex) {
-        selectedIndex = nextIndex
+      if (outcome.index !== selectedIndex) {
+        selectedIndex = outcome.index
         eraseMenu()
         renderMenu(title, choices, selectedIndex)
+      }
+
+      if (pending) {
+        scheduleEscapeFlush()
       }
     }
 

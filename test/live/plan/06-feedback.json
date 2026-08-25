@@ -1,0 +1,79 @@
+{
+  "description": "Замечание к плану → второй раунд → y → отмена правки → несвязанный вопрос: отменённый план не должен вернуться.",
+  "fixture": "calc",
+  "env": {
+    "USE_PLAN_MODE": "true",
+    "USE_STT": "false",
+    "USE_TTS": "false",
+    "USE_PDF_CONVERT": "false",
+    "USE_AUTO_MODE": "false"
+  },
+  "drain": 15,
+  "steps": [
+    {
+      "note": "startup",
+      "expect": "\\[plan\\] >",
+      "timeout": 60,
+      "send": "Добавь в calc.js функцию div с защитой от деления на ноль",
+      "delay": 1
+    },
+    {
+      "note": "first approval prompt",
+      "expect": "\\[y / a = y \\+ auto-approve edits for this task / n / type feedback\\]",
+      "timeout": 900,
+      "send": "Не бросай исключение — при делении на ноль возвращай null",
+      "delay": 1
+    },
+    {
+      "note": "second plan header",
+      "expect": "Proposed plan:",
+      "timeout": 900
+    },
+    {
+      "note": "second approval prompt",
+      "expect": "\\[y / a = y \\+ auto-approve edits for this task / n / type feedback\\]",
+      "timeout": 900,
+      "send": "y",
+      "delay": 1
+    },
+    {
+      "note": "tool confirmation",
+      "expect": "Model wants to run:",
+      "timeout": 900,
+      "send": "n",
+      "delay": 1
+    },
+    {
+      "note": "cancelled",
+      "expect": "Cancelled by user",
+      "timeout": 60,
+      "send": "Сколько строк в файле README.md? Ответь одним числом.",
+      "delay": 2
+    },
+    {
+      "note": "echo of the question",
+      "expect": "Ответь одним числом",
+      "timeout": 30
+    },
+    {
+      "note": "next turn finished",
+      "expect": "\\n> $",
+      "timeout": 900,
+      "absent": "edit_file|write_file",
+      "send": "/exit",
+      "delay": 2
+    }
+  ],
+  "forbid": [
+    "Unhandled",
+    "node:internal"
+  ],
+  "files": {
+    "calc.js": {
+      "unchanged": true
+    },
+    "README.md": {
+      "unchanged": true
+    }
+  }
+}

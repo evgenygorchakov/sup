@@ -1,0 +1,44 @@
+{
+  "description": "Гейт: вопрос без investigation отклоняется харнессом, ход при этом продолжается.",
+  "fixture": "calc",
+  "env": {
+    "USE_ASK_USER": "true",
+    "USE_AUTO_MODE": "true",
+    "USE_PLAN_MODE": "false",
+    "USE_JOURNAL": "false",
+    "USE_STT": "false",
+    "USE_TTS": "false",
+    "USE_PDF_CONVERT": "false"
+  },
+  "drain": 5,
+  "steps": [
+    {
+      "note": "startup banner",
+      "expect": "Provider: ollama",
+      "timeout": 90,
+      "send": "Do not read any file and do not run any command. Your very first action must be a call to ask_user asking me whether a new division function should be named \"div\" or \"divide\".",
+      "delay": 1
+    },
+    {
+      "note": "the harness refuses an unearned question",
+      "expect": "refused by the harness",
+      "timeout": 420
+    },
+    {
+      "note": "the turn carries on",
+      "expect": "\\[auto\\] > $",
+      "timeout": 420,
+      "send": "/exit",
+      "delay": 1
+    }
+  ],
+  "forbid": [
+    "Unhandled",
+    "node:internal"
+  ],
+  "files": {
+    "README.md": {
+      "unchanged": true
+    }
+  }
+}

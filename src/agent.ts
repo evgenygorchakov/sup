@@ -9,8 +9,9 @@ import { Config } from './config.ts'
 import { collapseOldToolResults } from './context/collapse.ts'
 import { recordAssistant, recordFinish, recordToolCall, recordToolResult, recordUserMessage, startRun } from './journal/index.ts'
 import { clearActivePlan } from './plan/active-plan.ts'
-import { isPlanModeActive, setMode } from './plan/mode-state.ts'
+import { clearAutoElevation, elevateAutoForTurn, isPlanModeActive, leavePlanMode } from './plan/mode-state.ts'
 import { refreshSystemPrompt } from './system-prompt.ts'
+import { noteAskGateCall, resetAskGate } from './tools/ask-gate.ts'
 import { shouldAutoApprove } from './tools/auto-approve.ts'
 import { runTool, toolDefinitions, toolsByName } from './tools/registry.ts'
 import { getSpeaker } from './tts/speaker.ts'
@@ -21,7 +22,7 @@ import { askForPlanApproval } from './ui/interactive/plan-approval.ts'
 import { renderToolHeader } from './ui/interactive/render-tool-call.ts'
 import { startSpinner } from './ui/interactive/spinner.ts'
 import { createStreamPrinter } from './ui/interactive/stream-printer.ts'
-import { red, yellow } from './utils/colors.ts'
+import { gray, red, yellow } from './utils/colors.ts'
 
 function stableStringifyArguments(value: Record<string, unknown>): string {
   return JSON.stringify(value, (_key, entry: unknown) => {
@@ -150,14 +151,30 @@ export interface RunOptions {
   skipPlanApproval?: boolean
 }
 
+/** An approved plan lives only for the turn that executes it: a cancelled, interrupted or cut-off turn must not leak its reminder — or the auto-approval granted with `a` — into the next request. */
 export async function run(provider: ChatProvider, messages: Message[], readline: ReadlineInterface, options: RunOptions = {}): Promise<void> {
+  try {
+    await runTurn(provider, messages, readline, options)
+  }
+  finally {
+    clearActivePlan()
+    clearAutoElevation()
+  }
+}
+
+async function runTurn(provider: ChatProvider, messages: Message[], readline: ReadlineInterface, options: RunOptions): Promise<void> {
   getSpeaker().stop()
   refreshSystemPrompt(messages)
-  startRun(messages)
-  beginTurn()
+  const planApprovalPending = !options.skipPlanApproval && isPlanModeActive() && messages[messages.length - 1]?.role === 'user'
+  const canApprovePlan = planApprovalPending && Boolean(process.stdin.isTTY)
 
-  if (!options.skipPlanApproval && isPlanModeActive() && messages[messages.length - 1]?.role === 'user') {
-    if (!process.stdin.isTTY) {
+  // A request that still has to survive plan approval is journalled by askForPlanApproval(), not here.
+  startRun(messages, { deferUserMessage: canApprovePlan })
+  beginTurn()
+  resetAskGate()
+
+  if (planApprovalPending) {
+    if (!canApprovePlan) {
       console.warn(yellow('Plan mode needs an interactive terminal to approve plans. Running this turn without one.'))
     }
     else {
@@ -170,7 +187,14 @@ export async function run(provider: ChatProvider, messages: Message[], readline:
         return
       }
 
-      setMode(decision === 'proceed-auto' ? 'auto' : 'normal')
+      const restored = leavePlanMode()
+      if (decision === 'proceed-auto' && restored !== 'auto') {
+        elevateAutoForTurn()
+        console.warn(gray(`Auto-approving edits for this task only; back in ${restored} mode afterwards.`))
+      }
+      else {
+        console.warn(gray(`Back in ${restored} mode.`))
+      }
     }
   }
 
@@ -226,7 +250,6 @@ export async function run(provider: ChatProvider, messages: Message[], readline:
 
       recordFinish()
       finishTask()
-      clearActivePlan()
 
       if (!didPrintContent() && reply.content) {
         console.warn(reply.content)
@@ -281,6 +304,7 @@ export async function run(provider: ChatProvider, messages: Message[], readline:
     for (const call of reply.tool_calls) {
       recordToolCall(call)
       noteToolCall(call)
+      noteAskGateCall(call)
       const toolResult = await runTool(call)
       recordToolResult(call, toolResult)
       messages.push({ role: 'tool', content: toolResult, tool_call_id: call.id })

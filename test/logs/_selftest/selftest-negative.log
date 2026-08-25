@@ -1,0 +1,19 @@
+# _selftest/selftest-negative · 2026-08-25 01:37 · no model banner · XFAIL · 1s
+#   · step 2 (absent must fire on the edit_file line): 'edit_file' appeared before 'you said: done'
+#   · output: 'echo-bot ready' should not appear anywhere
+#   · file calc.js: expected 'export function div' in it
+#   · file calc.js: 'export function mul' should not be in it
+#   · file nope.js: missing
+#   · journal: expected 1 run(s), found 0
+#   · journal: no run journal was written
+
+echo-bot ready
+
+> tool
+● edit_file(path: "calc.js")
+
+> done
+you said: done
+
+> /exit
+bye

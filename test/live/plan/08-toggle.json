@@ -1,0 +1,80 @@
+{
+  "description": "Shift+Tab по кругу, /plan-mode on|off с возвратом в прежний режим, /run-plan без аргумента. Модель не задействована.",
+  "fixture": "calc",
+  "env": {
+    "USE_PLAN_MODE": "true",
+    "USE_STT": "false",
+    "USE_TTS": "false",
+    "USE_PDF_CONVERT": "false"
+  },
+  "drain": 5,
+  "steps": [
+    {
+      "note": "start in plan",
+      "expect": "\\[plan\\] >",
+      "timeout": 60,
+      "send": "\\x1b[Z",
+      "enter": false,
+      "delay": 1
+    },
+    {
+      "note": "cycle 1 -> normal",
+      "expect": "\\n> $",
+      "timeout": 15,
+      "send": "\\x1b[Z",
+      "enter": false,
+      "delay": 1
+    },
+    {
+      "note": "cycle 2 -> auto",
+      "expect": "\\[auto\\] >",
+      "timeout": 15,
+      "send": "\\x1b[Z",
+      "enter": false,
+      "delay": 1
+    },
+    {
+      "note": "cycle 3 -> plan again",
+      "expect": "\\[plan\\] >",
+      "timeout": 15,
+      "send": "/plan-mode off",
+      "delay": 1
+    },
+    {
+      "note": "plan mode off",
+      "expect": "Plan mode is now off \\(mode: auto\\)",
+      "timeout": 15,
+      "send": "/plan-mode on",
+      "delay": 1
+    },
+    {
+      "note": "plan mode on",
+      "expect": "Plan mode is now on",
+      "timeout": 15,
+      "send": "/run-plan",
+      "delay": 1
+    },
+    {
+      "note": "saved plans listing",
+      "expect": "silent-ripple",
+      "timeout": 15,
+      "send": "/exit",
+      "delay": 1
+    }
+  ],
+  "forbid": [
+    "Unhandled",
+    "node:internal"
+  ],
+  "files": {
+    "calc.js": {
+      "unchanged": true
+    },
+    "README.md": {
+      "unchanged": true
+    }
+  },
+  "journal": {
+    "runs": 0
+  }
+}

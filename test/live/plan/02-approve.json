@@ -1,0 +1,84 @@
+{
+  "description": "plan → y: план сохраняется, шаги выполняются, файлы меняются, сессия возвращается в свой auto (USE_AUTO_MODE=true).",
+  "fixture": "calc",
+  "env": {
+    "USE_PLAN_MODE": "true",
+    "USE_AUTO_MODE": "true",
+    "USE_STT": "false",
+    "USE_TTS": "false",
+    "USE_PDF_CONVERT": "false"
+  },
+  "drain": 20,
+  "steps": [
+    {
+      "note": "startup",
+      "expect": "\\[plan\\] >",
+      "timeout": 60,
+      "send": "Добавь в calc.js функцию div с защитой от деления на ноль и обнови README",
+      "delay": 1
+    },
+    {
+      "note": "investigation comes first",
+      "expect": "Investigating…",
+      "absent": "Proposed plan:",
+      "timeout": 180
+    },
+    {
+      "note": "plan header",
+      "expect": "Proposed plan:",
+      "timeout": 900
+    },
+    {
+      "note": "approval prompt",
+      "expect": "\\[y / a = y \\+ auto-approve edits for this task / n / type feedback\\]",
+      "timeout": 900,
+      "send": "y",
+      "delay": 1
+    },
+    {
+      "note": "plan saved",
+      "expect": "Saved plan to",
+      "timeout": 60
+    },
+    {
+      "note": "back in the pre-plan mode",
+      "expect": "Back in auto mode",
+      "timeout": 30
+    },
+    {
+      "note": "execution finished in auto",
+      "expect": "\\[auto\\] > $",
+      "timeout": 1500,
+      "auto_yes": true,
+      "send": "/exit",
+      "delay": 1
+    }
+  ],
+  "forbid": [
+    "Unhandled",
+    "node:internal"
+  ],
+  "files": {
+    "calc.js": {
+      "contains": [
+        "function div",
+        "function add"
+      ]
+    },
+    "README.md": {
+      "contains": "div"
+    }
+  },
+  "journal": {
+    "runs": 1,
+    "types_present": [
+      "run_start",
+      "user",
+      "assistant",
+      "tool_call",
+      "tool_result",
+      "finish"
+    ],
+    "contains": "edit_file"
+  }
+}

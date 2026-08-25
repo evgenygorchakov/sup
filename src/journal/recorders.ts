@@ -2,8 +2,17 @@ import type { Message, ToolCall } from '../types.ts'
 import { persistImages } from './images.ts'
 import { appendEvent, ensureRun } from './store.ts'
 
-export function startRun(messages: Message[]): void {
+export interface StartRunOptions {
+  /** Hold the opening message back: a request awaiting plan approval is journalled by the approval
+   *  phase once the plan is accepted, so a rejected one leaves nothing for `--resume` to restore. */
+  deferUserMessage?: boolean
+}
+
+export function startRun(messages: Message[], options: StartRunOptions = {}): void {
   ensureRun()
+  if (options.deferUserMessage) {
+    return
+  }
   const opening = messages[messages.length - 1]
   if (opening?.role === 'user') {
     recordUserMessage(opening)

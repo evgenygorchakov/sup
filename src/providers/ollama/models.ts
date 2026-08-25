@@ -2,6 +2,7 @@ import type { ModelListResult } from '../types.ts'
 import { Config } from '../../config.ts'
 
 const TAGS_REQUEST_TIMEOUT_MS = 10_000
+const SHOW_REQUEST_TIMEOUT_MS = 10_000
 
 interface OllamaModelEntry {
   name?: unknown
@@ -63,4 +64,33 @@ export async function resolveDefaultModel(): Promise<string | null> {
   }
 
   return dated.reduce((best, entry) => (entry.at > best.at ? entry : best)).name
+}
+
+/** `/api/show` resolves tags server-side, so its 404 is the authoritative "no such model". */
+export async function checkConfiguredModel(): Promise<string | null> {
+  let response: Response
+  try {
+    response = await fetch(`${Config.OLLAMA_HOST}/api/show`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: Config.MODEL }),
+      signal: AbortSignal.timeout(SHOW_REQUEST_TIMEOUT_MS),
+    })
+    await response.text()
+  }
+  catch {
+    // Unreachable server is not a missing model: let the first request report it.
+    return null
+  }
+
+  if (response.status !== 404) {
+    return null
+  }
+
+  const installed = await listInstalledModels()
+  const available = installed.ok && installed.models.length > 0
+    ? `\nInstalled models: ${installed.models.join(', ')}`
+    : ''
+
+  return `Model ${Config.MODEL} is not installed on ollama at ${Config.OLLAMA_HOST}.${available}\nPull it with "ollama pull ${Config.MODEL}", set another MODEL in your .env, or leave MODEL empty to pick the most recent one.`
 }

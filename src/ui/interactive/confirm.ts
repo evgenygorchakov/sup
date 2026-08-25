@@ -3,7 +3,8 @@ import type { ToolCall } from '../../types.ts'
 
 import process from 'node:process'
 import { toolsByName } from '../../tools/registry.ts'
-import { bold, brightBlue, brightGreen, red, yellow } from '../../utils/colors.ts'
+import { bold, brightBlue, brightGreen, gray, red, yellow } from '../../utils/colors.ts'
+import { FEEDBACK_NOTICE, looksMistyped, readAnswerIntent } from './answer.ts'
 import { readUserInput } from './multiline-input.ts'
 import { renderToolHeader } from './render-tool-call.ts'
 
@@ -38,17 +39,20 @@ export async function confirmToolCalls(calls: ToolCall[], fallbackIntent: string
 
   while (true) {
     const userAnswer = (await readUserInput(readline, brightGreen('\n[y / n / type feedback] '))).trim()
-    const loweredAnswer = userAnswer.toLowerCase()
+    const intent = readAnswerIntent(userAnswer)
 
-    if (loweredAnswer === 'y') {
+    if (intent === 'yes') {
       return { kind: CONFIRM_KIND.approve }
     }
 
-    if (loweredAnswer === 'n') {
+    if (intent === 'no') {
       return { kind: CONFIRM_KIND.quit }
     }
 
     if (userAnswer) {
+      if (looksMistyped(userAnswer)) {
+        console.warn(gray(FEEDBACK_NOTICE))
+      }
       return { kind: CONFIRM_KIND.replan, feedback: userAnswer }
     }
   }

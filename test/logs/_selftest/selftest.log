@@ -1,0 +1,12 @@
+# _selftest/selftest · 2026-08-25 01:37 · no model banner · PASS · 1s
+
+echo-bot ready
+
+> write calc.js export function div(a, b) { return a / b }
+wrote calc.js
+
+> journal
+journal written
+
+> /exit
+bye

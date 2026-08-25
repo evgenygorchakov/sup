@@ -13,4 +13,7 @@ export interface ChatProvider {
   listInstalledModels: () => Promise<ModelListResult>
   /** Model to use when MODEL is not configured; null when the server cannot be asked. */
   resolveDefaultModel: () => Promise<string | null>
+  /** Startup check of a configured MODEL; returns why it cannot serve requests, or null when it can.
+   *  Absent on providers that ignore MODEL. */
+  checkConfiguredModel?: () => Promise<string | null>
 }

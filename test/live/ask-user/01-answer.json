@@ -1,0 +1,61 @@
+{
+  "description": "ask_user на живой модели: вопрос после чтения кода, ответ стрелками, и выбранный вариант доходит до кода.",
+  "fixture": "calc",
+  "env": {
+    "USE_ASK_USER": "true",
+    "USE_AUTO_MODE": "true",
+    "USE_PLAN_MODE": "false",
+    "USE_JOURNAL": "true",
+    "USE_STT": "false",
+    "USE_TTS": "false",
+    "USE_PDF_CONVERT": "false"
+  },
+  "drain": 5,
+  "steps": [
+    {
+      "note": "startup banner",
+      "expect": "Provider: ollama",
+      "timeout": 90,
+      "send": "Read calc.js and README.md first. Then call ask_user to ask me what to name the new division function, with exactly two options in this order: first \"div\", second \"divide\". Wait for my answer before writing any code, then add that function to calc.js.",
+      "delay": 1
+    },
+    {
+      "note": "the question menu opens",
+      "expect": "↑/↓ · Enter · Esc",
+      "timeout": 420,
+      "absent": "refused by the harness",
+      "send": "\\x1b[B",
+      "delay": 1
+    },
+    {
+      "note": "the answer goes back to the model",
+      "expect": "The user answered",
+      "timeout": 60
+    },
+    {
+      "note": "the turn finishes",
+      "expect": "\\[auto\\] > $",
+      "timeout": 420,
+      "send": "/exit",
+      "delay": 1
+    }
+  ],
+  "forbid": [
+    "Unhandled",
+    "node:internal"
+  ],
+  "files": {
+    "calc.js": {
+      "contains": "divide",
+      "absent": "function div\\("
+    },
+    "README.md": {
+      "unchanged": true
+    }
+  },
+  "journal": {
+    "runs": 1,
+    "types_present": ["tool_call", "tool_result", "finish"],
+    "contains": "ask_user"
+  }
+}

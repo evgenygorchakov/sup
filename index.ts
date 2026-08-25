@@ -75,6 +75,16 @@ async function loadProjectInstructions(): Promise<string | null> {
 }
 
 const CANCELLED_NOTICE = yellow('\n⏹  Cancelled. Type your message again.')
+
+function reportTurnError(error: unknown): void {
+  if (error instanceof RequestCancelledError) {
+    console.warn(CANCELLED_NOTICE)
+  }
+  else {
+    console.error(red(`Error: ${error instanceof Error ? error.message : String(error)}`))
+  }
+}
+
 const INTERRUPTED_NOTICE = yellow('\n⏹  Interrupted. The work so far is kept; type your next message.')
 
 const INTERRUPTED_TURN_RECORD = 'Note: the user interrupted the previous turn (Esc) before it finished. Any tool calls shown above already ran and their results are final. Do not redo that work; continue from the user\'s next message.'
@@ -123,6 +133,11 @@ async function handleUserTurn(provider: ChatProvider, messages: Message[], readl
 /** With no MODEL in .env, ask the provider which model to use. */
 async function resolveStartupModel(provider: ChatProvider): Promise<'configured' | 'auto' | null> {
   if (Config.MODEL) {
+    const problem = await provider.checkConfiguredModel?.()
+    if (problem) {
+      console.error(red(problem))
+      return null
+    }
     return 'configured'
   }
 
@@ -242,7 +257,16 @@ async function main() {
 
   const commandLinePrompt = args.promptArgs.join(' ').trim()
   if (commandLinePrompt) {
-    await handleUserTurn(provider, messages, readline, commandLinePrompt)
+    try {
+      await handleUserTurn(provider, messages, readline, commandLinePrompt)
+    }
+    catch (error) {
+      reportTurnError(error)
+      if (!interactive) {
+        // Scripts read the exit code; the interactive session below can still recover.
+        process.exitCode = 1
+      }
+    }
   }
 
   const hints = [
@@ -307,12 +331,7 @@ async function main() {
         await handleUserTurn(provider, messages, readline, userInput)
       }
       catch (error) {
-        if (error instanceof RequestCancelledError) {
-          console.warn(CANCELLED_NOTICE)
-        }
-        else {
-          console.error(red(`Error: ${error instanceof Error ? error.message : String(error)}`))
-        }
+        reportTurnError(error)
       }
     }
   }

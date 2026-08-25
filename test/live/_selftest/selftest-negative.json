@@ -1,0 +1,56 @@
+{
+  "description": "Каждая проверка здесь заведомо нарушена — сценарий обязан упасть, и именно на перечисленных проверках.",
+  "cmd": [
+    "python3",
+    "test/fixtures/echo-bot.py"
+  ],
+  "fixture": "calc",
+  "drain": 2,
+  "xfail": "так и задумано: доказывает, что проверки срабатывают",
+  "steps": [
+    {
+      "note": "startup",
+      "expect": "echo-bot ready",
+      "timeout": 15,
+      "send": "tool",
+      "delay": 0.2
+    },
+    {
+      "note": "type into the same window",
+      "send": "done",
+      "delay": 0.5
+    },
+    {
+      "note": "absent must fire on the edit_file line",
+      "expect": "you said: done",
+      "timeout": 15,
+      "absent": "edit_file",
+      "send": "/exit",
+      "delay": 0.2
+    }
+  ],
+  "forbid": "echo-bot ready",
+  "files": {
+    "calc.js": {
+      "contains": "export function div",
+      "absent": "export function mul",
+      "unchanged": true
+    },
+    "nope.js": {
+      "contains": "anything"
+    }
+  },
+  "journal": {
+    "runs": 1,
+    "types_present": "finish"
+  },
+  "expect_failures": [
+    "'edit_file' appeared before",
+    "output: 'echo-bot ready' should not appear anywhere",
+    "file calc.js: expected 'export function div' in it",
+    "file calc.js: 'export function mul' should not be in it",
+    "file nope.js: missing",
+    "journal: expected 1 run(s), found 0",
+    "journal: no run journal was written"
+  ]
+}

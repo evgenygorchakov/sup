@@ -1,7 +1,7 @@
 import type { SelectChoice } from '../../ui/interactive/select.ts'
 import type { CommandContext, CommandResult, SlashCommand } from '../types.ts'
 import { stdin } from 'node:process'
-import { isPlanModeActive, setMode } from '../../plan/mode-state.ts'
+import { getMode, isPlanModeActive, leavePlanMode, setMode } from '../../plan/mode-state.ts'
 import { selectFromList } from '../../ui/interactive/select.ts'
 import { gray, red } from '../../utils/colors.ts'
 
@@ -17,11 +17,13 @@ const PLAN_MODE_CHOICES: PlanModeChoice[] = [
 function setPlanMode(enabled: boolean): void {
   if (enabled) {
     setMode('plan')
+    console.warn(gray('Plan mode is now on.'))
+    return
   }
-  else if (isPlanModeActive()) {
-    setMode('normal')
-  }
-  console.warn(gray(`Plan mode is now ${enabled ? 'on' : 'off'}.`))
+
+  // Leaving plan mode goes back to whatever the session ran in before it, not to normal by default.
+  const mode = isPlanModeActive() ? leavePlanMode() : getMode()
+  console.warn(gray(`Plan mode is now off (mode: ${mode}).`))
 }
 
 export async function changePlanModeInteractive(): Promise<void> {

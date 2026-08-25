@@ -1,0 +1,55 @@
+{
+  "description": "Esc снимает вопрос: модель получает «dismissed», решает сама и доводит задачу до конца.",
+  "fixture": "calc",
+  "env": {
+    "USE_ASK_USER": "true",
+    "USE_AUTO_MODE": "true",
+    "USE_PLAN_MODE": "false",
+    "USE_JOURNAL": "false",
+    "USE_STT": "false",
+    "USE_TTS": "false",
+    "USE_PDF_CONVERT": "false"
+  },
+  "drain": 5,
+  "steps": [
+    {
+      "note": "startup banner",
+      "expect": "Provider: ollama",
+      "timeout": 90,
+      "send": "Read calc.js and README.md first. Then call ask_user to ask me what to name the new division function, with exactly two options in this order: first \"div\", second \"divide\". Wait for my answer before writing any code, then add that function to calc.js.",
+      "delay": 1
+    },
+    {
+      "note": "the question menu opens",
+      "expect": "↑/↓ · Enter · Esc",
+      "timeout": 420,
+      "send": "\\x1b",
+      "enter": false,
+      "delay": 1
+    },
+    {
+      "note": "the dismissal reaches the model",
+      "expect": "dismissed the question",
+      "timeout": 60
+    },
+    {
+      "note": "the turn finishes anyway",
+      "expect": "\\[auto\\] > $",
+      "timeout": 420,
+      "send": "/exit",
+      "delay": 1
+    }
+  ],
+  "forbid": [
+    "Unhandled",
+    "node:internal"
+  ],
+  "files": {
+    "calc.js": {
+      "contains": "div"
+    },
+    "README.md": {
+      "unchanged": true
+    }
+  }
+}

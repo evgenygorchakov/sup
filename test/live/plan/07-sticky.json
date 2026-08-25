@@ -1,0 +1,73 @@
+{
+  "description": "TASKS.md #1 через /run-plan: тот же залипший план, но загруженный из .sup/plans.",
+  "fixture": "calc",
+  "env": {
+    "USE_PLAN_MODE": "false",
+    "USE_AUTO_MODE": "false",
+    "USE_STT": "false",
+    "USE_TTS": "false",
+    "USE_PDF_CONVERT": "false"
+  },
+  "drain": 30,
+  "steps": [
+    {
+      "note": "startup",
+      "expect": "\\n> $",
+      "timeout": 60,
+      "send": "/run-plan 1",
+      "delay": 1
+    },
+    {
+      "note": "plan loaded",
+      "expect": "Running plan",
+      "timeout": 30
+    },
+    {
+      "note": "tool confirmation",
+      "expect": "Model wants to run:",
+      "timeout": 900,
+      "send": "n",
+      "delay": 1
+    },
+    {
+      "note": "cancelled",
+      "expect": "Cancelled by user",
+      "timeout": 60,
+      "send": "Прочитай README.md и скажи, сколько в нём строк. Больше ничего не делай.",
+      "delay": 2
+    },
+    {
+      "note": "echo of the question",
+      "expect": "Больше ничего не делай",
+      "timeout": 30
+    },
+    {
+      "note": "answer turn done",
+      "expect": "\\[ctx: [0-9]+ / ",
+      "timeout": 900,
+      "absent": "edit_file|write_file",
+      "send": "/exit",
+      "delay": 2
+    }
+  ],
+  "forbid": [
+    "Unhandled",
+    "node:internal"
+  ],
+  "files": {
+    "calc.js": {
+      "unchanged": true
+    },
+    "README.md": {
+      "unchanged": true
+    }
+  },
+  "journal": {
+    "runs": 1,
+    "types_present": [
+      "tool_call",
+      "finish"
+    ],
+    "contains": "read_file"
+  }
+}

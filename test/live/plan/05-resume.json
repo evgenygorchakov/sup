@@ -1,0 +1,27 @@
+{
+  "description": "sup --resume после отказа: восстанавливать нечего. Идёт следом за 04-reject и намеренно не сбрасывает песочницу.",
+  "env": {
+    "USE_PLAN_MODE": "false",
+    "USE_AUTO_MODE": "false",
+    "USE_STT": "false",
+    "USE_TTS": "false",
+    "USE_PDF_CONVERT": "false"
+  },
+  "args": [
+    "--resume"
+  ],
+  "drain": 5,
+  "steps": [
+    {
+      "note": "resume line",
+      "expect": "Resumed run .* \\(0 messages restored\\)",
+      "timeout": 60,
+      "send": "/exit",
+      "delay": 1
+    }
+  ],
+  "forbid": [
+    "Unhandled",
+    "node:internal"
+  ]
+}

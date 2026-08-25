@@ -1,0 +1,52 @@
+{
+  "description": "plan → n: файлы не тронуты, план не сохранён, и запрос не должен оседать в журнале.",
+  "fixture": "calc",
+  "env": {
+    "USE_PLAN_MODE": "true",
+    "USE_STT": "false",
+    "USE_TTS": "false",
+    "USE_PDF_CONVERT": "false"
+  },
+  "drain": 10,
+  "steps": [
+    {
+      "note": "startup",
+      "expect": "\\[plan\\] >",
+      "timeout": 60,
+      "send": "Добавь в calc.js функцию div с защитой от деления на ноль",
+      "delay": 1
+    },
+    {
+      "note": "approval prompt",
+      "expect": "\\[y / a = y \\+ auto-approve edits for this task / n / type feedback\\]",
+      "timeout": 900,
+      "send": "n",
+      "delay": 1
+    },
+    {
+      "note": "rejected notice",
+      "expect": "Plan rejected and removed from history",
+      "timeout": 30,
+      "send": "/exit",
+      "delay": 2
+    }
+  ],
+  "forbid": [
+    "Unhandled",
+    "node:internal"
+  ],
+  "files": {
+    "calc.js": {
+      "unchanged": true
+    },
+    "README.md": {
+      "unchanged": true
+    }
+  },
+  "journal": {
+    "runs": 1,
+    "types": [
+      "run_start"
+    ]
+  }
+}

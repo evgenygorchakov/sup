@@ -19,6 +19,7 @@ export interface ConfigShape {
   USE_AUTO_MODE: boolean
   USE_JOURNAL: boolean
   USE_SHELL_TOOL: boolean
+  USE_ASK_USER: boolean
   CONTEXT_WINDOW_TOKEN_LIMIT: number
   REQUEST_TIMEOUT_MS: number
   REQUEST_FIRST_TOKEN_TIMEOUT_MS: number
@@ -74,8 +75,9 @@ export const Config: ConfigShape = {
   USE_CLAUDE_SKILLS: getEnvBoolean('USE_CLAUDE_SKILLS', false),
   USE_PLAN_MODE: getEnvBoolean('USE_PLAN_MODE', false),
   USE_AUTO_MODE: getEnvBoolean('USE_AUTO_MODE', true),
-  USE_JOURNAL: getEnvBoolean('USE_JOURNAL', true),
+  USE_JOURNAL: getEnvBoolean('USE_JOURNAL', false),
   USE_SHELL_TOOL: getEnvBoolean('USE_SHELL_TOOL', true),
+  USE_ASK_USER: getEnvBoolean('USE_ASK_USER', true),
   CONTEXT_WINDOW_TOKEN_LIMIT: getEnvNumber('CONTEXT_WINDOW_TOKEN_LIMIT', 80_000),
   REQUEST_TIMEOUT_MS: getEnvNumber('REQUEST_TIMEOUT_MS', 300_000),
   REQUEST_FIRST_TOKEN_TIMEOUT_MS: getEnvNumber('REQUEST_FIRST_TOKEN_TIMEOUT_MS', 600_000),

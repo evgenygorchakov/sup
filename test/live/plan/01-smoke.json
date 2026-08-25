@@ -1,0 +1,39 @@
+{
+  "description": "Старт в plan-режиме: баннер, индикатор [plan], выход без единого хода.",
+  "fixture": "calc",
+  "env": {
+    "USE_PLAN_MODE": "true",
+    "USE_STT": "false",
+    "USE_TTS": "false",
+    "USE_PDF_CONVERT": "false"
+  },
+  "drain": 3,
+  "steps": [
+    {
+      "note": "startup banner",
+      "expect": "Provider: ollama",
+      "timeout": 60
+    },
+    {
+      "note": "plan prompt indicator",
+      "expect": "\\[plan\\] >",
+      "timeout": 30,
+      "send": "/exit"
+    }
+  ],
+  "forbid": [
+    "Unhandled",
+    "node:internal"
+  ],
+  "files": {
+    "calc.js": {
+      "unchanged": true
+    },
+    "README.md": {
+      "unchanged": true
+    }
+  },
+  "journal": {
+    "runs": 0
+  }
+}

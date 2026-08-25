@@ -5,6 +5,7 @@ import { Config } from '../config.ts'
 import { skills } from '../skills/registry.ts'
 import { renderToolResult } from '../ui/interactive/render-tool-call.ts'
 import { red } from '../utils/colors.ts'
+import { askUser } from './list/ask-user.ts'
 import { editFile } from './list/edit-file.ts'
 import { fetchUrl } from './list/fetch-url.ts'
 import { glob } from './list/glob.ts'
@@ -26,6 +27,7 @@ const allTools: Tool[] = [
   glob,
   webSearch,
   fetchUrl,
+  ...(Config.USE_ASK_USER ? [askUser] : []),
   ...(skills.length > 0 ? [skill] : []),
   ...(ledgerToolRegistered ? [ledgerUpdate] : []),
 ]

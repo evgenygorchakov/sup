@@ -1,0 +1,77 @@
+{
+  "description": "plan → a: правки идут без подтверждений, но повышение прав живёт один ход — сессия возвращается в normal.",
+  "fixture": "calc",
+  "env": {
+    "USE_PLAN_MODE": "true",
+    "USE_STT": "false",
+    "USE_TTS": "false",
+    "USE_PDF_CONVERT": "false",
+    "USE_AUTO_MODE": "false"
+  },
+  "drain": 20,
+  "steps": [
+    {
+      "note": "startup",
+      "expect": "\\[plan\\] >",
+      "timeout": 60,
+      "send": "Добавь в calc.js функцию div с защитой от деления на ноль и обнови README",
+      "delay": 1
+    },
+    {
+      "note": "investigation comes first",
+      "expect": "Investigating…",
+      "absent": "Proposed plan:",
+      "timeout": 180
+    },
+    {
+      "note": "plan header",
+      "expect": "Proposed plan:",
+      "timeout": 900
+    },
+    {
+      "note": "approval prompt",
+      "expect": "\\[y / a = y \\+ auto-approve edits for this task / n / type feedback\\]",
+      "timeout": 900,
+      "send": "a",
+      "delay": 1
+    },
+    {
+      "note": "plan saved",
+      "expect": "Saved plan to",
+      "timeout": 60
+    },
+    {
+      "note": "elevation is announced as task-scoped",
+      "expect": "Auto-approving edits for this task only; back in normal mode afterwards",
+      "timeout": 30
+    },
+    {
+      "note": "execution finished, elevation gone",
+      "expect": "\\n> $",
+      "timeout": 1500,
+      "auto_yes": true,
+      "send": "/exit",
+      "delay": 1
+    }
+  ],
+  "forbid": [
+    "Unhandled",
+    "node:internal"
+  ],
+  "files": {
+    "calc.js": {
+      "contains": "function div"
+    },
+    "README.md": {
+      "contains": "div"
+    }
+  },
+  "journal": {
+    "runs": 1,
+    "types_present": [
+      "tool_call",
+      "finish"
+    ],
+    "contains": "edit_file"
+  }
+}

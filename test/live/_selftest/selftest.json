@@ -1,0 +1,20 @@
+{
+  "description": "Проверяет сам движок проверок drive.py на скриптованном CLI. Ollama не нужна.",
+  "cmd": ["python3", "test/fixtures/echo-bot.py"],
+  "fixture": "calc",
+  "drain": 2,
+  "steps": [
+    {"note": "startup", "expect": "echo-bot ready", "timeout": 15,
+     "send": "write calc.js export function div(a, b) { return a / b }", "delay": 0.2},
+    {"note": "file written", "expect": "wrote calc.js", "timeout": 15, "absent": "edit_file",
+     "send": "journal", "delay": 0.2},
+    {"note": "journal written", "expect": "journal written", "timeout": 15, "send": "/exit", "delay": 0.2},
+    {"note": "clean exit", "expect": "bye", "timeout": 15}
+  ],
+  "forbid": "Traceback",
+  "files": {
+    "calc.js": {"contains": "export function div", "absent": "export function mul"},
+    "README.md": {"unchanged": true}
+  },
+  "journal": {"runs": 1, "types": ["run_start", "user"], "types_absent": "finish", "contains": "\"content\": \"hi\""}
+}

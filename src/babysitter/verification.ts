@@ -6,6 +6,7 @@ import { appendEvent, recordUserMessage } from '../journal/index.ts'
 import { executeShellCommand } from '../tools/list/run-shell.ts'
 import { isShellCommandAutoApprovable } from '../tools/shell-auto-approve.ts'
 import { isSkipPermissionsActive } from '../tools/skip-permissions.ts'
+import { FEEDBACK_NOTICE, looksMistyped, readAnswerIntent } from '../ui/interactive/answer.ts'
 import { readUserInput } from '../ui/interactive/multiline-input.ts'
 import { brightGreen, gray, red, yellow } from '../utils/colors.ts'
 import { extractCommands } from './parse-sections.ts'
@@ -83,14 +84,17 @@ async function askChecksApproval(commands: string[], readline: ReadlineInterface
   }
   while (true) {
     const answer = (await readUserInput(readline, brightGreen('\n[y / n / type feedback] '))).trim()
-    const lowered = answer.toLowerCase()
-    if (lowered === 'y') {
+    const intent = readAnswerIntent(answer)
+    if (intent === 'yes') {
       return 'approved'
     }
-    if (lowered === 'n') {
+    if (intent === 'no') {
       return 'declined'
     }
     if (answer) {
+      if (looksMistyped(answer)) {
+        console.warn(gray(FEEDBACK_NOTICE))
+      }
       return { feedback: answer }
     }
   }

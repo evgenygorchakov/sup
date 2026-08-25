@@ -1,0 +1,253 @@
+# plan/08-toggle · 2026-08-24 20:16 · qwen3.8:latest · PASS · 7s
+
+Could not detect context length for model qwen3.8:latest: HTTP 404. Using configured limit 80000.
+Provider: ollama · Model: qwen3.8:latest
+
+Shift+Tab cycles modes.
+Both USE_PLAN_MODE and USE_AUTO_MODE are set; starting in plan mode, auto mode takes over once plan mode ends.
+
+[plan] > 
+> 
+[auto] > 
+[plan] > /
+
+
+  /exit           — Quit the session.
+
+  /help           — Show available commands.
+
+  /clear          — Clear the conversation history.
+
+  /model          — Switch model: /model opens a menu, or /model <number|name>.
+
+  /run-plan       — List saved plans, or load one into the session: /run-plan [number].
+
+  /plan-mode      — Toggle plan mode: /plan-mode opens a menu, or /plan-mode [on|off].
+
+  /auto-mode      — Toggle auto mode (auto-approve edits): /auto-mode opens a menu, or /auto-mode …
+
+  /thinking       — Toggle model thinking (Ollama only): /thinking opens a menu, or /thinking [on|…
+
+  /show-thinking  — Toggle streaming of the thinking text: /show-thinking opens a menu, or /show-t…
+
+  /verbose        — Toggle full, untruncated tool output: /verbose opens a menu, or /verbose [on|o…
+
+  … 6 more
+p
+
+
+  /plan-mode  — Toggle plan mode: /plan-mode opens a menu, or /plan-mode [on|off].
+
+  /pdf        — Convert a PDF to markdown: /pdf <path>, or /pdf [on|off] for dropped files.
+l
+
+
+  /plan-mode  — Toggle plan mode: /plan-mode opens a menu, or /plan-mode [on|off].
+a
+
+
+  /plan-mode  — Toggle plan mode: /plan-mode opens a menu, or /plan-mode [on|off].
+n
+
+
+  /plan-mode  — Toggle plan mode: /plan-mode opens a menu, or /plan-mode [on|off].
+-
+
+
+  /plan-mode  — Toggle plan mode: /plan-mode opens a menu, or /plan-mode [on|off].
+m
+
+
+  /plan-mode  — Toggle plan mode: /plan-mode opens a menu, or /plan-mode [on|off].
+o
+
+
+  /plan-mode  — Toggle plan mode: /plan-mode opens a menu, or /plan-mode [on|off].
+d
+
+
+  /plan-mode  — Toggle plan mode: /plan-mode opens a menu, or /plan-mode [on|off].
+e
+
+
+  /plan-mode  — Toggle plan mode: /plan-mode opens a menu, or /plan-mode [on|off].
+ 
+
+off
+
+Plan mode is now off (mode: auto).
+
+[auto] > /
+
+
+  /exit           — Quit the session.
+
+  /help           — Show available commands.
+
+  /clear          — Clear the conversation history.
+
+  /model          — Switch model: /model opens a menu, or /model <number|name>.
+
+  /run-plan       — List saved plans, or load one into the session: /run-plan [number].
+
+  /plan-mode      — Toggle plan mode: /plan-mode opens a menu, or /plan-mode [on|off].
+
+  /auto-mode      — Toggle auto mode (auto-approve edits): /auto-mode opens a menu, or /auto-mode …
+
+  /thinking       — Toggle model thinking (Ollama only): /thinking opens a menu, or /thinking [on|…
+
+  /show-thinking  — Toggle streaming of the thinking text: /show-thinking opens a menu, or /show-t…
+
+  /verbose        — Toggle full, untruncated tool output: /verbose opens a menu, or /verbose [on|o…
+
+  … 6 more
+p
+
+
+  /plan-mode  — Toggle plan mode: /plan-mode opens a menu, or /plan-mode [on|off].
+
+  /pdf        — Convert a PDF to markdown: /pdf <path>, or /pdf [on|off] for dropped files.
+l
+
+
+  /plan-mode  — Toggle plan mode: /plan-mode opens a menu, or /plan-mode [on|off].
+a
+
+
+  /plan-mode  — Toggle plan mode: /plan-mode opens a menu, or /plan-mode [on|off].
+n
+
+
+  /plan-mode  — Toggle plan mode: /plan-mode opens a menu, or /plan-mode [on|off].
+-
+
+
+  /plan-mode  — Toggle plan mode: /plan-mode opens a menu, or /plan-mode [on|off].
+m
+
+
+  /plan-mode  — Toggle plan mode: /plan-mode opens a menu, or /plan-mode [on|off].
+o
+
+
+  /plan-mode  — Toggle plan mode: /plan-mode opens a menu, or /plan-mode [on|off].
+d
+
+
+  /plan-mode  — Toggle plan mode: /plan-mode opens a menu, or /plan-mode [on|off].
+e
+
+
+  /plan-mode  — Toggle plan mode: /plan-mode opens a menu, or /plan-mode [on|off].
+ 
+
+on
+
+Plan mode is now on.
+
+[plan] > /
+
+
+  /exit           — Quit the session.
+
+  /help           — Show available commands.
+
+  /clear          — Clear the conversation history.
+
+  /model          — Switch model: /model opens a menu, or /model <number|name>.
+
+  /run-plan       — List saved plans, or load one into the session: /run-plan [number].
+
+  /plan-mode      — Toggle plan mode: /plan-mode opens a menu, or /plan-mode [on|off].
+
+  /auto-mode      — Toggle auto mode (auto-approve edits): /auto-mode opens a menu, or /auto-mode …
+
+  /thinking       — Toggle model thinking (Ollama only): /thinking opens a menu, or /thinking [on|…
+
+  /show-thinking  — Toggle streaming of the thinking text: /show-thinking opens a menu, or /show-t…
+
+  /verbose        — Toggle full, untruncated tool output: /verbose opens a menu, or /verbose [on|o…
+
+  … 6 more
+r
+
+
+  /run-plan  — List saved plans, or load one into the session: /run-plan [number].
+u
+
+
+  /run-plan  — List saved plans, or load one into the session: /run-plan [number].
+n
+
+
+  /run-plan  — List saved plans, or load one into the session: /run-plan [number].
+-
+
+
+  /run-plan  — List saved plans, or load one into the session: /run-plan [number].
+p
+
+
+  /run-plan  — List saved plans, or load one into the session: /run-plan [number].
+l
+
+
+  /run-plan  — List saved plans, or load one into the session: /run-plan [number].
+a
+
+
+  /run-plan  — List saved plans, or load one into the session: /run-plan [number].
+n
+
+
+  /run-plan  — List saved plans, or load one into the session: /run-plan [number].
+
+
+
+Saved plans:
+  1  silent-ripple (2026-08-23 19:05) — Добавь в calc.js функцию div с защитой от деления на ноль
+
+Load one with /run-plan <number>.
+
+[plan] > /
+
+
+  /exit           — Quit the session.
+
+  /help           — Show available commands.
+
+  /clear          — Clear the conversation history.
+
+  /model          — Switch model: /model opens a menu, or /model <number|name>.
+
+  /run-plan       — List saved plans, or load one into the session: /run-plan [number].
+
+  /plan-mode      — Toggle plan mode: /plan-mode opens a menu, or /plan-mode [on|off].
+
+  /auto-mode      — Toggle auto mode (auto-approve edits): /auto-mode opens a menu, or /auto-mode …
+
+  /thinking       — Toggle model thinking (Ollama only): /thinking opens a menu, or /thinking [on|…
+
+  /show-thinking  — Toggle streaming of the thinking text: /show-thinking opens a menu, or /show-t…
+
+  /verbose        — Toggle full, untruncated tool output: /verbose opens a menu, or /verbose [on|o…
+
+  … 6 more
+e
+
+
+  /exit  — Quit the session.
+x
+
+
+  /exit  — Quit the session.
+i
+
+
+  /exit  — Quit the session.
+t
+
+
+  /exit  — Quit the session.
+
+

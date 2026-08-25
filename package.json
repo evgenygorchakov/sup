@@ -6,7 +6,8 @@
     "sup": "./index.ts"
   },
   "scripts": {
-    "start": "node index.ts"
+    "start": "node index.ts",
+    "test": "node test/run.ts"
   },
   "devDependencies": {
     "@types/node": "^25.6.0"

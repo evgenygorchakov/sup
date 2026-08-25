@@ -1,5 +1,6 @@
 import type { Message } from './types.ts'
 import { Config } from './config.ts'
+import { ASK_USER_MIN_TOOL_CALLS } from './tools/ask-gate.ts'
 
 const shellEnabled = Config.USE_SHELL_TOOL
 const accessDescription = `You have full access to the local filesystem${shellEnabled ? ', the shell,' : ''} and the public internet through the tools listed below.`
@@ -9,6 +10,8 @@ const roleLines = [
   'You are a CLI coding and research assistant running on the user\'s machine.',
   `${accessDescription} "Running locally" does not mean offline — web_search and fetch_url are real network calls and you should use them whenever the task benefits from fresh information.`,
 ]
+
+const askUserEnabled = Config.USE_ASK_USER
 
 const toolLines = [
   '# Tools',
@@ -20,6 +23,7 @@ const toolLines = [
   '- glob — find files by glob pattern.',
   '- web_search — search the web; returns title/url/snippet entries.',
   '- fetch_url — fetch and read a URL.',
+  ...(askUserEnabled ? ['- ask_user — put one multiple-choice question to the user and get their answer.'] : []),
   ...(!shellEnabled
     ? ['- You cannot run shell commands. When a command is needed (build, test, git), give the user the exact command to run and continue from the result they report.']
     : []),
@@ -40,6 +44,15 @@ const toolSelectionLines = [
   '- Call web_search for anything that depends on the current state of the world: today\'s events, recent releases, latest library versions, live prices, weather, news, any fact after your training cutoff. Do not answer such questions from memory — your training data is months stale and frequently wrong on current facts.',
   '- After web_search, use fetch_url to read a specific page from the results when full content is needed.',
   '- When the user\'s message carries a URL, fetch_url it before answering, even if the site looks familiar. Never describe, summarize, or quote a page you have not fetched in this conversation.',
+]
+
+const askUserLines = [
+  '# Asking the user',
+  '- Default to deciding for yourself. The user is here for the result, and every question spends their attention, so a question has to buy more than it costs.',
+  `- Ask only when all three hold: the task genuinely reads two ways, the two readings lead to different work, and the project does not settle it. Investigate first — ${ASK_USER_MIN_TOOL_CALLS} tool calls at minimum — because most of what looks ambiguous is answered by the code.`,
+  '- You get one question per turn. If another one comes up, decide it yourself.',
+  '- ask_user is the only way to ask mid-task: no tool call means the turn is over and the user is answering a finished reply, so never leave a question hanging in prose while you keep working.',
+  '- When you decide instead of asking, say in one line what you assumed, so the user can correct it.',
 ]
 
 const workflowLines = [
@@ -83,6 +96,7 @@ export function buildSystemPrompt(): string {
     ...roleLines,
     ...toolLines,
     ...toolSelectionLines,
+    ...(askUserEnabled ? askUserLines : []),
     ...workflowLines,
     ...(Config.USE_TTS ? conversationalStyleLines : styleLines)]
     .join('\n')

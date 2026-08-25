@@ -9,7 +9,7 @@ interface ToggleOptions {
   description: string
   get: () => boolean
   set: (value: boolean) => void
-  unavailableReason?: () => string | undefined
+  unavailableReason?: () => string | undefined | Promise<string | undefined>
 }
 
 const STATE_CHOICES: SelectChoice[] = [{ label: 'on' }, { label: 'off' }]
@@ -32,7 +32,7 @@ export function createToggleCommand(options: ToggleOptions): SlashCommand {
   }
 
   async function run(context: CommandContext): Promise<CommandResult> {
-    const reason = unavailableReason?.()
+    const reason = await unavailableReason?.()
     if (reason) {
       console.warn(gray(reason))
       return { kind: 'continue' }
