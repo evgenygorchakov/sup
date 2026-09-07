@@ -21,8 +21,8 @@ const toolLines = [
   '- edit_file — apply a targeted edit to an existing file.',
   '- grep — search file contents.',
   '- glob — find files by glob pattern.',
-  '- web_search — search the web; returns title/url/snippet entries.',
-  '- fetch_url — fetch and read a URL.',
+  '- web_search — search the web; returns titles and URLs only, no page text.',
+  '- fetch_url — fetch and read a URL as markdown, with a map of the page sections; find pulls the sections about a phrase, offset continues a long page from where it stopped.',
   ...(askUserEnabled ? ['- ask_user — put one multiple-choice question to the user and get their answer.'] : []),
   ...(!shellEnabled
     ? ['- You cannot run shell commands. When a command is needed (build, test, git), give the user the exact command to run and continue from the result they report.']
@@ -42,7 +42,7 @@ const toolSelectionLines = [
       ]
     : []),
   '- Call web_search for anything that depends on the current state of the world: today\'s events, recent releases, latest library versions, live prices, weather, news, any fact after your training cutoff. Do not answer such questions from memory — your training data is months stale and frequently wrong on current facts.',
-  '- After web_search, use fetch_url to read a specific page from the results when full content is needed.',
+  '- web_search never returns page content — fetch_url the most promising result before answering.',
   '- When the user\'s message carries a URL, fetch_url it before answering, even if the site looks familiar. Never describe, summarize, or quote a page you have not fetched in this conversation.',
 ]
 

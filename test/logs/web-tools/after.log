@@ -1,0 +1,94 @@
+Loaded model qwen3.8:27b-q8_0 (context: 262144 tokens)
+Provider: ollama · Model: qwen3.8:27b-q8_0
+The user is asking me to search the web for what format Ollama uses for tool calls and briefly describe the structure of responses that include tool_calls. I need at least two sources. Let's do a web search.
+● web_search(query: "Ollama API tool calling format /api/chat tools response tool_calls", maxResults: 8)
+● web_search(query: "ollama docs \"tool calls\" chat completions OpenAI compatible format", maxResults: 8)
+  ⎿  ERROR: Ollama web search returned HTTP 429: {"error":"you have reached your web search hourly request limit, upgrade for higher limits: https://ollama.com/upgrade (ref: f080e448-247f-46fa-9425-69194d98f2b4)"}
+  ⎿  ERROR: Ollama web search returned HTTP 429: {"error":"you have reached your web search hourly request limit, upgrade for higher limits: https://ollama.com/upgrade (ref: a2a9a7cc-db0c-4ac6-b9e3-cc078d62830c)"}
+The web search hit the rate limit. I'll try fetching the Ollama documentation directly — I know the URLs: https://docs.ollama.com/api/reference/chat and https://github.com/ollama/ollama/blob/main/docs/api.md, plus the OpenAI compatibility page at https://docs.ollama.com/openai or /api/openai.
+Поиск уперся в лимит (429), поэтому пойду напрямую к официальным источникам — документации Ollama и GitHub.
+● fetch_url(url: "https://github.com/ollama/ollama/blob/main/docs/api.md")
+● fetch_url(url: "https://docs.ollama.com/openai")
+  ⎿  Fetched 150000 (truncated) bytes from github.com
+     ollama/docs/api.md at main · ollama/ollama · GitHub
+     Skip to content
+     You signed in with another tab or window. Reload to refresh your session.
+  ⎿  Fetched 60000 (truncated) bytes from docs.ollama.com
+     OpenAI compatibility - Ollama
+     Documentation Index
+     Fetch the complete documentation index at: /llms.txt
+The GitHub blob page didn't render (JS). Let's grab the raw markdown from raw.githubusercontent.com, and also fetch the llms.txt index for docs.ollama.com to find the correct tool-calling documentation page.
+GitHub отдал JS-обёртку, а не текст. Возьму сырой Markdown и индекс документации Ollama.
+● fetch_url(url: "https://raw.githubusercontent.com/ollama/ollama/main/docs/api.md")
+● fetch_url(url: "https://docs.ollama.com/llms.txt")
+  ⎿  Fetched 54958 bytes from raw.githubusercontent.com
+     # API
+     > Note: Ollama's API docs are moving to https://docs.ollama.com/api
+     ## Endpoints
+  ⎿  Fetched 4589 bytes from docs.ollama.com
+     # Ollama
+     - [Ollama documentation](https://docs.ollama.com/index.md)
+     - [Quickstart](https://docs.ollama.com/quickstart.md)
+I've obtained the raw api.md, but it got truncated right before the tool-calling example (the "Chat request (Streaming with tools)" section). I need to check the actual structure of `tool_calls` in the response. Let me fetch the following:
+
+1. The continuation of api.md — I can't specify an offset with fetch_url, but maybe I can grab a larger byte count? maxBytes is capped at 300000. The file is 54958 bytes total, and I fetched 200000... wait no, it says "Bytes: 54958" — so the entire file was returned but truncated in display? Actually it shows "truncated" at the end. Hmm, "Content-Type: text/plain, Bytes: 54958" and then "...[truncated]" — maybe the tool is truncating the output for display purposes. Let me try fetching with maxBytes=300000 to get more.
+
+Actually wait — it says Bytes: 54958 (the whole file) but the content was truncated in display. The tool probably has a cap on how much text it returns. Let me refetch with maxBytes 300000 and see if I can get further along. Or, fetch docs.ollama.com/api/chat.md which is a dedicated page for chat endpoints that includes tool-calling examples, plus capabilities/tool-calling.md as well.
+
+Let me fetch both:
+- https://docs.ollama.com/api/chat.md
+- https://docs.ollama.com/capabilities/tool-calling.md
+Получил основной API-документ (обрезался как раз перед примером tool calling). Дочитаю нужные страницы документации.
+● fetch_url(url: "https://docs.ollama.com/api/chat.md")
+● fetch_url(url: "https://docs.ollama.com/capabilities/tool-calling.md")
+  ⎿  Fetched 20415 bytes from docs.ollama.com
+     > ## Documentation Index
+     > Fetch the complete documentation index at: https://docs.ollama.com/llms.txt
+     > Use this file to discover all available pages before exploring further.
+  ⎿  Fetched 23144 bytes from docs.ollama.com
+     > ## Documentation Index
+     > Fetch the complete documentation index at: https://docs.ollama.com/llms.txt
+     > Use this file to discover all available pages before exploring further.
+I've got the native API format from two sources. Let me also check the OpenAI-compatible endpoint to confirm it uses the standard `tool_calls` with id/type — that's a third source and directly relevant since the user asked about "the tool calling format Ollama uses." I'll fetch docs.ollama.com/api/openai-compatibility.md (markdown version).
+Ещё проверю OpenAI-совместимый эндпоинт, чтобы сравнить оба формата.
+● fetch_url(url: "https://docs.ollama.com/api/openai-compatibility.md")
+  ⎿  Fetched 23093 bytes from docs.ollama.com
+     > ## Documentation Index
+     > Fetch the complete documentation index at: https://docs.ollama.com/llms.txt
+     > Use this file to discover all available pages before exploring further.
+I've gathered enough information from multiple sources. Let me summarize:
+
+Sources:
+1. docs.ollama.com/api/chat.md (OpenAPI schema) — native /api/chat format
+2. raw.githubusercontent.com/ollama/ollama/main/docs/api.md — same API documentation in the repository
+3. docs.ollama.com/capabilities/tool-calling.md — examples of tool calls including index inside function
+4. docs.ollama.com/api/openai-compatibility.md — /v1/chat/completions supports tools
+
+Key facts:
+- Native format (/api/chat): request has a `tools` array, each element is `{type: "function", function: {name, description, parameters (JSON Schema)}}`. Response: `message.tool_calls` is an array of objects with a `function` field: `{function: {name, arguments}}`, where arguments is a JSON object. In the examples in capabilities/tool-calling.md, tool calls also include `"type": "function"` and `"index"` inside function (in the echo-back example). The OpenAPI schema's ToolCall only has function{name, description?, arguments}.
+- Result: message with role "tool", `tool_name`, `content`.
+- Streaming: chunks of message.tool_calls are accumulated.
+- OpenAI-compatible /v1/chat/completions: standard OpenAI format — choices[0].message.tool_calls with id, type, function{name, arguments (JSON string)}.
+
+Note the difference: in native Ollama, arguments is a JSON object; in OpenAI it's a JSON string. Also, the echo-back example includes "index" inside function and "type": "function".
+
+The answer should be concise, in Russian, with sources cited.
+## Формат tool calling в Ollama
+
+Оllama поддерживает два формата: нативный `/api/chat` и OpenAI-совместимый `/v1/chat/completions`. Основной — нативный.
+
+### Нативный API (`POST /api/chat`)
+
+**Запрос** — инструменты передаются параметром `tools`, схема совпадает с OpenAI:
+```json
+"tools": [{
+  "type": "function",
+  "function": {
+    "name": "get_current_weather",
+    "description": "...",
+    "parameters": { /* JSON Schema */ }
+  }
+}]
+```
+
+**Ответ**

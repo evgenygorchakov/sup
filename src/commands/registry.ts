@@ -11,6 +11,7 @@ import { modelCommand } from './list/model.ts'
 import { pdfCommand } from './list/pdf.ts'
 import { planModeCommand } from './list/plan-mode.ts'
 import { runPlanCommand } from './list/run-plan.ts'
+import { searchProviderCommand } from './list/search-provider.ts'
 import { showThinkingCommand } from './list/show-thinking.ts'
 import { skillsCommand } from './list/skills.ts'
 import { sttCommand } from './list/stt.ts'
@@ -23,6 +24,7 @@ const builtinCommands: SlashCommand[] = [
   helpCommand,
   clearCommand,
   modelCommand,
+  searchProviderCommand,
   runPlanCommand,
   planModeCommand,
   autoModeCommand,

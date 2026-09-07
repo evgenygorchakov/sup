@@ -14,15 +14,15 @@ Every setting is an `.env` variable with a sane default — see [`.env.example`]
 
 ## Usage
 
-- Type `/` to see commands (`Tab` completes): switch model, toggle plan / auto / thinking / verbose output, list saved plans, clear history; `Shift+Tab` cycles the mode in place.
+- Type `/` to see commands (`Tab` completes): switch model, switch web search provider, toggle plan / auto / thinking / verbose output, list saved plans, clear history; `Shift+Tab` cycles the mode in place.
 - Plan mode investigates first and shows the plan for approval: `y` executes it in whatever mode the session was in before planning, `a` additionally auto-approves the edits of that one task without switching the session to auto, `n` drops the plan.
 - `ask_user` (on by default, `USE_ASK_USER=false` turns it off) is how the model stops mid-task and puts one multiple-choice question to you, answered with the arrow keys; `Esc` dismisses it and the model decides for itself. When a question is allowed is decided by the harness, not the prompt: at least two investigation calls first, one question per turn, and none at all while planning. A refusal comes back as the tool result and says what to do instead — read the code, or state the assumption and carry on. Every question ships 2–4 concrete options, which is the real filter: a model that cannot name two alternatives does not have a question.
-- The model has to support native tool calling — sup only ever goes through the provider's tools API. `web_search` additionally needs `OLLAMA_API_KEY` from [ollama.com/settings/keys](https://ollama.com/settings/keys).
+- The model has to support native tool calling — sup only ever goes through the provider's tools API. `web_search` goes through `WEB_SEARCH_PROVIDER`: `ollama` (the default) needs `OLLAMA_API_KEY` from [ollama.com/settings/keys](https://ollama.com/settings/keys), `searxng` needs `WEB_SEARCH_HOST` pointed at your own instance and no key at all (setup in [`optional/searxng/`](optional/searxng/README.md)); `/search-provider` moves web_search between them without restarting the session. Either way the reply is titles and URLs only — the page itself is read with `fetch_url`, which returns markdown, a map of the page sections, and `find`/`offset` to pull the part that matters.
 - Tuned for small local models: low default temperature, tool arguments validated against the schema with precise repair errors, the approved plan re-injected near the end of the context every turn, old tool outputs collapsed.
 - A response that degenerates into repeating itself is cut mid-stream, trimmed to a single cycle, and the model is told why (`USE_LOOP_DETECTION`); overlong thinking is stopped the same way (`THINKING_CHAR_LIMIT`).
 - `AGENTS.md` in the working directory is appended to the system prompt; `sup --no-system-prompt` drops the system prompt entirely, for probing a research model's raw behavior.
 - Paste an image from the clipboard.
-- Two features need a separate install and are off by default — converting a dropped PDF to markdown and talking to sup instead of typing; both live in [`optional/`](optional/README.md), see [PDF](#pdf) and [Voice](#voice).
+- Three things need a separate install and are off by default — converting a dropped PDF to markdown, talking to sup instead of typing, and a self-hosted search instance; all live in [`optional/`](optional/README.md), see [PDF](#pdf) and [Voice](#voice).
 
 ## Skills
 

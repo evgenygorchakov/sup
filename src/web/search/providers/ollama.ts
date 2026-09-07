@@ -1,8 +1,9 @@
-import type { WebSearchResult } from './types.ts'
+import type { SearchProvider, WebSearchResult } from '../types.ts'
 import process from 'node:process'
 
 const OLLAMA_WEB_SEARCH_ENDPOINT = 'https://ollama.com/api/web_search'
 const SEARCH_TIMEOUT_MS = 15_000
+const MISSING_KEY_MESSAGE = 'OLLAMA_API_KEY is not set. Get a key at https://ollama.com/settings/keys and export OLLAMA_API_KEY=<key>.'
 
 interface OllamaWebSearchEntry {
   title?: string
@@ -14,11 +15,11 @@ interface OllamaWebSearchResponse {
   results?: OllamaWebSearchEntry[]
 }
 
-export async function searchOllama(query: string, maxResults: number): Promise<WebSearchResult[]> {
+async function search(query: string, maxResults: number): Promise<WebSearchResult[]> {
   const apiKey = process.env.OLLAMA_API_KEY
 
   if (!apiKey) {
-    throw new Error('OLLAMA_API_KEY is not set. Get a key at https://ollama.com/settings/keys and export OLLAMA_API_KEY=<key>.')
+    throw new Error(MISSING_KEY_MESSAGE)
   }
 
   const response = await fetch(OLLAMA_WEB_SEARCH_ENDPOINT, {
@@ -47,3 +48,9 @@ export async function searchOllama(query: string, maxResults: number): Promise<W
     snippet: (entry.content ?? '').trim(),
   }))
 }
+
+function unavailableReason(): string | undefined {
+  return process.env.OLLAMA_API_KEY ? undefined : MISSING_KEY_MESSAGE
+}
+
+export const ollama: SearchProvider = { search, unavailableReason }

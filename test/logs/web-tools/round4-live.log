@@ -1,0 +1,56 @@
+Loaded model qwen3.8:27b-q8_0 (context: 65536 of 262144 tokens)
+Provider: ollama · Model: qwen3.8:27b-q8_0
+The user is asking for the latest stable version of Node.js and what's new in it. I'll search the web.
+● web_search(query: "latest stable Node.js release 2026", maxResults: 5)
+  ⎿  Found 5 results for "latest stable Node.js release 2026"
+     1. Node.js — Download Node.js®
+        https://nodejs.org/en/download/current
+     2. Releases · nodejs/node · GitHub
+        https://github.com/nodejs/node/releases
+     3. (untitled)
+        http://nodejs.org/dist/index.tab
+     4. nodejs/node
+        https://github.com/nodejs/node
+     5. README.md
+        https://github.com/nodejs/Release/blob/main/README.md
+I need to look into this further. Let me check the details.
+
+Let's grab the GitHub releases page or nodejs.org/download/current.
+● fetch_url(url: "https://nodejs.org/en/download/current")
+  ⎿  Fetched 309594 bytes from nodejs.org
+     Sections (2), read one with offset or filter them with find:
+     # Download Node.js® — offset 0
+     ## Proudly supported by the partners below: — offset 1204
+The latest version is v26.8.1 (Current line). Let me check what's new in this release — I'll fetch the changelog/blog post.
+● fetch_url(url: "https://nodejs.org/en/blog/release/v26.8.1")
+  ⎿  Fetched 278784 bytes from nodejs.org
+     Sections (5), read one with offset or filter them with find:
+     # Node.js 26.8.1 (Current) — offset 0
+     ## 2026-08-26, Version 26.8.1 (Current), @aduh95 — offset 106
+The latest "current" is v26.8.1, but this is a patch release that fixes the version string. The user was asking about the "latest stable version." Node 26 is in the Current line (odd-numbered major versions are not LTS). The current LTS should be Node 24.x. Let me check what the latest LTS is — I'll fetch nodejs.org/en/about/previous-releases or the download page for LTS.
+● fetch_url(url: "https://nodejs.org/en/download/lts")
+  ⎿  ERROR: HTTP 404 Not Found
+The LTS page is at nodejs.org/en/about/previous-releases or /en/download. Let me check the previous releases page to find out which one is currently in LTS. Actually, as of mid-2026, Node.js 24 should be in LTS (Krypton? no—Node 24's codename is "Krypton"? Node 22 = Jod, Node 23 = Krypton, Node 24 = Lithium). Let me quickly check the previous releases page.
+● fetch_url(url: "https://nodejs.org/en/about/previous-releases", find: "LTS")
+  ⎿  Fetched 296070 bytes from nodejs.org (2 sections matching "LTS")
+     Section at offset 0:
+     # Node.js Releases
+     Commercial support for versions past the Maintenance LTS phase is available through our [OpenJS Ecosystem Sustainability Program partners](https://nodejs.org/en/about/eol)
+The latest stable version is v24.20.0 (Krypton LTS). Let's fetch the release notes for that version.
+● fetch_url(url: "https://nodejs.org/en/blog/release/v24.20.0")
+  ⎿  Fetched 551501 bytes from nodejs.org (chars 0–20000 of 79188)
+     Sections (5), read one with offset or filter them with find:
+     # Node.js 24.20.0 (LTS) — offset 0
+     ## 2026-08-26, Version 24.20.0 'Krypton' (LTS), @aduh95 — offset 100
+I have enough information. Latest stable (LTS): v24.20.0 "Krypton" (August 26, 2026). Current: v26.8.1. I'll answer concisely in Russian.
+**Последняя стабильная (Active LTS) — Node.js 24.20.0 «Krypton»**, выпущена 26 августа 2026. Актуальная ветка Current — v26.8.1 (тоже от 26.08, но это out-of-band фикс: `node --version` ошибочно показывал alpha-версию).
+
+Что нового в 24.20.0:
+- **async_hooks**: `using` scopes для `AsyncLocalStorage`
+- **buffer**: параметр `end` для методов поиска
+- **loader**: реализованы package maps (import maps)
+- **stream**: новый модуль `node:stream/iter`
+- **permission**: добавлены `permission.drop()` и флаг `--permission-audit`
+- **test_runner**: `context.log()` и событие `test:log`, поле `entryFile` в событиях TestStream
+- **wasm**: включён JSPI (JavaScript Promise Integration)
+- Обновления зависимостей: npm 11.19.0, SQLite 3.53.4, корневые сертификаты NSS 3.125

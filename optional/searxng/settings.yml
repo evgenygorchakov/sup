@@ -1,0 +1,9 @@
+use_default_settings: true
+server:
+  secret_key: "REPLACE_WITH_OWN_SECRET"
+  limiter: false
+  public_instance: false
+search:
+  formats:
+    - html
+    - json
