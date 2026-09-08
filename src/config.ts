@@ -1,7 +1,7 @@
 import { dirname, resolve } from 'node:path'
 import process from 'node:process'
 import { fileURLToPath } from 'node:url'
-import { getEnvBoolean, getEnvNumber, getEnvString, getOptionalEnvNumber, loadEnvFile } from './utils/env.ts'
+import { getEnvBoolean, getEnvNumber, getEnvString, getOptionalEnvNumber, getOptionalEnvNumberInRange, loadEnvFile } from './utils/env.ts'
 
 const installDir = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 
@@ -23,9 +23,9 @@ export interface ConfigShape {
   CONTEXT_WINDOW_TOKEN_LIMIT: number | null
   REQUEST_TIMEOUT_MS: number
   REQUEST_FIRST_TOKEN_TIMEOUT_MS: number
-  TEMPERATURE: number
+  TEMPERATURE: number | null
   MAX_RESPONSE_TOKENS: number
-  REPEAT_PENALTY: number
+  REPEAT_PENALTY: number | null
   USE_LOOP_DETECTION: boolean
   THINKING_CHAR_LIMIT: number
   SHOW_THINKING: boolean
@@ -86,9 +86,9 @@ export const Config: ConfigShape = {
   CONTEXT_WINDOW_TOKEN_LIMIT: getOptionalEnvNumber('CONTEXT_WINDOW_TOKEN_LIMIT'),
   REQUEST_TIMEOUT_MS: getEnvNumber('REQUEST_TIMEOUT_MS', 300_000),
   REQUEST_FIRST_TOKEN_TIMEOUT_MS: getEnvNumber('REQUEST_FIRST_TOKEN_TIMEOUT_MS', 600_000),
-  TEMPERATURE: getEnvNumber('TEMPERATURE', 0.2),
+  TEMPERATURE: getOptionalEnvNumberInRange('TEMPERATURE', 0, 2),
   MAX_RESPONSE_TOKENS: getEnvNumber('MAX_RESPONSE_TOKENS', 8192),
-  REPEAT_PENALTY: getEnvNumber('REPEAT_PENALTY', 1.1),
+  REPEAT_PENALTY: getOptionalEnvNumberInRange('REPEAT_PENALTY', 1, 2),
   USE_LOOP_DETECTION: getEnvBoolean('USE_LOOP_DETECTION', true),
   THINKING_CHAR_LIMIT: getEnvNumber('THINKING_CHAR_LIMIT', 30_000),
   SHOW_THINKING: getEnvBoolean('SHOW_THINKING', true),

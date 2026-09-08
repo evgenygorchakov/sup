@@ -81,12 +81,14 @@ async function buildRequestBody(messages: Message[], shouldStream: boolean, tool
   const model = Config.MODEL
   const options: Record<string, unknown> = {
     num_ctx: getContextWindowTokenLimit(),
-    temperature: Config.TEMPERATURE,
+  }
+  if (Config.TEMPERATURE !== null) {
+    options.temperature = Config.TEMPERATURE
   }
   if (Config.MAX_RESPONSE_TOKENS > 0) {
     options.num_predict = Config.MAX_RESPONSE_TOKENS
   }
-  if (Config.REPEAT_PENALTY > 0) {
+  if (Config.REPEAT_PENALTY !== null) {
     options.repeat_penalty = Config.REPEAT_PENALTY
   }
   return {

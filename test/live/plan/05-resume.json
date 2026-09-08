@@ -3,6 +3,7 @@
   "env": {
     "USE_PLAN_MODE": "false",
     "USE_AUTO_MODE": "false",
+    "USE_JOURNAL": "true",
     "USE_STT": "false",
     "USE_TTS": "false",
     "USE_PDF_CONVERT": "false"

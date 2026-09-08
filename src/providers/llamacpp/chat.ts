@@ -60,13 +60,15 @@ function buildRequestBody(messages: Message[], shouldStream: boolean, tools?: To
     model: Config.MODEL,
     messages: toOpenAiMessages(messages),
     stream: shouldStream,
-    temperature: Config.TEMPERATURE,
   }
 
+  if (Config.TEMPERATURE !== null) {
+    body.temperature = Config.TEMPERATURE
+  }
   if (Config.MAX_RESPONSE_TOKENS > 0) {
     body.max_tokens = Config.MAX_RESPONSE_TOKENS
   }
-  if (Config.REPEAT_PENALTY > 0) {
+  if (Config.REPEAT_PENALTY !== null) {
     body.repeat_penalty = Config.REPEAT_PENALTY
   }
   if (tools?.length) {

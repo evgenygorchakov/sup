@@ -15,6 +15,7 @@ import { searchProviderCommand } from './list/search-provider.ts'
 import { showThinkingCommand } from './list/show-thinking.ts'
 import { skillsCommand } from './list/skills.ts'
 import { sttCommand } from './list/stt.ts'
+import { tempCommand } from './list/temp.ts'
 import { thinkingCommand } from './list/thinking.ts'
 import { ttsCommand } from './list/tts.ts'
 import { verboseCommand } from './list/verbose.ts'
@@ -31,6 +32,7 @@ const builtinCommands: SlashCommand[] = [
   thinkingCommand,
   showThinkingCommand,
   verboseCommand,
+  tempCommand,
   ttsCommand,
   sttCommand,
   clipboardCommand,

@@ -3,6 +3,7 @@
   "fixture": "calc",
   "env": {
     "USE_PLAN_MODE": "true",
+    "USE_JOURNAL": "true",
     "USE_STT": "false",
     "USE_TTS": "false",
     "USE_PDF_CONVERT": "false"

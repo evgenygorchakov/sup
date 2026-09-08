@@ -101,6 +101,22 @@ export function getOptionalEnvNumber(name: string): number | null {
   return getEnvNumber(name)
 }
 
+export function getOptionalEnvNumberInRange(name: string, min: number, max: number): number | null {
+  const value = getOptionalEnvNumber(name)
+  if (value === null) {
+    return null
+  }
+
+  if (value < min || value > max) {
+    throw new RangeError(
+      `Env variable ${name} must be between ${min} and ${max}, got ${value}. `
+      + 'Leave it empty to let the model decide.',
+    )
+  }
+
+  return value
+}
+
 export function getEnvBoolean(name: string, defaultValue?: boolean): boolean {
   const raw = process.env[name]
   if (raw === undefined) {
