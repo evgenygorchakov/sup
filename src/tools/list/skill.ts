@@ -1,5 +1,4 @@
 import type { Tool } from '../../types.ts'
-import { activateSkill } from '../../babysitter/index.ts'
 import { findSkill, renderSkillContent, skills } from '../../skills/registry.ts'
 import { blue } from '../../utils/colors.ts'
 
@@ -38,14 +37,7 @@ export const skill: Tool = {
       return `ERROR: unknown skill "${name}". Available skills: ${available}`
     }
 
-    const sections = [renderSkillContent(found)]
-
-    const gateNote = activateSkill(found)
-    if (gateNote) {
-      sections.push(gateNote)
-    }
-
-    return sections.join('\n')
+    return renderSkillContent(found)
   },
   primaryArgs: ['name'],
   accentColor: blue,

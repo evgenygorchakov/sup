@@ -88,7 +88,7 @@ function killGroup(child: ChildProcess, signal: NodeJS.Signals): void {
   }
 }
 
-export function executeShellCommand(command: string, timeoutMs: number): Promise<string> {
+function executeShellCommand(command: string, timeoutMs: number): Promise<string> {
   return new Promise<string>((resolve) => {
     const stdout = createAccumulator(STREAM_CHAR_LIMIT)
     const stderr = createAccumulator(STREAM_CHAR_LIMIT)

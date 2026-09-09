@@ -4,7 +4,6 @@ import { check, done } from '../lib/check.ts'
 Object.assign(process.env, {
   USE_ASK_USER: 'true',
   USE_JOURNAL: 'false',
-  USE_BABYSITTER: 'false',
   USE_PLAN_MODE: 'false',
   USE_AUTO_MODE: 'true',
   USE_TTS: 'false',

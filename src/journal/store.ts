@@ -12,8 +12,6 @@ export type JournalEventType
     | 'assistant'
     | 'tool_call'
     | 'tool_result'
-    | 'gate'
-    | 'ledger'
     | 'finish'
     | 'clear'
 

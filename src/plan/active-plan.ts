@@ -1,5 +1,5 @@
 import type { Message } from '../types.ts'
-import { findSection, VERIFICATION_HEADINGS } from '../babysitter/parse-sections.ts'
+import { findSection, VERIFICATION_HEADINGS } from './parse-sections.ts'
 
 let plan: string | null = null
 

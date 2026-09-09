@@ -61,12 +61,6 @@ export interface ConfigShape {
   TOOL_RESULT_COLLAPSE_MIN_CHARS: number
   TOOL_RESULT_COLLAPSE_BATCH: number
   AUTO_APPROVE_SHELL_PATTERNS: readonly RegExp[]
-  USE_BABYSITTER: boolean
-  BABYSITTER_VERIFICATION_GATE: boolean
-  BABYSITTER_LEDGER: boolean
-  BABYSITTER_GATED_SKILLS: boolean
-  BABYSITTER_GATE_MAX_ATTEMPTS: number
-  BABYSITTER_GATE_TIMEOUT_MS: number
 }
 
 export const Config: ConfigShape = {
@@ -130,10 +124,4 @@ export const Config: ConfigShape = {
     /^git (branch|remote)( (-v|-vv|-a|--all|--list))?$/,
     /^(node|tsc|eslint|npm|pnpm|yarn|deno|bun) --version$/,
   ],
-  USE_BABYSITTER: getEnvBoolean('USE_BABYSITTER', false),
-  BABYSITTER_VERIFICATION_GATE: getEnvBoolean('BABYSITTER_VERIFICATION_GATE', true),
-  BABYSITTER_LEDGER: getEnvBoolean('BABYSITTER_LEDGER', true),
-  BABYSITTER_GATED_SKILLS: getEnvBoolean('BABYSITTER_GATED_SKILLS', true),
-  BABYSITTER_GATE_MAX_ATTEMPTS: getEnvNumber('BABYSITTER_GATE_MAX_ATTEMPTS', 3),
-  BABYSITTER_GATE_TIMEOUT_MS: getEnvNumber('BABYSITTER_GATE_TIMEOUT_MS', 120_000),
 }

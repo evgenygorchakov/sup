@@ -4,11 +4,10 @@ import type { CutOffReason, Message, ToolCall } from './types.ts'
 import type { OnStreamPart } from './ui/interactive/stream-printer.ts'
 
 import process from 'node:process'
-import { beginTurn, buildHarnessReminder, finishTask, noteToolCall, recordLedgerState, runCompletionGate } from './babysitter/index.ts'
 import { Config } from './config.ts'
 import { collapseOldToolResults } from './context/collapse.ts'
 import { recordAssistant, recordFinish, recordToolCall, recordToolResult, recordUserMessage, startRun } from './journal/index.ts'
-import { clearActivePlan } from './plan/active-plan.ts'
+import { buildPlanReminder, clearActivePlan } from './plan/active-plan.ts'
 import { clearAutoElevation, elevateAutoForTurn, isPlanModeActive, leavePlanMode } from './plan/mode-state.ts'
 import { refreshSystemPrompt } from './system-prompt.ts'
 import { noteAskGateCall, resetAskGate } from './tools/ask-gate.ts'
@@ -86,9 +85,9 @@ function withReminders(messages: Message[], willBeSpoken: boolean): Message[] {
   const last = messages[messages.length - 1]
 
   if (last?.role === 'tool') {
-    const harnessReminder = buildHarnessReminder()
-    if (harnessReminder) {
-      reminders.push(harnessReminder.content)
+    const planReminder = buildPlanReminder()
+    if (planReminder) {
+      reminders.push(planReminder.content)
     }
   }
 
@@ -170,7 +169,6 @@ async function runTurn(provider: ChatProvider, messages: Message[], readline: Re
 
   // A request that still has to survive plan approval is journalled by askForPlanApproval(), not here.
   startRun(messages, { deferUserMessage: canApprovePlan })
-  beginTurn()
   resetAskGate()
 
   if (planApprovalPending) {
@@ -243,13 +241,7 @@ async function runTurn(provider: ChatProvider, messages: Message[], readline: Re
         process.stderr.write('\n')
       }
 
-      const gateDecision = await runCompletionGate(messages, readline)
-      if (gateDecision === 'continue') {
-        continue
-      }
-
       recordFinish()
-      finishTask()
 
       if (!didPrintContent() && reply.content) {
         console.warn(reply.content)
@@ -303,13 +295,10 @@ async function runTurn(provider: ChatProvider, messages: Message[], readline: Re
 
     for (const call of reply.tool_calls) {
       recordToolCall(call)
-      noteToolCall(call)
       noteAskGateCall(call)
       const toolResult = await runTool(call)
       recordToolResult(call, toolResult)
       messages.push({ role: 'tool', content: toolResult, tool_call_id: call.id })
     }
-
-    recordLedgerState()
   }
 }

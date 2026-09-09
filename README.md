@@ -1,6 +1,6 @@
 # sup
 
-A minimal CLI agent for local models, via [Ollama](https://ollama.com) or [llama.cpp](https://github.com/ggml-org/llama.cpp). Inspired by Claude Code and [a5c-ai/babysitter](https://github.com/a5c-ai/babysitter). Only tested with models in the 27–35B range.
+A minimal CLI agent for local models, via [Ollama](https://ollama.com) or [llama.cpp](https://github.com/ggml-org/llama.cpp). Inspired by Claude Code. Only tested with models in the 27–35B range.
 
 ## Setup
 
@@ -35,7 +35,6 @@ Claude Code skills load as-is — same `SKILL.md` convention, multi-line `descri
 - Bundled files, subfolders included, are listed to the model automatically, so the body doesn't have to point at them.
 - A small model rarely notices "this task matches a skill", so you can force one: `/skills` lists them, `/skills <number|name> [task]` loads one, and every skill is also its own command (`/aif-commit only staged files`) unless a built-in command has the same name.
 - Shorten aggressively — one procedure, imperative steps, concrete commands, no branching like "if X, see references/y.md"; what a frontier model follows is usually too long and too branchy for a <30B one.
-- A `## Steps` list becomes an enforced checklist and `## Verification` commands a finish gate — see [Skills with steps](src/babysitter/README.md#skills-with-steps).
 
 ## Voice
 
@@ -64,13 +63,9 @@ gitignored, `grep` and `glob` find it and the model reads its own past dialogs a
 With `USE_JOURNAL=true` every run is journaled as an event log at `.sup/runs/<id>/journal.jsonl` — the user
 requests, the model's replies, and every tool call and result. A failed write never interrupts the work.
 
-The journal is what powers `sup --resume` (or `sup --resume=<run-id>` for a specific run): it loads the journal from the current directory, restores the dialog, and continues where you left off — with the babysitter's step ledger, if it was active.
+The journal is what powers `sup --resume` (or `sup --resume=<run-id>` for a specific run): it loads the journal from the current directory, restores the dialog, and continues where you left off.
 
 A request waiting for plan approval is journaled only once you approve the plan, together with the plan itself: reject it and nothing of that turn is left for `--resume` to bring back.
-
-## Babysitter mode
-
-Deterministic harness-side control that keeps the model on its checklist and verifies "all done" before accepting it. Off by default (`USE_BABYSITTER=true`) — see [`src/babysitter/README.md`](src/babysitter/README.md).
 
 ## Security
 

@@ -1,5 +1,4 @@
 import type { CommandContext, CommandResult, SlashCommand } from '../types.ts'
-import { activateSkill } from '../../babysitter/index.ts'
 import { findSkill, renderSkillContent, skillDirs, skills } from '../../skills/registry.ts'
 import { bold, brightGreen, gray, red } from '../../utils/colors.ts'
 
@@ -35,16 +34,7 @@ function run(context: CommandContext): CommandResult {
     ? `Apply this skill to the following task:\n${task}`
     : 'Carry out this skill now, asking for missing details if the instructions require them.'
 
-  const sections = [renderSkillContent(chosen)]
-
-  const gateNote = activateSkill(chosen)
-  if (gateNote) {
-    sections.push(gateNote)
-  }
-
-  sections.push('', instruction)
-
-  context.messages.push({ role: 'user', content: sections.join('\n') })
+  context.messages.push({ role: 'user', content: [renderSkillContent(chosen), '', instruction].join('\n') })
   console.warn(gray(`Loaded skill "${chosen.name}"…`))
 
   return { kind: 'run' }

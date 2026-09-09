@@ -1,6 +1,5 @@
 import type { Tool, ToolCall, ToolDefinition } from '../types.ts'
 
-import { ledgerToolRegistered } from '../babysitter/ledger-tool.ts'
 import { Config } from '../config.ts'
 import { skills } from '../skills/registry.ts'
 import { renderToolResult } from '../ui/interactive/render-tool-call.ts'
@@ -10,7 +9,6 @@ import { editFile } from './list/edit-file.ts'
 import { fetchUrl } from './list/fetch-url.ts'
 import { glob } from './list/glob.ts'
 import { grep } from './list/grep.ts'
-import { ledgerUpdate } from './list/ledger-update.ts'
 import { readFile } from './list/read-file.ts'
 import { runShell } from './list/run-shell.ts'
 import { skill } from './list/skill.ts'
@@ -29,7 +27,6 @@ const allTools: Tool[] = [
   fetchUrl,
   ...(Config.USE_ASK_USER ? [askUser] : []),
   ...(skills.length > 0 ? [skill] : []),
-  ...(ledgerToolRegistered ? [ledgerUpdate] : []),
 ]
 
 export const toolDefinitions: ToolDefinition[] = allTools.map(tool => tool.definition)

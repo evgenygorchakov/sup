@@ -7,7 +7,6 @@
  *
  * A check file is named by its path under test/: test/unit/plan.ts is `unit/plan`. Each one runs
  * as its own process — they chdir and set env before importing src, so they cannot share one.
- * Live scenarios are a separate runner: python3 test/run.py.
  */
 import { spawnSync } from 'node:child_process'
 import { readdirSync } from 'node:fs'

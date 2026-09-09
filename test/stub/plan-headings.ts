@@ -8,7 +8,6 @@ import { check, done } from '../lib/check.ts'
 // Must be set before config.ts is evaluated, so every import below is dynamic.
 Object.assign(process.env, {
   USE_JOURNAL: 'false',
-  USE_BABYSITTER: 'false',
   USE_PLAN_MODE: 'true',
   USE_AUTO_MODE: 'false',
   USE_TTS: 'false',

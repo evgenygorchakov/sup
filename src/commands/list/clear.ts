@@ -1,5 +1,4 @@
 import type { SlashCommand } from '../types.ts'
-import { clearConversation } from '../../babysitter/index.ts'
 import { takePendingImages } from '../../images/pending.ts'
 import { recordClear } from '../../journal/index.ts'
 import { clearActivePlan } from '../../plan/active-plan.ts'
@@ -13,7 +12,6 @@ export const clearCommand: SlashCommand = {
     context.messages.length = context.messages[0]?.role === 'system' ? 1 : 0
     resetContextUsage()
     clearActivePlan()
-    clearConversation()
     recordClear()
     takePendingImages()
     console.warn(gray('Conversation cleared.'))

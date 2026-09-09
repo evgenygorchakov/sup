@@ -2,7 +2,6 @@ import type { CommandEnv, CommandResult, SlashCommand } from './types.ts'
 import { skills } from '../skills/registry.ts'
 import { red } from '../utils/colors.ts'
 import { autoModeCommand } from './list/auto-mode.ts'
-import { babysitterCommand } from './list/babysitter.ts'
 import { clearCommand } from './list/clear.ts'
 import { clipboardCommand } from './list/clipboard.ts'
 import { exitCommand } from './list/exit.ts'
@@ -38,7 +37,6 @@ const builtinCommands: SlashCommand[] = [
   clipboardCommand,
   pdfCommand,
   skillsCommand,
-  babysitterCommand,
 ]
 
 const builtinNames = new Set(builtinCommands.map(command => command.name))

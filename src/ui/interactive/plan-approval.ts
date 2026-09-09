@@ -4,7 +4,6 @@ import type { Message, ToolCall, ToolDefinition } from '../../types.ts'
 import type { OnStreamPart } from './stream-printer.ts'
 
 import process from 'node:process'
-import { activatePlan } from '../../babysitter/index.ts'
 import { Config } from '../../config.ts'
 import { recordAssistant, recordToolCall, recordToolResult, recordUserMessage } from '../../journal/index.ts'
 import { setActivePlan } from '../../plan/active-plan.ts'
@@ -230,7 +229,6 @@ export async function askForPlanApproval(provider: ChatProvider, messages: Messa
       journalApprovedTurn(messages, requestIndex)
 
       setActivePlan(plan.content)
-      activatePlan(plan.content)
 
       const savedPath = await savePlan(plan.content, userRequest)
       if (savedPath) {

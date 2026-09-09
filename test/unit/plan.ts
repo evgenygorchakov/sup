@@ -4,7 +4,7 @@ import { check, done } from '../lib/check.ts'
 import { clearActivePlan, buildPlanReminder, setActivePlan } from '../../src/plan/active-plan.ts'
 import { clearAutoElevation, cycleMode, elevateAutoForTurn, getMode, isAutoModeActive, leavePlanMode, setMode } from '../../src/plan/mode-state.ts'
 import { listPlans, planBody, savePlan } from '../../src/plan/store.ts'
-import { extractCommands, extractSteps, findSection, STEPS_HEADINGS, VERIFICATION_HEADINGS } from '../../src/babysitter/parse-sections.ts'
+import { findSection, VERIFICATION_HEADINGS } from '../../src/plan/parse-sections.ts'
 
 
 // --- mode cycling
@@ -55,12 +55,11 @@ check('blank plan clears the reminder', buildPlanReminder(), null)
 const h2 = '## Context\nx\n\n## Steps\n1. one\n2. two\n\n## Verification\n1. `node --check calc.js`\n'
 const h1 = h2.replaceAll('## ', '# ')
 const ru = '## Контекст\nx\n\n## Шаги\n1. один\n\n## Проверка\n- `node --check calc.js`\n'
-check('steps at level 2', extractSteps(findSection(h2, STEPS_HEADINGS) ?? '').length, 2)
-check('steps at level 1', extractSteps(findSection(h1, STEPS_HEADINGS) ?? '').length, 2)
-check('russian headings', extractSteps(findSection(ru, STEPS_HEADINGS) ?? '').length, 1)
-check('verification commands', extractCommands(findSection(h2, VERIFICATION_HEADINGS) ?? ''), ['node --check calc.js'])
-const piped = '## Verification\n- `node -e "import(\'./calc.js\')" | head`\n'
-check('piped command is dropped', extractCommands(findSection(piped, VERIFICATION_HEADINGS) ?? ''), [])
+check('verification at level 2', findSection(h2, VERIFICATION_HEADINGS), '1. `node --check calc.js`')
+check('verification at level 1', findSection(h1, VERIFICATION_HEADINGS), '1. `node --check calc.js`')
+check('russian headings', findSection(ru, VERIFICATION_HEADINGS), '- `node --check calc.js`')
+check('a heading that is not there', findSection('## Context\nx\n', VERIFICATION_HEADINGS), null)
+check('a bold line counts as a heading', findSection('**Verification**\n- `npm test`\n', VERIFICATION_HEADINGS), '- `npm test`')
 
 // --- store round-trip
 const { mkdtemp } = await import('node:fs/promises')
