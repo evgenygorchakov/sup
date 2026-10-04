@@ -7,7 +7,6 @@ import { reportContextUsage } from '../context-usage.ts'
 import { requestTimeoutError, startIdleTimeout } from '../idle-timeout.ts'
 import { createLoopGuard } from '../loop-guard.ts'
 import { parseJsonObject, readResponseLines } from '../stream-lines.ts'
-import { getContextWindowTokenLimit } from './context-window.ts'
 import { getThinkingModeFor } from './thinking.ts'
 
 const OLLAMA_HOST = Config.OLLAMA_HOST
@@ -79,8 +78,9 @@ function toOllamaMessages(messages: Message[]): object[] {
 
 async function buildRequestBody(messages: Message[], shouldStream: boolean, tools?: ToolDefinition[]): Promise<Record<string, unknown>> {
   const model = Config.MODEL
-  const options: Record<string, unknown> = {
-    num_ctx: getContextWindowTokenLimit(),
+  const options: Record<string, unknown> = {}
+  if (Config.CONTEXT_WINDOW_TOKEN_LIMIT !== null) {
+    options.num_ctx = Config.CONTEXT_WINDOW_TOKEN_LIMIT
   }
   if (Config.TEMPERATURE !== null) {
     options.temperature = Config.TEMPERATURE

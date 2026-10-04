@@ -54,6 +54,10 @@ function contextStatusLine(): string {
 
   const total = usage.prompt + usage.completion
   const limit = getProvider().getContextWindowTokenLimit()
+  if (limit === null) {
+    return gray(`[ctx: ${total}]\n`)
+  }
+
   const percent = Math.round((total / limit) * 100)
   return gray(`[ctx: ${total} / ${limit} (${percent}%)]\n`)
 }
@@ -129,7 +133,7 @@ async function handleUserTurn(provider: ChatProvider, messages: Message[], readl
   }
 }
 
-/** With no MODEL in .env, ask the provider which model to use. */
+/** With no MODEL configured, ask the provider which model to use. */
 async function resolveStartupModel(provider: ChatProvider): Promise<'configured' | 'auto' | null> {
   if (Config.MODEL) {
     const problem = await provider.checkConfiguredModel?.()

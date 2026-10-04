@@ -64,7 +64,9 @@ const workflowLines = [
   '- When the task is done, reply with plain text and no tool calls.',
 ]
 
-const languageName = Config.LANGUAGE.charAt(0).toUpperCase() + Config.LANGUAGE.slice(1)
+const languageLine = Config.LANGUAGE
+  ? `- Always respond in ${Config.LANGUAGE.charAt(0).toUpperCase() + Config.LANGUAGE.slice(1)}.`
+  : '- Always respond in the language the user writes in.'
 
 const conversationalStyleLines = [
   '# Style',
@@ -72,7 +74,7 @@ const conversationalStyleLines = [
   '- Let the answer run as long as the thought needs and no longer. Length comes from having something to say, never from padding.',
   '- Do not restate tool output. Answer what was asked. If you already know the answer from the conversation, answer directly without tools.',
   '- No emojis, no flattery. If the task cannot be done, say so plainly.',
-  `- Always respond in ${languageName}.`,
+  languageLine,
 ]
 
 const styleLines = [
@@ -82,7 +84,7 @@ const styleLines = [
   '- Do not restate tool output. Answer only what was asked. If you already know the answer from the conversation, answer directly without tools.',
   '- No emojis, no flattery, no apologies, no filler.',
   '- If the task cannot be done, say so directly.',
-  `- Always respond in ${languageName}.`,
+  languageLine,
 ]
 
 let promptExtras = ''

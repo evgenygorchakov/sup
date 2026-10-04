@@ -9,7 +9,7 @@ export interface ChatProvider {
   host: string
   chat: (messages: Message[], tools: ToolDefinition[], onStreamPart?: OnStreamPart, signal?: AbortSignal) => Promise<Message>
   initializeContextWindow: () => Promise<void>
-  getContextWindowTokenLimit: () => number
+  getContextWindowTokenLimit: () => number | null
   listInstalledModels: () => Promise<ModelListResult>
   /** Model to use when MODEL is not configured; null when the server cannot be asked. */
   resolveDefaultModel: () => Promise<string | null>

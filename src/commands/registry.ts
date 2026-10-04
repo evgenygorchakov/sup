@@ -7,7 +7,6 @@ import { clipboardCommand } from './list/clipboard.ts'
 import { exitCommand } from './list/exit.ts'
 import { helpCommand } from './list/help.ts'
 import { modelCommand } from './list/model.ts'
-import { pdfCommand } from './list/pdf.ts'
 import { planModeCommand } from './list/plan-mode.ts'
 import { runPlanCommand } from './list/run-plan.ts'
 import { searchProviderCommand } from './list/search-provider.ts'
@@ -35,7 +34,6 @@ const builtinCommands: SlashCommand[] = [
   ttsCommand,
   sttCommand,
   clipboardCommand,
-  pdfCommand,
   skillsCommand,
 ]
 

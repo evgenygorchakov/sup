@@ -1,48 +1,49 @@
-import type { ContextWindowProbeResult } from '../context-window.ts'
 import { Config } from '../../config.ts'
-import { createContextWindow } from '../context-window.ts'
+import { gray } from '../../utils/colors.ts'
 
-interface OllamaShowResponse {
-  model_info?: Record<string, unknown>
+const PS_REQUEST_TIMEOUT_MS = 10_000
+
+interface OllamaPsResponse {
+  models?: { name?: unknown, context_length?: unknown }[]
 }
 
-function readModelContextLength(modelInfo: Record<string, unknown>): number | null {
-  const contextLengthKey = Object.keys(modelInfo).find(key => key.endsWith('.context_length'))
-  if (!contextLengthKey) {
+let loadedTokenLimit: number | null = null
+
+async function fetchLoadedContextLength(): Promise<number | null> {
+  try {
+    const response = await fetch(`${Config.OLLAMA_HOST}/api/ps`, { signal: AbortSignal.timeout(PS_REQUEST_TIMEOUT_MS) })
+    if (!response.ok) {
+      return null
+    }
+
+    const payload = await response.json() as OllamaPsResponse
+    const contextLength = payload.models?.find(model => model.name === Config.MODEL)?.context_length
+    return typeof contextLength === 'number' && contextLength > 0 ? contextLength : null
+  }
+  catch {
     return null
   }
-
-  const rawValue = modelInfo[contextLengthKey]
-  return typeof rawValue === 'number' && rawValue > 0 ? rawValue : null
 }
 
-async function probeModel(signal: AbortSignal): Promise<ContextWindowProbeResult> {
-  const response = await fetch(`${Config.OLLAMA_HOST}/api/show`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ name: Config.MODEL }),
-    signal,
-  })
-
-  if (!response.ok) {
-    return { detected: false, reason: `HTTP ${response.status}` }
+function describeContextSource(): string {
+  if (Config.CONTEXT_WINDOW_TOKEN_LIMIT !== null) {
+    return `${Config.CONTEXT_WINDOW_TOKEN_LIMIT} tokens, CONTEXT_WINDOW_TOKEN_LIMIT`
   }
-
-  const payload = await response.json() as OllamaShowResponse
-  const modelMax = readModelContextLength(payload.model_info ?? {})
-
-  if (modelMax === null) {
-    return { detected: false, reason: 'model_info did not report context_length' }
+  if (loadedTokenLimit !== null) {
+    return `${loadedTokenLimit} tokens, set in Ollama`
   }
-
-  return {
-    detected: true,
-    serverMax: modelMax,
-    banner: detail => `Loaded model ${Config.MODEL} (context: ${detail})`,
-  }
+  return 'set in Ollama, known after the first reply'
 }
 
-export const { initializeContextWindow, getContextWindowTokenLimit } = createContextWindow(
-  probeModel,
-  (reason, tokenLimit) => `Could not detect context length for model ${Config.MODEL}: ${reason}. Using ${tokenLimit} tokens.`,
-)
+export async function initializeContextWindow(): Promise<void> {
+  loadedTokenLimit = Config.CONTEXT_WINDOW_TOKEN_LIMIT === null ? await fetchLoadedContextLength() : null
+  console.warn(gray(`Model ${Config.MODEL} (context: ${describeContextSource()})`))
+}
+
+export async function refreshContextWindow(): Promise<void> {
+  loadedTokenLimit = await fetchLoadedContextLength() ?? loadedTokenLimit
+}
+
+export function getContextWindowTokenLimit(): number | null {
+  return loadedTokenLimit ?? Config.CONTEXT_WINDOW_TOKEN_LIMIT
+}

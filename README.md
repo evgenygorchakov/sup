@@ -4,7 +4,7 @@ A minimal CLI agent for local models, via [Ollama](https://ollama.com) or [llama
 
 ## Setup
 
-Requires Node.js 24+ (the CLI runs its TypeScript sources directly, no build step).
+Requires Node.js 22.18+ (the CLI runs its TypeScript sources directly, no build step).
 
 1. Run a backend: [Ollama](https://ollama.com) (`ollama pull <model>`) or [llama.cpp](https://github.com/ggml-org/llama.cpp) (`llama-server --jinja`).
 2. Copy `.env.example` to `.env`, set `PROVIDER` and the matching host (`OLLAMA_HOST` or `LLAMACPP_HOST`). Leave `MODEL` empty and it is taken from the server at startup.

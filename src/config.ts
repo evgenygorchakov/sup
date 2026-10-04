@@ -1,7 +1,7 @@
 import { dirname, resolve } from 'node:path'
-import process from 'node:process'
 import { fileURLToPath } from 'node:url'
 import { getEnvBoolean, getEnvNumber, getEnvString, getOptionalEnvNumber, getOptionalEnvNumberInRange, loadEnvFile } from './utils/env.ts'
+import { normalizeOllamaHost } from './utils/ollama-host.ts'
 
 const installDir = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 
@@ -41,10 +41,6 @@ export interface ConfigShape {
   STT_TIMEOUT_MS: number
   USE_DICTATION_CLIPBOARD: boolean
   CLIPBOARD_MAX_CHARS: number
-  USE_PDF_CONVERT: boolean
-  PDF_CONVERTER: string
-  PDF_TIMEOUT_MS: number
-  PDF_EXTRACT_IMAGES: boolean
   VERBOSE_TOOL_OUTPUT: boolean
   WEB_SEARCH_PROVIDER: string
   WEB_SEARCH_HOST: string
@@ -65,12 +61,12 @@ export interface ConfigShape {
 
 export const Config: ConfigShape = {
   PROVIDER: getEnvString('PROVIDER', 'ollama'),
-  OLLAMA_HOST: getEnvString('OLLAMA_HOST', 'http://host.docker.internal:11434'),
+  OLLAMA_HOST: normalizeOllamaHost(getEnvString('OLLAMA_HOST', '127.0.0.1')),
   OLLAMA_USE_THINKING: getEnvBoolean('OLLAMA_USE_THINKING', true),
-  LLAMACPP_HOST: getEnvString('LLAMACPP_HOST', 'http://localhost:8080'),
+  LLAMACPP_HOST: getEnvString('LLAMACPP_HOST', 'http://127.0.0.1:8080'),
   // Empty means: ask the provider at startup (see resolveStartupModel in index.ts).
   MODEL: getEnvString('MODEL', ''),
-  LANGUAGE: getEnvString('LANGUAGE', 'russian'),
+  LANGUAGE: getEnvString('LANGUAGE', ''),
   USE_CLAUDE_SKILLS: getEnvBoolean('USE_CLAUDE_SKILLS', false),
   USE_PLAN_MODE: getEnvBoolean('USE_PLAN_MODE', false),
   USE_AUTO_MODE: getEnvBoolean('USE_AUTO_MODE', true),
@@ -98,11 +94,6 @@ export const Config: ConfigShape = {
   STT_TIMEOUT_MS: getEnvNumber('STT_TIMEOUT_MS', 120_000),
   USE_DICTATION_CLIPBOARD: getEnvBoolean('USE_DICTATION_CLIPBOARD', true),
   CLIPBOARD_MAX_CHARS: getEnvNumber('CLIPBOARD_MAX_CHARS', 20_000),
-  USE_PDF_CONVERT: getEnvBoolean('USE_PDF_CONVERT', false),
-  PDF_CONVERTER: getEnvString('PDF_CONVERTER', 'pdf-to-md'),
-  // Generous: the converter has no daemon, so every file pays for loading the models again.
-  PDF_TIMEOUT_MS: getEnvNumber('PDF_TIMEOUT_MS', 900_000),
-  PDF_EXTRACT_IMAGES: getEnvBoolean('PDF_EXTRACT_IMAGES', false),
   VERBOSE_TOOL_OUTPUT: getEnvBoolean('VERBOSE_TOOL_OUTPUT', false),
   WEB_SEARCH_PROVIDER: getEnvString('WEB_SEARCH_PROVIDER', 'ollama'),
   WEB_SEARCH_HOST: getEnvString('WEB_SEARCH_HOST', ''),
